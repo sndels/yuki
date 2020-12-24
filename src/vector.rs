@@ -55,6 +55,22 @@ where
         v
     }
 
+    /// Constructs a new vector of 0s.
+    pub fn zeros() -> Vec2<T> {
+        Vec2 {
+            x: T::zero(),
+            y: T::zero(),
+        }
+    }
+
+    /// Constructs a new vector of 1s.
+    pub fn ones() -> Vec2<T> {
+        Vec2 {
+            x: T::one(),
+            y: T::one(),
+        }
+    }
+
     /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
         // Cast to f64 since it is currently the largest floating point type
@@ -137,6 +153,24 @@ where
         let v = Vec3 { x, y, z };
         debug_assert!(!v.has_nans());
         v
+    }
+
+    /// Constructs a new vector of 0s.
+    pub fn zeros() -> Vec3<T> {
+        Vec3 {
+            x: T::zero(),
+            y: T::zero(),
+            z: T::zero(),
+        }
+    }
+
+    /// Constructs a new vector of 1s.
+    pub fn ones() -> Vec3<T> {
+        Vec3 {
+            x: T::one(),
+            y: T::one(),
+            z: T::one(),
+        }
     }
 
     /// Returns `true` if any component is NaN.
@@ -256,6 +290,26 @@ where
         let v = Vec4 { x, y, z, w };
         debug_assert!(!v.has_nans());
         v
+    }
+
+    /// Constructs a new vector of 0s.
+    pub fn zeros() -> Vec4<T> {
+        Vec4 {
+            x: T::zero(),
+            y: T::zero(),
+            z: T::zero(),
+            w: T::zero(),
+        }
+    }
+
+    /// Constructs a new vector of 1s.
+    pub fn ones() -> Vec4<T> {
+        Vec4 {
+            x: T::one(),
+            y: T::one(),
+            z: T::one(),
+            w: T::one(),
+        }
     }
 
     /// Returns `true` if any component is NaN.
