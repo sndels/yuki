@@ -4,6 +4,7 @@ use std::ops::{
 };
 
 use crate::helpers::ValueType;
+use crate::{rel_cmp2_impl, rel_cmp3_impl, rel_cmp4_impl};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
@@ -48,23 +49,23 @@ where
     /// Constructs a new vector.
     ///
     /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T) -> Vec2<T> {
-        let v = Vec2 { x, y };
+    pub fn new(x: T, y: T) -> Self {
+        let v = Self { x, y };
         debug_assert!(!v.has_nans());
         v
     }
 
     /// Constructs a new vector of 0s.
-    pub fn zeros() -> Vec2<T> {
-        Vec2 {
+    pub fn zeros() -> Self {
+        Self {
             x: T::zero(),
             y: T::zero(),
         }
     }
 
     /// Constructs a new vector of 1s.
-    pub fn ones() -> Vec2<T> {
-        Vec2 {
+    pub fn ones() -> Self {
+        Self {
             x: T::one(),
             y: T::one(),
         }
@@ -78,7 +79,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Vec2<T>) -> T {
+    pub fn dot(&self, other: &Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -100,29 +101,29 @@ where
     }
 
     /// Returns the normalized vector.
-    pub fn normalized(&self) -> Vec2<T> {
+    pub fn normalized(&self) -> Self {
         debug_assert!(!self.has_nans());
 
         *self / self.len()
     }
 
     /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Vec2<T>) -> Vec2<T> {
+    pub fn min(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec2 {
+        Self {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
         }
     }
 
     /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Vec2<T>) -> Vec2<T> {
+    pub fn max(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec2 {
+        Self {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
         }
@@ -154,10 +155,10 @@ where
     }
 
     /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize) -> Vec2<T> {
+    pub fn permuted(&self, x: usize, y: usize) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec2 {
+        Self {
             x: self[x],
             y: self[y],
         }
@@ -171,15 +172,15 @@ where
     /// Constructs a new vector.
     ///
     /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T, z: T) -> Vec3<T> {
-        let v = Vec3 { x, y, z };
+    pub fn new(x: T, y: T, z: T) -> Self {
+        let v = Self { x, y, z };
         debug_assert!(!v.has_nans());
         v
     }
 
     /// Constructs a new vector of 0s.
-    pub fn zeros() -> Vec3<T> {
-        Vec3 {
+    pub fn zeros() -> Self {
+        Self {
             x: T::zero(),
             y: T::zero(),
             z: T::zero(),
@@ -187,8 +188,8 @@ where
     }
 
     /// Constructs a new vector of 1s.
-    pub fn ones() -> Vec3<T> {
-        Vec3 {
+    pub fn ones() -> Self {
+        Self {
             x: T::one(),
             y: T::one(),
             z: T::one(),
@@ -204,7 +205,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Vec3<T>) -> T {
+    pub fn dot(&self, other: &Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -226,18 +227,18 @@ where
     }
 
     /// Returns the normalized vector.
-    pub fn normalized(&self) -> Vec3<T> {
+    pub fn normalized(&self) -> Self {
         debug_assert!(!self.has_nans());
 
         *self / self.len()
     }
 
     /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Vec3<T>) -> Vec3<T> {
+    pub fn min(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec3 {
+        Self {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
             z: self.z.mini(other.z),
@@ -245,11 +246,11 @@ where
     }
 
     /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Vec3<T>) -> Vec3<T> {
+    pub fn max(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec3 {
+        Self {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
             z: self.z.maxi(other.z),
@@ -290,10 +291,10 @@ where
     }
 
     /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize, z: usize) -> Vec3<T> {
+    pub fn permuted(&self, x: usize, y: usize, z: usize) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec3 {
+        Self {
             x: self[x],
             y: self[y],
             z: self[z],
@@ -309,7 +310,7 @@ where
     //
     // Always uses `f64` internally to avoid errors on "catastrophic cancellation".
     // See pbrt [2.2.1](http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#DotandCrossProduct) for details
-    pub fn cross(&self, other: Vec3<T>) -> Vec3<T> {
+    pub fn cross(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -319,7 +320,7 @@ where
         let v2x = other.x.to_f64().unwrap_or(f64::NAN);
         let v2y = other.y.to_f64().unwrap_or(f64::NAN);
         let v2z = other.z.to_f64().unwrap_or(f64::NAN);
-        Vec3 {
+        Self {
             x: T::from((v1y * v2z) - (v1z * v2y)).unwrap(),
             y: T::from((v1z * v2x) - (v1x * v2z)).unwrap(),
             z: T::from((v1x * v2y) - (v1y * v2y)).unwrap(),
@@ -334,15 +335,15 @@ where
     /// Constructs a new vector.
     ///
     /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T, z: T, w: T) -> Vec4<T> {
+    pub fn new(x: T, y: T, z: T, w: T) -> Self {
         let v = Vec4 { x, y, z, w };
         debug_assert!(!v.has_nans());
         v
     }
 
     /// Constructs a new vector of 0s.
-    pub fn zeros() -> Vec4<T> {
-        Vec4 {
+    pub fn zeros() -> Self {
+        Self {
             x: T::zero(),
             y: T::zero(),
             z: T::zero(),
@@ -351,8 +352,8 @@ where
     }
 
     /// Constructs a new vector of 1s.
-    pub fn ones() -> Vec4<T> {
-        Vec4 {
+    pub fn ones() -> Self {
+        Self {
             x: T::one(),
             y: T::one(),
             z: T::one(),
@@ -370,7 +371,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Vec4<T>) -> T {
+    pub fn dot(&self, other: &Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -392,18 +393,18 @@ where
     }
 
     /// Returns the normalized vector.
-    pub fn normalized(&self) -> Vec4<T> {
+    pub fn normalized(&self) -> Self {
         debug_assert!(!self.has_nans());
 
         *self / self.len()
     }
 
     /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Vec4<T>) -> Vec4<T> {
+    pub fn min(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec4 {
+        Self {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
             z: self.z.mini(other.z),
@@ -412,11 +413,11 @@ where
     }
 
     /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Vec4<T>) -> Vec4<T> {
+    pub fn max(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        Vec4 {
+        Self {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
             z: self.z.maxi(other.z),
@@ -478,10 +479,10 @@ where
     }
 
     /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize, z: usize, w: usize) -> Vec4<T> {
+    pub fn permuted(&self, x: usize, y: usize, z: usize, w: usize) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec4 {
+        Self {
             x: self[x],
             y: self[y],
             z: self[z],
@@ -640,12 +641,12 @@ impl<T> Neg for Vec2<T>
 where
     T: Signed + ValueType,
 {
-    type Output = Vec2<T>;
+    type Output = Self;
 
-    fn neg(self) -> Vec2<T> {
+    fn neg(self) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec2 {
+        Self {
             x: -self.x,
             y: -self.y,
         }
@@ -656,12 +657,12 @@ impl<T> Neg for Vec3<T>
 where
     T: Signed + ValueType,
 {
-    type Output = Vec3<T>;
+    type Output = Self;
 
-    fn neg(self) -> Vec3<T> {
+    fn neg(self) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec3 {
+        Self {
             x: -self.x,
             y: -self.y,
             z: -self.z,
@@ -673,12 +674,12 @@ impl<T> Neg for Vec4<T>
 where
     T: Signed + ValueType,
 {
-    type Output = Vec4<T>;
+    type Output = Self;
 
-    fn neg(self) -> Vec4<T> {
+    fn neg(self) -> Self {
         debug_assert!(!self.has_nans());
 
-        Vec4 {
+        Self {
             x: -self.x,
             y: -self.y,
             z: -self.z,
