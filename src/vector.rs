@@ -10,7 +10,7 @@ use crate::helpers::{Maxi, Mini};
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
 /// Generic two-component vector
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
@@ -20,7 +20,7 @@ where
 }
 
 /// Generic three-component vector
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec3<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
@@ -31,7 +31,7 @@ where
 }
 
 /// Generic four-component vector
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec4<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
@@ -1125,3 +1125,446 @@ pub type Vec4i = Vec4<i32>;
 pub type Vec2u = Vec2<u32>;
 pub type Vec3u = Vec3<u32>;
 pub type Vec4u = Vec4<u32>;
+
+#[cfg(test)]
+mod tests {
+    // These tests are more about catching typos than rigorous verification
+    // Thus, some assumptions (read: knowledge) of the implementation are made
+    // and the tests should be updated according to potential implementation changes
+
+    use approx::assert_abs_diff_eq;
+    use std::panic;
+
+    use crate::vector::Vec2;
+    use crate::vector::Vec3;
+    use crate::vector::Vec4;
+
+    use crate::vector::Vec2f;
+    use crate::vector::Vec3f;
+    use crate::vector::Vec4f;
+
+    use crate::vector::Vec2i;
+    use crate::vector::Vec3i;
+    use crate::vector::Vec4i;
+
+    use crate::vector::Vec2u;
+    use crate::vector::Vec3u;
+    use crate::vector::Vec4u;
+
+    #[test]
+    fn new() {
+        let v = Vec2f::new(0.0, 1.0);
+        assert_eq!(v.x, 0.0f32);
+        assert_eq!(v.y, 1.0f32);
+
+        let v = Vec3f::new(0.0, 1.0, 2.0);
+        assert_eq!(v.x, 0.0f32);
+        assert_eq!(v.y, 1.0f32);
+        assert_eq!(v.z, 2.0f32);
+
+        let v = Vec4f::new(0.0, 1.0, 2.0, 3.0);
+        assert_eq!(v.x, 0.0f32);
+        assert_eq!(v.y, 1.0f32);
+        assert_eq!(v.z, 2.0f32);
+        assert_eq!(v.w, 3.0f32);
+
+        let v = Vec2i::new(0, 1);
+        assert_eq!(v.x, 0i32);
+        assert_eq!(v.y, 1i32);
+
+        let v = Vec3i::new(0, 1, 2);
+        assert_eq!(v.x, 0i32);
+        assert_eq!(v.y, 1i32);
+        assert_eq!(v.z, 2i32);
+
+        let v = Vec4i::new(0, 1, 2, 3);
+        assert_eq!(v.x, 0i32);
+        assert_eq!(v.y, 1i32);
+        assert_eq!(v.z, 2i32);
+        assert_eq!(v.w, 3i32);
+
+        let v = Vec2u::new(0, 1);
+        assert_eq!(v.x, 0u32);
+        assert_eq!(v.y, 1u32);
+
+        let v = Vec3u::new(0, 1, 2);
+        assert_eq!(v.x, 0u32);
+        assert_eq!(v.y, 1u32);
+        assert_eq!(v.z, 2u32);
+
+        let v = Vec4u::new(0, 1, 2, 3);
+        assert_eq!(v.x, 0u32);
+        assert_eq!(v.y, 1u32);
+        assert_eq!(v.z, 2u32);
+        assert_eq!(v.w, 3u32);
+    }
+
+    #[test]
+    fn zeros() {
+        assert_eq!(Vec2::zeros(), Vec2::new(0, 0));
+        assert_eq!(Vec3::zeros(), Vec3::new(0, 0, 0));
+        assert_eq!(Vec4::zeros(), Vec4::new(0, 0, 0, 0));
+    }
+
+    #[test]
+    fn ones() {
+        assert_eq!(Vec2::ones(), Vec2::new(1, 1));
+        assert_eq!(Vec3::ones(), Vec3::new(1, 1, 1));
+        assert_eq!(Vec4::ones(), Vec4::new(1, 1, 1, 1));
+    }
+
+    #[test]
+    fn index() {
+        let v = Vec2f::new(0.0, 1.0);
+        assert_eq!(v.x, v[0]);
+        assert_eq!(v.y, v[1]);
+
+        let v = Vec3f::new(0.0, 1.0, 2.0);
+        assert_eq!(v.x, v[0]);
+        assert_eq!(v.y, v[1]);
+        assert_eq!(v.z, v[2]);
+
+        let v = Vec4f::new(0.0, 1.0, 2.0, 3.0);
+        assert_eq!(v.x, v[0]);
+        assert_eq!(v.y, v[1]);
+        assert_eq!(v.z, v[2]);
+        assert_eq!(v.w, v[3]);
+
+        let mut v = Vec2f::zeros();
+        v[0] = 1.0;
+        v[1] = 2.0;
+        assert_eq!(v[0], 1.0);
+        assert_eq!(v[1], 2.0);
+
+        let mut v = Vec3f::zeros();
+        v[0] = 1.0;
+        v[1] = 2.0;
+        v[2] = 3.0;
+        assert_eq!(v[0], 1.0);
+        assert_eq!(v[1], 2.0);
+        assert_eq!(v[2], 3.0);
+
+        let mut v = Vec4f::zeros();
+        v[0] = 1.0;
+        v[1] = 2.0;
+        v[2] = 3.0;
+        v[3] = 4.0;
+        assert_eq!(v[0], 1.0);
+        assert_eq!(v[1], 2.0);
+        assert_eq!(v[2], 3.0);
+        assert_eq!(v[3], 4.0);
+    }
+
+    #[test]
+    fn nan() {
+        let result = panic::catch_unwind(|| Vec2f::new(f32::NAN, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec2f::new(0.0, f32::NAN));
+        assert!(result.is_err());
+
+        let result = panic::catch_unwind(|| Vec3f::new(f32::NAN, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec3f::new(0.0, f32::NAN, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec3f::new(0.0, 0.0, f32::NAN));
+        assert!(result.is_err());
+
+        let result = panic::catch_unwind(|| Vec4f::new(f32::NAN, 0.0, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4f::new(0.0, f32::NAN, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4f::new(0.0, 0.0, f32::NAN, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4f::new(0.0, 0.0, 0.0, f32::NAN));
+        assert!(result.is_err());
+    }
+    #[test]
+    fn dot() {
+        assert_eq!(Vec2::new(2, 3).len_sqr(), 2 * 2 + 3 * 3);
+        assert_eq!(Vec3::new(2, 3, 4).len_sqr(), 2 * 2 + 3 * 3 + 4 * 4);
+        assert_eq!(
+            Vec4::new(2, 3, 4, 5).len_sqr(),
+            2 * 2 + 3 * 3 + 4 * 4 + 5 * 5
+        );
+    }
+
+    #[test]
+    fn len_sqr() {
+        assert_eq!(Vec2::new(2, 3).len_sqr(), 2 * 2 + 3 * 3);
+        assert_eq!(Vec3::new(2, 3, 4).len_sqr(), 2 * 2 + 3 * 3 + 4 * 4);
+        assert_eq!(
+            Vec4::new(2, 3, 4, 5).len_sqr(),
+            2 * 2 + 3 * 3 + 4 * 4 + 5 * 5
+        );
+    }
+
+    #[test]
+    fn len() {
+        assert_abs_diff_eq!(
+            Vec2::new(2.0, 3.0).len(),
+            (2.0f32 * 2.0f32 + 3.0f32 * 3.0f32).sqrt()
+        );
+        assert_abs_diff_eq!(
+            Vec3::new(2.0, 3.0, 4.0).len(),
+            (2.0f32 * 2.0f32 + 3.0f32 * 3.0f32 + 4.0f32 * 4.0f32).sqrt()
+        );
+        assert_abs_diff_eq!(
+            Vec4::new(2.0, 3.0, 4.0, 5.0).len(),
+            (2.0f32 * 2.0f32 + 3.0f32 * 3.0f32 + 4.0f32 * 4.0f32 + 5.0f32 * 5.0f32).sqrt()
+        );
+    }
+
+    #[test]
+    fn normalized() {
+        assert_abs_diff_eq!(Vec2::new(1.0, 1.0).normalized().len(), 1.0);
+        assert_abs_diff_eq!(Vec3::new(1.0, 1.0, 1.0).normalized().len(), 1.0);
+        assert_abs_diff_eq!(Vec4::new(1.0, 1.0, 1.0, 1.0).normalized().len(), 1.0);
+    }
+
+    #[test]
+    fn min() {
+        let a = Vec2::new(0, 2);
+        let b = Vec2::new(3, 1);
+        assert_eq!(a.min(b), Vec2::new(0, 1));
+        assert_eq!(a.min(b), b.min(a));
+
+        let a = Vec3::new(0, 2, 4);
+        let b = Vec3::new(3, 1, 5);
+        assert_eq!(a.min(b), Vec3::new(0, 1, 4));
+        assert_eq!(a.min(b), b.min(a));
+
+        let a = Vec4::new(0, 2, 4, 7);
+        let b = Vec4::new(3, 1, 5, 6);
+        assert_eq!(a.min(b), Vec4::new(0, 1, 4, 6));
+        assert_eq!(a.min(b), b.min(a));
+    }
+
+    #[test]
+    fn max() {
+        let a = Vec2::new(0, 2);
+        let b = Vec2::new(3, 1);
+        assert_eq!(a.max(b), Vec2::new(3, 2));
+        assert_eq!(a.max(b), b.max(a));
+
+        let a = Vec3::new(0, 2, 4);
+        let b = Vec3::new(3, 1, 5);
+        assert_eq!(a.max(b), Vec3::new(3, 2, 5));
+        assert_eq!(a.max(b), b.max(a));
+
+        let a = Vec4::new(0, 2, 4, 7);
+        let b = Vec4::new(3, 1, 5, 6);
+        assert_eq!(a.max(b), Vec4::new(3, 2, 5, 7));
+        assert_eq!(a.max(b), b.max(a));
+    }
+
+    #[test]
+    fn min_comp() {
+        assert_eq!(Vec2::new(0.0, 1.0).min_comp(), 0.0);
+        assert_eq!(Vec2::new(1.0, 0.0).min_comp(), 0.0);
+
+        assert_eq!(Vec3::new(0.0, 1.0, 2.0).min_comp(), 0.0);
+        assert_eq!(Vec3::new(1.0, 0.0, 2.0).min_comp(), 0.0);
+        assert_eq!(Vec3::new(2.0, 1.0, 0.0).min_comp(), 0.0);
+
+        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).min_comp(), 0.0);
+        assert_eq!(Vec4::new(0.0, 0.0, 2.0, 3.0).min_comp(), 0.0);
+        assert_eq!(Vec4::new(0.0, 1.0, 0.0, 3.0).min_comp(), 0.0);
+        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 0.0).min_comp(), 0.0);
+    }
+
+    #[test]
+    fn max_comp() {
+        assert_eq!(Vec2::new(0.0, 1.0).max_comp(), 1.0);
+        assert_eq!(Vec2::new(1.0, 0.0).max_comp(), 1.0);
+
+        assert_eq!(Vec3::new(0.0, 1.0, 2.0).max_comp(), 2.0);
+        assert_eq!(Vec3::new(0.0, 2.0, 1.0).max_comp(), 2.0);
+        assert_eq!(Vec3::new(2.0, 1.0, 0.0).max_comp(), 2.0);
+
+        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).max_comp(), 3.0);
+        assert_eq!(Vec4::new(0.0, 1.0, 3.0, 2.0).max_comp(), 3.0);
+        assert_eq!(Vec4::new(0.0, 3.0, 2.0, 1.0).max_comp(), 3.0);
+        assert_eq!(Vec4::new(3.0, 1.0, 2.0, 0.0).max_comp(), 3.0);
+    }
+
+    #[test]
+    fn max_dimension() {
+        assert_eq!(Vec2::new(0.0, 1.0).max_dimension(), 1);
+        assert_eq!(Vec2::new(1.0, 0.0).max_dimension(), 0);
+
+        assert_eq!(Vec3::new(0.0, 1.0, 2.0).max_dimension(), 2);
+        assert_eq!(Vec3::new(0.0, 2.0, 1.0).max_dimension(), 1);
+        assert_eq!(Vec3::new(1.0, 0.0, 2.0).max_dimension(), 2);
+        assert_eq!(Vec3::new(1.0, 2.0, 0.0).max_dimension(), 1);
+        assert_eq!(Vec3::new(2.0, 0.0, 1.0).max_dimension(), 0);
+        assert_eq!(Vec3::new(2.0, 1.0, 0.0).max_dimension(), 0);
+
+        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(0.0, 1.0, 3.0, 2.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(0.0, 2.0, 1.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(0.0, 2.0, 3.0, 1.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(0.0, 3.0, 1.0, 2.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(0.0, 3.0, 2.0, 1.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(1.0, 0.0, 2.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(1.0, 0.0, 3.0, 2.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(1.0, 2.0, 0.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(1.0, 2.0, 3.0, 0.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(1.0, 3.0, 0.0, 2.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(1.0, 3.0, 2.0, 0.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(2.0, 0.0, 1.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(2.0, 0.0, 3.0, 1.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(2.0, 1.0, 0.0, 3.0).max_dimension(), 3);
+        assert_eq!(Vec4::new(2.0, 1.0, 3.0, 0.0).max_dimension(), 2);
+        assert_eq!(Vec4::new(2.0, 3.0, 0.0, 1.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(2.0, 3.0, 1.0, 0.0).max_dimension(), 1);
+        assert_eq!(Vec4::new(3.0, 0.0, 1.0, 2.0).max_dimension(), 0);
+        assert_eq!(Vec4::new(3.0, 0.0, 2.0, 1.0).max_dimension(), 0);
+        assert_eq!(Vec4::new(3.0, 1.0, 0.0, 2.0).max_dimension(), 0);
+        assert_eq!(Vec4::new(3.0, 1.0, 2.0, 0.0).max_dimension(), 0);
+        assert_eq!(Vec4::new(3.0, 2.0, 0.0, 1.0).max_dimension(), 0);
+        assert_eq!(Vec4::new(3.0, 2.0, 1.0, 0.0).max_dimension(), 0);
+    }
+
+    #[test]
+    fn permutation() {
+        assert_eq!(Vec2::new(2.0, 3.0).permuted(1, 0), Vec2::new(3.0, 2.0));
+        assert_eq!(
+            Vec3::new(3.0, 4.0, 5.0).permuted(1, 2, 0),
+            Vec3::new(4.0, 5.0, 3.0)
+        );
+        assert_eq!(
+            Vec4::new(4.0, 5.0, 6.0, 7.0).permuted(1, 2, 3, 0),
+            Vec4::new(5.0, 6.0, 7.0, 4.0)
+        );
+    }
+
+    #[test]
+    fn negation() {
+        assert_eq!(-Vec2::new(1, 2), Vec2::new(-1, -2));
+        assert_eq!(-Vec3::new(1, 2, 3), Vec3::new(-1, -2, -3));
+        assert_eq!(-Vec4::new(1, 2, 3, 4), Vec4::new(-1, -2, -3, -4));
+    }
+
+    #[test]
+    fn add() {
+        assert_eq!(Vec2::new(1, 2) + Vec2::new(4, 6), Vec2::new(5, 8));
+        assert_eq!(Vec3::new(1, 2, 3) + Vec3::new(4, 6, 7), Vec3::new(5, 8, 10));
+        assert_eq!(
+            Vec4::new(1, 2, 3, 4) + Vec4::new(5, 7, 9, 10),
+            Vec4::new(6, 9, 12, 14)
+        );
+        assert_eq!(Vec2::new(1, 2) + 3, Vec2::new(4, 5));
+        assert_eq!(Vec3::new(1, 2, 3) + 4, Vec3::new(5, 6, 7));
+        assert_eq!(Vec4::new(1, 2, 3, 4) + 5, Vec4::new(6, 7, 8, 9));
+    }
+    #[test]
+    fn add_assign() {
+        let mut v = Vec2::new(1, 2);
+        v += Vec2::new(4, 6);
+        assert_eq!(v, Vec2::new(5, 8));
+
+        let mut v = Vec3::new(1, 2, 3);
+        v += Vec3::new(4, 6, 7);
+        assert_eq!(v, Vec3::new(5, 8, 10));
+
+        let mut v = Vec4::new(1, 2, 3, 4);
+        v += Vec4::new(5, 7, 9, 10);
+        assert_eq!(v, Vec4::new(6, 9, 12, 14));
+
+        let mut v = Vec2::new(1, 2);
+        v += 3;
+        assert_eq!(v, Vec2::new(4, 5));
+
+        let mut v = Vec3::new(1, 2, 3);
+        v += 4;
+        assert_eq!(v, Vec3::new(5, 6, 7));
+
+        let mut v = Vec4::new(1, 2, 3, 4);
+        v += 5;
+        assert_eq!(v, Vec4::new(6, 7, 8, 9));
+    }
+
+    #[test]
+    fn sub() {
+        assert_eq!(Vec2::new(5, 5) - Vec2::new(1, 2), Vec2::new(4, 3));
+        assert_eq!(Vec3::new(7, 7, 7) - Vec3::new(1, 2, 3), Vec3::new(6, 5, 4));
+        assert_eq!(
+            Vec4::new(9, 9, 9, 9) - Vec4::new(1, 2, 3, 4),
+            Vec4::new(8, 7, 6, 5)
+        );
+        assert_eq!(Vec2::new(3, 2) - 2, Vec2::new(1, 0));
+        assert_eq!(Vec3::new(7, 6, 5) - 4, Vec3::new(3, 2, 1));
+        assert_eq!(Vec4::new(9, 8, 7, 6) - 5, Vec4::new(4, 3, 2, 1));
+    }
+
+    #[test]
+    fn sub_assign() {
+        let mut v = Vec2::new(5, 5);
+        v -= Vec2::new(1, 2);
+        assert_eq!(v, Vec2::new(4, 3));
+
+        let mut v = Vec3::new(7, 7, 7);
+        v -= Vec3::new(1, 2, 3);
+        assert_eq!(v, Vec3::new(6, 5, 4));
+
+        let mut v = Vec4::new(9, 9, 9, 9);
+        v -= Vec4::new(1, 2, 3, 4);
+        assert_eq!(v, Vec4::new(8, 7, 6, 5));
+
+        let mut v = Vec2::new(3, 2);
+        v -= 2;
+        assert_eq!(v, Vec2::new(1, 0));
+
+        let mut v = Vec3::new(7, 6, 5);
+        v -= 4;
+        assert_eq!(v, Vec3::new(3, 2, 1));
+
+        let mut v = Vec4::new(9, 8, 7, 6);
+        v -= 5;
+        assert_eq!(v, Vec4::new(4, 3, 2, 1));
+    }
+
+    #[test]
+    fn mul() {
+        assert_eq!(Vec2::new(2, 3) * 4, Vec2::new(8, 12));
+        assert_eq!(Vec3::new(2, 3, 4) * 5, Vec3::new(10, 15, 20));
+        assert_eq!(Vec4::new(2, 3, 4, 5) * 6, Vec4::new(12, 18, 24, 30));
+    }
+
+    #[test]
+    fn mul_assign() {
+        let mut v = Vec2::new(2, 3);
+        v *= 4;
+        assert_eq!(v, Vec2::new(8, 12));
+
+        let mut v = Vec3::new(2, 3, 4);
+        v *= 5;
+        assert_eq!(v, Vec3::new(10, 15, 20));
+
+        let mut v = Vec4::new(2, 3, 4, 5);
+        v *= 6;
+        assert_eq!(v, Vec4::new(12, 18, 24, 30));
+    }
+
+    #[test]
+    fn div() {
+        assert_eq!(Vec2::new(8, 12) / 4, Vec2::new(2, 3));
+        assert_eq!(Vec3::new(10, 15, 20) / 5, Vec3::new(2, 3, 4));
+        assert_eq!(Vec4::new(12, 18, 24, 30) / 6, Vec4::new(2, 3, 4, 5));
+    }
+
+    #[test]
+    fn div_assign() {
+        let mut v = Vec2::new(8, 12);
+        v /= 4;
+        assert_eq!(v, Vec2::new(2, 3));
+
+        let mut v = Vec3::new(10, 15, 20);
+        v /= 5;
+        assert_eq!(v, Vec3::new(2, 3, 4));
+
+        let mut v = Vec4::new(12, 18, 24, 30);
+        v /= 6;
+        assert_eq!(v, Vec4::new(2, 3, 4, 5));
+    }
+}

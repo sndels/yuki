@@ -2,6 +2,20 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Cargo Test",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "test",
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "Build Core Docs",
             "group": "build",
             "command": "cargo",
