@@ -728,6 +728,78 @@ where
     }
 }
 
+impl<T> Sub<T> for Vec2<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    type Output = Self;
+
+    fn sub(self, other: T) -> Self {
+        Self {
+            x: self.x - other,
+            y: self.y - other,
+        }
+    }
+}
+
+impl<T> Sub<T> for Vec3<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    type Output = Self;
+
+    fn sub(self, other: T) -> Self {
+        Self {
+            x: self.x - other,
+            y: self.y - other,
+            z: self.z - other,
+        }
+    }
+}
+
+impl<T> Sub<T> for Vec4<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    type Output = Self;
+
+    fn sub(self, other: T) -> Self {
+        Self {
+            x: self.x - other,
+            y: self.y - other,
+            z: self.z - other,
+            w: self.w - other,
+        }
+    }
+}
+
+impl<T> SubAssign<T> for Vec2<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    fn sub_assign(&mut self, other: T) {
+        *self = *self - other;
+    }
+}
+
+impl<T> SubAssign<T> for Vec3<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    fn sub_assign(&mut self, other: T) {
+        *self = *self - other;
+    }
+}
+
+impl<T> SubAssign<T> for Vec4<T>
+where
+    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+{
+    fn sub_assign(&mut self, other: T) {
+        *self = *self - other;
+    }
+}
+
 impl<T> Mul<T> for Vec2<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
