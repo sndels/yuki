@@ -72,9 +72,8 @@ where
 
     /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
-        // Cast to f64 since it is currently the largest floating point type
-        (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.y.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
+        // Not all T have is_nan()
+        self.x != self.x || self.y != self.y
     }
 
     /// Returns the dot product of the two vectors.
@@ -197,10 +196,8 @@ where
 
     /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
-        // Cast to f64 since it is currently the largest floating point type
-        (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.y.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.z.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
+        // Not all T have is_nan()
+        self.x != self.x || self.y != self.y || self.z != self.z
     }
 
     /// Returns the dot product of the two vectors.
@@ -362,11 +359,8 @@ where
 
     /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
-        // Cast to f64 since it is currently the largest floating point type
-        (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.y.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.z.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
-            || (self.w.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
+        // Not all T have is_nan()
+        self.x != self.x || self.y != self.y || self.z != self.z || self.w != self.w
     }
 
     /// Returns the dot product of the two vectors.
