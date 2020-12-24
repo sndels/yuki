@@ -1196,18 +1196,6 @@ where
     }
 }
 
-pub type Vec2f = Vec2<f32>;
-pub type Vec3f = Vec3<f32>;
-pub type Vec4f = Vec4<f32>;
-
-pub type Vec2i = Vec2<i32>;
-pub type Vec3i = Vec3<i32>;
-pub type Vec4i = Vec4<i32>;
-
-pub type Vec2u = Vec2<u32>;
-pub type Vec3u = Vec3<u32>;
-pub type Vec4u = Vec4<u32>;
-
 #[cfg(test)]
 mod tests {
     // These tests are more about catching typos than rigorous verification
@@ -1221,64 +1209,22 @@ mod tests {
     use crate::vector::Vec3;
     use crate::vector::Vec4;
 
-    use crate::vector::Vec2f;
-    use crate::vector::Vec3f;
-    use crate::vector::Vec4f;
-
-    use crate::vector::Vec2i;
-    use crate::vector::Vec3i;
-    use crate::vector::Vec4i;
-
-    use crate::vector::Vec2u;
-    use crate::vector::Vec3u;
-    use crate::vector::Vec4u;
-
     #[test]
     fn new() {
-        let v = Vec2f::new(0.0, 1.0);
-        assert_eq!(v.x, 0.0f32);
-        assert_eq!(v.y, 1.0f32);
+        let v = Vec2::new(0.0, 1.0);
+        assert_eq!(v.x, 0.0);
+        assert_eq!(v.y, 1.0);
 
-        let v = Vec3f::new(0.0, 1.0, 2.0);
-        assert_eq!(v.x, 0.0f32);
-        assert_eq!(v.y, 1.0f32);
-        assert_eq!(v.z, 2.0f32);
+        let v = Vec3::new(0.0, 1.0, 2.0);
+        assert_eq!(v.x, 0.0);
+        assert_eq!(v.y, 1.0);
+        assert_eq!(v.z, 2.0);
 
-        let v = Vec4f::new(0.0, 1.0, 2.0, 3.0);
+        let v = Vec4::new(0.0, 1.0, 2.0, 3.0);
         assert_eq!(v.x, 0.0f32);
         assert_eq!(v.y, 1.0f32);
         assert_eq!(v.z, 2.0f32);
         assert_eq!(v.w, 3.0f32);
-
-        let v = Vec2i::new(0, 1);
-        assert_eq!(v.x, 0i32);
-        assert_eq!(v.y, 1i32);
-
-        let v = Vec3i::new(0, 1, 2);
-        assert_eq!(v.x, 0i32);
-        assert_eq!(v.y, 1i32);
-        assert_eq!(v.z, 2i32);
-
-        let v = Vec4i::new(0, 1, 2, 3);
-        assert_eq!(v.x, 0i32);
-        assert_eq!(v.y, 1i32);
-        assert_eq!(v.z, 2i32);
-        assert_eq!(v.w, 3i32);
-
-        let v = Vec2u::new(0, 1);
-        assert_eq!(v.x, 0u32);
-        assert_eq!(v.y, 1u32);
-
-        let v = Vec3u::new(0, 1, 2);
-        assert_eq!(v.x, 0u32);
-        assert_eq!(v.y, 1u32);
-        assert_eq!(v.z, 2u32);
-
-        let v = Vec4u::new(0, 1, 2, 3);
-        assert_eq!(v.x, 0u32);
-        assert_eq!(v.y, 1u32);
-        assert_eq!(v.z, 2u32);
-        assert_eq!(v.w, 3u32);
     }
 
     #[test]
@@ -1297,28 +1243,28 @@ mod tests {
 
     #[test]
     fn index() {
-        let v = Vec2f::new(0.0, 1.0);
+        let v = Vec2::new(0.0, 1.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
 
-        let v = Vec3f::new(0.0, 1.0, 2.0);
+        let v = Vec3::new(0.0, 1.0, 2.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
         assert_eq!(v.z, v[2]);
 
-        let v = Vec4f::new(0.0, 1.0, 2.0, 3.0);
+        let v = Vec4::new(0.0, 1.0, 2.0, 3.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
         assert_eq!(v.z, v[2]);
         assert_eq!(v.w, v[3]);
 
-        let mut v = Vec2f::zeros();
+        let mut v = Vec2::zeros();
         v[0] = 1.0;
         v[1] = 2.0;
         assert_eq!(v[0], 1.0);
         assert_eq!(v[1], 2.0);
 
-        let mut v = Vec3f::zeros();
+        let mut v = Vec3::zeros();
         v[0] = 1.0;
         v[1] = 2.0;
         v[2] = 3.0;
@@ -1326,7 +1272,7 @@ mod tests {
         assert_eq!(v[1], 2.0);
         assert_eq!(v[2], 3.0);
 
-        let mut v = Vec4f::zeros();
+        let mut v = Vec4::zeros();
         v[0] = 1.0;
         v[1] = 2.0;
         v[2] = 3.0;
@@ -1339,25 +1285,25 @@ mod tests {
 
     #[test]
     fn nan() {
-        let result = panic::catch_unwind(|| Vec2f::new(f32::NAN, 0.0));
+        let result = panic::catch_unwind(|| Vec2::new(f32::NAN, 0.0));
         assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec2f::new(0.0, f32::NAN));
-        assert!(result.is_err());
-
-        let result = panic::catch_unwind(|| Vec3f::new(f32::NAN, 0.0, 0.0));
-        assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec3f::new(0.0, f32::NAN, 0.0));
-        assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec3f::new(0.0, 0.0, f32::NAN));
+        let result = panic::catch_unwind(|| Vec2::new(0.0, f32::NAN));
         assert!(result.is_err());
 
-        let result = panic::catch_unwind(|| Vec4f::new(f32::NAN, 0.0, 0.0, 0.0));
+        let result = panic::catch_unwind(|| Vec3::new(f32::NAN, 0.0, 0.0));
         assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec4f::new(0.0, f32::NAN, 0.0, 0.0));
+        let result = panic::catch_unwind(|| Vec3::new(0.0, f32::NAN, 0.0));
         assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec4f::new(0.0, 0.0, f32::NAN, 0.0));
+        let result = panic::catch_unwind(|| Vec3::new(0.0, 0.0, f32::NAN));
         assert!(result.is_err());
-        let result = panic::catch_unwind(|| Vec4f::new(0.0, 0.0, 0.0, f32::NAN));
+
+        let result = panic::catch_unwind(|| Vec4::new(f32::NAN, 0.0, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4::new(0.0, f32::NAN, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4::new(0.0, 0.0, f32::NAN, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| Vec4::new(0.0, 0.0, 0.0, f32::NAN));
         assert!(result.is_err());
     }
     #[test]
