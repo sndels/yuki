@@ -1,6 +1,9 @@
+/// Helper trait to generalize on types that implement `fn min(self,other)`
 pub trait Mini {
     fn mini(&self, other: Self) -> Self;
 }
+
+/// Helper trait to generalize on types that implement `fn max(self, other)`
 pub trait Maxi {
     fn maxi(&self, other: Self) -> Self;
 }

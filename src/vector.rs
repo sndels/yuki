@@ -9,6 +9,7 @@ use crate::helpers::{Maxi, Mini};
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
+/// Generic two-component vector
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub struct Vec2<T>
 where
@@ -18,6 +19,7 @@ where
     pub y: T,
 }
 
+/// Generic three-component vector
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub struct Vec3<T>
 where
@@ -28,6 +30,7 @@ where
     pub z: T,
 }
 
+/// Generic four-component vector
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub struct Vec4<T>
 where
@@ -43,35 +46,43 @@ impl<T> Vec2<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
 {
-    /// Constructs new vector with `x` and `y`
+    /// Constructs a new vector.
+    ///
+    /// Has a debug assert that checks for NaNs.
     pub fn new(x: T, y: T) -> Vec2<T> {
         let v = Vec2 { x, y };
         debug_assert!(!v.has_nans());
         v
     }
 
+    /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
         // Cast to f64 since it is currently the largest floating point type
         (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
             || (self.y.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
     }
 
+    /// Returns the dot product of the two vectors.
     pub fn dot(&self, other: &Vec2<T>) -> T {
         self.x * other.x + self.y * other.y
     }
 
+    /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         self.dot(self)
     }
 
+    /// Returns the vector's length.
     pub fn len(&self) -> T {
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
+    /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec2<T> {
         *self / self.len()
     }
 
+    /// Returns the component-wise minimum of the two vectors.
     pub fn min(&self, other: Vec2<T>) -> Vec2<T> {
         Vec2 {
             x: self.x.mini(other.x),
@@ -79,6 +90,7 @@ where
         }
     }
 
+    /// Returns the component-wise maximum of the two vectors.
     pub fn max(&self, other: Vec2<T>) -> Vec2<T> {
         Vec2 {
             x: self.x.maxi(other.x),
@@ -86,14 +98,17 @@ where
         }
     }
 
+    /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         self.x.mini(self.y)
     }
 
+    /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         self.x.maxi(self.y)
     }
 
+    /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         if self.x > self.y {
             0
@@ -102,6 +117,7 @@ where
         }
     }
 
+    /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize) -> Vec2<T> {
         Vec2 {
             x: self[x],
@@ -114,12 +130,16 @@ impl<T> Vec3<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
 {
+    /// Constructs a new vector.
+    ///
+    /// Has a debug assert that checks for NaNs.
     pub fn new(x: T, y: T, z: T) -> Vec3<T> {
         let v = Vec3 { x, y, z };
         debug_assert!(!v.has_nans());
         v
     }
 
+    /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
         // Cast to f64 since it is currently the largest floating point type
         (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
@@ -127,22 +147,27 @@ where
             || (self.z.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
     }
 
+    /// Returns the dot product of the two vectors.
     pub fn dot(&self, other: &Vec3<T>) -> T {
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
+    /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         self.dot(self)
     }
 
+    /// Returns the vector's length.
     pub fn len(&self) -> T {
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
+    /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec3<T> {
         *self / self.len()
     }
 
+    /// Returns the component-wise minimum of the two vectors.
     pub fn min(&self, other: Vec3<T>) -> Vec3<T> {
         Vec3 {
             x: self.x.mini(other.x),
@@ -151,6 +176,7 @@ where
         }
     }
 
+    /// Returns the component-wise maximum of the two vectors.
     pub fn max(&self, other: Vec3<T>) -> Vec3<T> {
         Vec3 {
             x: self.x.maxi(other.x),
@@ -159,14 +185,17 @@ where
         }
     }
 
+    /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         self.x.mini(self.y.mini(self.z))
     }
 
+    /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         self.x.maxi(self.y.maxi(self.z))
     }
 
+    /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         if self.x > self.y {
             if self.x > self.z {
@@ -183,6 +212,7 @@ where
         }
     }
 
+    /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize, z: usize) -> Vec3<T> {
         Vec3 {
             x: self[x],
@@ -196,7 +226,11 @@ impl<T> Vec3<T>
 where
     T: Float + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
 {
+    /// Returns the cross product of the two vectors.
     pub fn cross(&self, other: Vec3<T>) -> Vec3<T> {
+        //!
+        //! Always uses `f64` internally to avoid errors on "catastrophic cancellation".
+        //! See pbrt [2.2.1](http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#DotandCrossProduct) for details
         let v1x = self.x.to_f64().unwrap_or(f64::NAN);
         let v1y = self.y.to_f64().unwrap_or(f64::NAN);
         let v1z = self.z.to_f64().unwrap_or(f64::NAN);
@@ -215,12 +249,16 @@ impl<T> Vec4<T>
 where
     T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
 {
+    /// Constructs a new vector.
+    ///
+    /// Has a debug assert that checks for NaNs.
     pub fn new(x: T, y: T, z: T, w: T) -> Vec4<T> {
         let v = Vec4 { x, y, z, w };
         debug_assert!(!v.has_nans());
         v
     }
 
+    /// Returns `true` if any component is NaN.
     pub fn has_nans(&self) -> bool {
         // Cast to f64 since it is currently the largest floating point type
         (self.x.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
@@ -229,22 +267,27 @@ where
             || (self.w.to_f64().unwrap_or(f64::NAN) as f64).is_nan()
     }
 
+    /// Returns the dot product of the two vectors.
     pub fn dot(&self, other: &Vec4<T>) -> T {
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
     }
 
+    /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         self.dot(self)
     }
 
+    /// Returns the vector's length.
     pub fn len(&self) -> T {
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
+    /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec4<T> {
         *self / self.len()
     }
 
+    /// Returns the component-wise minimum of the two vectors.
     pub fn min(&self, other: Vec4<T>) -> Vec4<T> {
         Vec4 {
             x: self.x.mini(other.x),
@@ -254,6 +297,7 @@ where
         }
     }
 
+    /// Returns the component-wise maximum of the two vectors.
     pub fn max(&self, other: Vec4<T>) -> Vec4<T> {
         Vec4 {
             x: self.x.maxi(other.x),
@@ -263,18 +307,21 @@ where
         }
     }
 
+    /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         let a = self.x.mini(self.y);
         let b = self.z.mini(self.w);
         a.mini(b)
     }
 
+    /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         let a = self.x.maxi(self.y);
         let b = self.z.maxi(self.w);
         a.maxi(b)
     }
 
+    /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         if self.x > self.y {
             if self.x > self.z {
@@ -307,6 +354,7 @@ where
         }
     }
 
+    /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize, z: usize, w: usize) -> Vec4<T> {
         Vec4 {
             x: self[x],
