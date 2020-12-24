@@ -604,6 +604,38 @@ where
     }
 }
 
+impl<T> From<T> for Vec2<T>
+where
+    T: ValueType,
+{
+    fn from(v: T) -> Self {
+        Self { x: v, y: v }
+    }
+}
+
+impl<T> From<T> for Vec3<T>
+where
+    T: ValueType,
+{
+    fn from(v: T) -> Self {
+        Self { x: v, y: v, z: v }
+    }
+}
+
+impl<T> From<T> for Vec4<T>
+where
+    T: ValueType,
+{
+    fn from(v: T) -> Self {
+        Self {
+            x: v,
+            y: v,
+            z: v,
+            w: v,
+        }
+    }
+}
+
 impl<T> Neg for Vec2<T>
 where
     T: Signed + ValueType,
@@ -1238,6 +1270,13 @@ mod tests {
         assert_eq!(Vec2::ones(), Vec2::new(1, 1));
         assert_eq!(Vec3::ones(), Vec3::new(1, 1, 1));
         assert_eq!(Vec4::ones(), Vec4::new(1, 1, 1, 1));
+    }
+
+    #[test]
+    fn from() {
+        assert_eq!(Vec2::from(2), Vec2::new(2, 2));
+        assert_eq!(Vec3::from(2), Vec3::new(2, 2, 2));
+        assert_eq!(Vec4::from(2), Vec4::new(2, 2, 2, 2));
     }
 
     #[test]
