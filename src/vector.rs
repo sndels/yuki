@@ -4,7 +4,6 @@ use std::ops::{
 };
 
 use crate::helpers::ValueType;
-use crate::{rel_cmp2_impl, rel_cmp3_impl, rel_cmp4_impl};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
@@ -524,7 +523,7 @@ where
             1 => &self.y,
             2 => &self.z,
             _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
+                panic!("Out of bounds Vec3 access with component {}", component);
             }
         }
     }
@@ -545,7 +544,7 @@ where
             2 => &self.z,
             3 => &self.w,
             _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
+                panic!("Out of bounds Vec4 access with component {}", component);
             }
         }
     }
@@ -580,7 +579,7 @@ where
             1 => &mut self.y,
             2 => &mut self.z,
             _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
+                panic!("Out of bounds Vec3 access with component {}", component);
             }
         }
     }
@@ -599,7 +598,7 @@ where
             2 => &mut self.z,
             3 => &mut self.w,
             _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
+                panic!("Out of bounds Vec4 access with component {}", component);
             }
         }
     }
