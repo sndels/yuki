@@ -78,7 +78,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Self) -> T {
+    pub fn dot(&self, other: Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -89,7 +89,7 @@ where
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
 
-        self.dot(self)
+        self.dot(*self)
     }
 
     /// Returns the vector's length.
@@ -204,7 +204,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Self) -> T {
+    pub fn dot(&self, other: Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -215,7 +215,7 @@ where
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
 
-        self.dot(self)
+        self.dot(*self)
     }
 
     /// Returns the vector's length.
@@ -370,7 +370,7 @@ where
     }
 
     /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: &Self) -> T {
+    pub fn dot(&self, other: Self) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
@@ -381,7 +381,7 @@ where
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
 
-        self.dot(self)
+        self.dot(*self)
     }
 
     /// Returns the vector's length.
