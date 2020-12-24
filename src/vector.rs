@@ -1,10 +1,9 @@
-use num::cast::{FromPrimitive, ToPrimitive};
-use num::traits::{Float, Num, Signed};
+use num::traits::{Float, Signed};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use crate::helpers::{Maxi, Mini};
+use crate::helpers::ValueType;
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
@@ -13,7 +12,7 @@ use crate::helpers::{Maxi, Mini};
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     pub x: T,
     pub y: T,
@@ -23,7 +22,7 @@ where
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     pub x: T,
     pub y: T,
@@ -34,7 +33,7 @@ where
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     pub x: T,
     pub y: T,
@@ -44,7 +43,7 @@ where
 
 impl<T> Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     /// Constructs a new vector.
     ///
@@ -167,7 +166,7 @@ where
 
 impl<T> Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     /// Constructs a new vector.
     ///
@@ -304,7 +303,7 @@ where
 
 impl<T> Vec3<T>
 where
-    T: Float + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: Float + ValueType,
 {
     /// Returns the cross product of the two vectors.
     //
@@ -330,7 +329,7 @@ where
 
 impl<T> Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     /// Constructs a new vector.
     ///
@@ -493,7 +492,7 @@ where
 
 impl<T> Index<usize> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = T;
 
@@ -512,7 +511,7 @@ where
 
 impl<T> Index<usize> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = T;
 
@@ -532,7 +531,7 @@ where
 
 impl<T> Index<usize> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = T;
 
@@ -553,7 +552,7 @@ where
 
 impl<T> IndexMut<usize> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
@@ -570,7 +569,7 @@ where
 
 impl<T> IndexMut<usize> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
@@ -588,7 +587,7 @@ where
 
 impl<T> IndexMut<usize> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
@@ -607,7 +606,7 @@ where
 
 impl<T> Neg for Vec2<T>
 where
-    T: Signed + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: Signed + ValueType,
 {
     type Output = Vec2<T>;
 
@@ -623,7 +622,7 @@ where
 
 impl<T> Neg for Vec3<T>
 where
-    T: Signed + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: Signed + ValueType,
 {
     type Output = Vec3<T>;
 
@@ -640,7 +639,7 @@ where
 
 impl<T> Neg for Vec4<T>
 where
-    T: Signed + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: Signed + ValueType,
 {
     type Output = Vec4<T>;
 
@@ -658,7 +657,7 @@ where
 
 impl<T> Add for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -675,7 +674,7 @@ where
 
 impl<T> Add for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -693,7 +692,7 @@ where
 
 impl<T> Add for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -712,7 +711,7 @@ where
 
 impl<T> AddAssign for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -724,7 +723,7 @@ where
 
 impl<T> AddAssign for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -736,7 +735,7 @@ where
 
 impl<T> AddAssign for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -748,7 +747,7 @@ where
 
 impl<T> Add<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -764,7 +763,7 @@ where
 
 impl<T> Add<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -781,7 +780,7 @@ where
 
 impl<T> Add<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -799,7 +798,7 @@ where
 
 impl<T> AddAssign<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -812,7 +811,7 @@ where
 
 impl<T> AddAssign<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -825,7 +824,7 @@ where
 
 impl<T> AddAssign<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -838,7 +837,7 @@ where
 
 impl<T> Sub for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -855,7 +854,7 @@ where
 
 impl<T> Sub for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -873,7 +872,7 @@ where
 
 impl<T> Sub for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -892,7 +891,7 @@ where
 
 impl<T> SubAssign for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -904,7 +903,7 @@ where
 
 impl<T> SubAssign for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -916,7 +915,7 @@ where
 
 impl<T> SubAssign for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
@@ -928,7 +927,7 @@ where
 
 impl<T> Sub<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -944,7 +943,7 @@ where
 
 impl<T> Sub<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -961,7 +960,7 @@ where
 
 impl<T> Sub<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -979,7 +978,7 @@ where
 
 impl<T> SubAssign<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -992,7 +991,7 @@ where
 
 impl<T> SubAssign<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1005,7 +1004,7 @@ where
 
 impl<T> SubAssign<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1018,7 +1017,7 @@ where
 
 impl<T> Mul<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1034,7 +1033,7 @@ where
 
 impl<T> Mul<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1051,7 +1050,7 @@ where
 
 impl<T> Mul<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1069,7 +1068,7 @@ where
 
 impl<T> MulAssign<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1082,7 +1081,7 @@ where
 
 impl<T> MulAssign<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1095,7 +1094,7 @@ where
 
 impl<T> MulAssign<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1108,7 +1107,7 @@ where
 
 impl<T> Div<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1124,7 +1123,7 @@ where
 
 impl<T> Div<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1141,7 +1140,7 @@ where
 
 impl<T> Div<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     type Output = Self;
 
@@ -1159,7 +1158,7 @@ where
 
 impl<T> DivAssign<T> for Vec2<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1172,7 +1171,7 @@ where
 
 impl<T> DivAssign<T> for Vec3<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
@@ -1185,7 +1184,7 @@ where
 
 impl<T> DivAssign<T> for Vec4<T>
 where
-    T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy,
+    T: ValueType,
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());

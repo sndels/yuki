@@ -1,3 +1,12 @@
+use num::cast::{FromPrimitive, ToPrimitive};
+use num::traits::Num;
+
+/// Generic type that can be stored in the lib containers
+pub trait ValueType: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy {}
+
+// Impl for all matching types
+impl<T> ValueType for T where T: Num + Mini + Maxi + PartialOrd + ToPrimitive + FromPrimitive + Copy {}
+
 /// Helper trait to generalize on types that implement `fn min(self,other)`
 pub trait Mini {
     fn mini(&self, other: Self) -> Self;
