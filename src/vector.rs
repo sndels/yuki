@@ -4,129 +4,218 @@ use std::ops::{
 };
 
 use crate::helpers::ValueType;
+use crate::{
+    impl_vec_scalar_assign_op, impl_vec_scalar_op, impl_vec_vec_assign_op, impl_vec_vec_op,
+};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-/// Generic two-component vector
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// A four-dimensional vector
 pub struct Vec2<T>
 where
     T: ValueType,
 {
+    /// The x component of the vector
     pub x: T,
+    /// The y component of the vector
     pub y: T,
 }
 
-/// Generic three-component vector
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// A four-dimensional vector
 pub struct Vec3<T>
 where
     T: ValueType,
 {
+    /// The x component of the vector
     pub x: T,
+    /// The y component of the vector
     pub y: T,
+    /// The z component of the vector
     pub z: T,
 }
 
-/// Generic four-component vector
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// A four-dimensional vector
 pub struct Vec4<T>
 where
     T: ValueType,
 {
+    /// The x component of the vector
     pub x: T,
+    /// The y component of the vector
     pub y: T,
+    /// The z component of the vector
     pub z: T,
+    /// The w component of the vector
     pub w: T,
 }
+
+macro_rules! impl_vec {
+    ($( $ct:ident [ $( $c:ident )+ ] ),+ ) => {
+        $(
+          impl<T> $ct<T>
+          where
+              T: ValueType,
+          {
+              /// Constructs a new vector.
+              ///
+              /// Has a debug assert that checks for NaNs.
+              pub fn new($($c: T),*) -> Self {
+                  let v = Self{ $($c),* };
+                  debug_assert!(!v.has_nans());
+                  v
+              }
+
+              /// Constructs a new vector of 0s.
+              pub fn zeros() -> Self {
+                  Self {
+                      $($c: T::zero(),)*
+                  }
+              }
+
+              /// Constructs a new vector of 1s.
+              pub fn ones() -> Self {
+                  Self {
+                      $($c: T::one(),)*
+                  }
+              }
+
+              /// Returns `true` if any component is NaN.
+              pub fn has_nans(&self) -> bool {
+                  // Not all T have is_nan()
+                  $(self.$c != self.$c)||*
+              }
+
+              /// Returns the vector's squared length.
+              pub fn len_sqr(&self) -> T {
+                  debug_assert!(!self.has_nans());
+
+                  self.dot(*self)
+              }
+
+              /// Returns the vector's length.
+              pub fn len(&self) -> T {
+                  debug_assert!(!self.has_nans());
+
+                  T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
+              }
+
+              /// Returns the normalized vector.
+              pub fn normalized(&self) -> Self {
+                  debug_assert!(!self.has_nans());
+
+                  *self / self.len()
+              }
+
+              /// Returns the component-wise minimum of the two vectors.
+              pub fn min(&self, other: Self) -> Self {
+                  debug_assert!(!self.has_nans());
+                  debug_assert!(!other.has_nans());
+
+                  Self {
+                      $($c: self.$c.mini(other.$c),)*
+                  }
+              }
+
+              /// Returns the component-wise maximum of the two vectors.
+              pub fn max(&self, other: Self) -> Self {
+                  debug_assert!(!self.has_nans());
+                  debug_assert!(!other.has_nans());
+
+                  Self {
+                      $($c: self.$c.maxi(other.$c),)*
+                  }
+              }
+
+              /// Returns the vector permutation defined by the indices.
+              pub fn permuted(&self $(, $c: usize)*) -> Self {
+                  debug_assert!(!self.has_nans());
+
+                  Self {
+                      $($c: self[$c],)*
+                  }
+              }
+          }
+
+          impl<T> From<T> for $ct<T>
+          where
+              T: ValueType,
+          {
+              fn from(v: T) -> Self {
+                  Self {
+                      $($c: v,)*
+                  }
+              }
+          }
+
+          impl<T> Neg for $ct<T>
+          where
+              T: Signed + ValueType,
+          {
+              type Output = Self;
+
+              fn neg(self) -> Self {
+                  debug_assert!(!self.has_nans());
+
+                  Self {
+                      $($c: -self.$c,)*
+                  }
+              }
+          }
+
+          impl_vec_vec_op!($ct [$( $c )*] Add add +);
+          impl_vec_vec_op!($ct [$( $c )*] Sub sub -);
+          impl_vec_scalar_op!($ct [$( $c )*] Add add +);
+          impl_vec_scalar_op!($ct [$( $c )*] Sub sub -);
+          impl_vec_scalar_op!($ct [$( $c )*] Mul mul *);
+          impl_vec_scalar_op!($ct [$( $c )*] Div div /);
+          impl_vec_vec_assign_op!($ct [$( $c )*] AddAssign add_assign +);
+          impl_vec_vec_assign_op!($ct [$( $c )*] SubAssign sub_assign -);
+          impl_vec_scalar_assign_op!($ct [$( $c )*] AddAssign add_assign +);
+          impl_vec_scalar_assign_op!($ct [$( $c )*] SubAssign sub_assign -);
+          impl_vec_scalar_assign_op!($ct [$( $c )*] MulAssign mul_assign *);
+          impl_vec_scalar_assign_op!($ct [$( $c )*] DivAssign div_assign /);
+        )*
+    };
+}
+impl_vec!(
+    Vec2 [x y],
+    Vec3 [x y z],
+    Vec4 [x y z w]
+);
+
+macro_rules! impl_vec_dot {
+    // Need to do this separately since we cant separate expansion with '+'
+    ($( $ct:ident [ $c0:ident $( $c:ident )+ ] ),+ ) => {
+        $(
+          impl<T> $ct<T>
+          where
+              T: ValueType,
+          {
+              /// Returns the dot product of the two vectors.
+              pub fn dot(&self, other: Self) -> T {
+                  debug_assert!(!self.has_nans());
+                  debug_assert!(!other.has_nans());
+
+                  self.$c0 * other.$c0 $(+ self.$c * other.$c)*
+              }
+          }
+       )*
+    };
+}
+impl_vec_dot!(
+    Vec2 [x y],
+    Vec3 [x y z],
+    Vec4 [x y z w]
+);
 
 impl<T> Vec2<T>
 where
     T: ValueType,
 {
-    /// Constructs a new vector.
-    ///
-    /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T) -> Self {
-        let v = Self { x, y };
-        debug_assert!(!v.has_nans());
-        v
-    }
-
-    /// Constructs a new vector of 0s.
-    pub fn zeros() -> Self {
-        Self {
-            x: T::zero(),
-            y: T::zero(),
-        }
-    }
-
-    /// Constructs a new vector of 1s.
-    pub fn ones() -> Self {
-        Self {
-            x: T::one(),
-            y: T::one(),
-        }
-    }
-
-    /// Returns `true` if any component is NaN.
-    pub fn has_nans(&self) -> bool {
-        // Not all T have is_nan()
-        self.x != self.x || self.y != self.y
-    }
-
-    /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: Self) -> T {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        self.x * other.x + self.y * other.y
-    }
-
-    /// Returns the vector's squared length.
-    pub fn len_sqr(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        self.dot(*self)
-    }
-
-    /// Returns the vector's length.
-    pub fn len(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-    }
-
-    /// Returns the normalized vector.
-    pub fn normalized(&self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        *self / self.len()
-    }
-
-    /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.mini(other.x),
-            y: self.y.mini(other.y),
-        }
-    }
-
-    /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.maxi(other.x),
-            y: self.y.maxi(other.y),
-        }
-    }
-
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
@@ -151,108 +240,12 @@ where
             1
         }
     }
-
-    /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self[x],
-            y: self[y],
-        }
-    }
 }
 
 impl<T> Vec3<T>
 where
     T: ValueType,
 {
-    /// Constructs a new vector.
-    ///
-    /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T, z: T) -> Self {
-        let v = Self { x, y, z };
-        debug_assert!(!v.has_nans());
-        v
-    }
-
-    /// Constructs a new vector of 0s.
-    pub fn zeros() -> Self {
-        Self {
-            x: T::zero(),
-            y: T::zero(),
-            z: T::zero(),
-        }
-    }
-
-    /// Constructs a new vector of 1s.
-    pub fn ones() -> Self {
-        Self {
-            x: T::one(),
-            y: T::one(),
-            z: T::one(),
-        }
-    }
-
-    /// Returns `true` if any component is NaN.
-    pub fn has_nans(&self) -> bool {
-        // Not all T have is_nan()
-        self.x != self.x || self.y != self.y || self.z != self.z
-    }
-
-    /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: Self) -> T {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        self.x * other.x + self.y * other.y + self.z * other.z
-    }
-
-    /// Returns the vector's squared length.
-    pub fn len_sqr(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        self.dot(*self)
-    }
-
-    /// Returns the vector's length.
-    pub fn len(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-    }
-
-    /// Returns the normalized vector.
-    pub fn normalized(&self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        *self / self.len()
-    }
-
-    /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.mini(other.x),
-            y: self.y.mini(other.y),
-            z: self.z.mini(other.z),
-        }
-    }
-
-    /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.maxi(other.x),
-            y: self.y.maxi(other.y),
-            z: self.z.maxi(other.z),
-        }
-    }
-
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
@@ -283,17 +276,6 @@ where
             } else {
                 2
             }
-        }
-    }
-
-    /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize, z: usize) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self[x],
-            y: self[y],
-            z: self[z],
         }
     }
 }
@@ -328,96 +310,6 @@ impl<T> Vec4<T>
 where
     T: ValueType,
 {
-    /// Constructs a new vector.
-    ///
-    /// Has a debug assert that checks for NaNs.
-    pub fn new(x: T, y: T, z: T, w: T) -> Self {
-        let v = Vec4 { x, y, z, w };
-        debug_assert!(!v.has_nans());
-        v
-    }
-
-    /// Constructs a new vector of 0s.
-    pub fn zeros() -> Self {
-        Self {
-            x: T::zero(),
-            y: T::zero(),
-            z: T::zero(),
-            w: T::zero(),
-        }
-    }
-
-    /// Constructs a new vector of 1s.
-    pub fn ones() -> Self {
-        Self {
-            x: T::one(),
-            y: T::one(),
-            z: T::one(),
-            w: T::one(),
-        }
-    }
-
-    /// Returns `true` if any component is NaN.
-    pub fn has_nans(&self) -> bool {
-        // Not all T have is_nan()
-        self.x != self.x || self.y != self.y || self.z != self.z || self.w != self.w
-    }
-
-    /// Returns the dot product of the two vectors.
-    pub fn dot(&self, other: Self) -> T {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
-    }
-
-    /// Returns the vector's squared length.
-    pub fn len_sqr(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        self.dot(*self)
-    }
-
-    /// Returns the vector's length.
-    pub fn len(&self) -> T {
-        debug_assert!(!self.has_nans());
-
-        T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-    }
-
-    /// Returns the normalized vector.
-    pub fn normalized(&self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        *self / self.len()
-    }
-
-    /// Returns the component-wise minimum of the two vectors.
-    pub fn min(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.mini(other.x),
-            y: self.y.mini(other.y),
-            z: self.z.mini(other.z),
-            w: self.w.mini(other.w),
-        }
-    }
-
-    /// Returns the component-wise maximum of the two vectors.
-    pub fn max(&self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x.maxi(other.x),
-            y: self.y.maxi(other.y),
-            z: self.z.maxi(other.z),
-            w: self.w.maxi(other.w),
-        }
-    }
-
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
@@ -470,756 +362,52 @@ where
             }
         }
     }
-
-    /// Returns the vector permutation defined by the indices.
-    pub fn permuted(&self, x: usize, y: usize, z: usize, w: usize) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self[x],
-            y: self[y],
-            z: self[z],
-            w: self[w],
-        }
-    }
 }
 
-impl<T> Index<usize> for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = T;
+macro_rules! impl_vec_index {
+    ($( $ct:ident [ $( $ci:expr,$c:ident )+ ] ),+ ) => {
+        $(
+          impl<T> Index<usize> for $ct<T>
+          where
+              T: ValueType,
+          {
+              type Output = T;
 
-    fn index(&self, component: usize) -> &Self::Output {
-        debug_assert!(!self.has_nans());
+              fn index(&self, component: usize) -> &Self::Output {
+                  debug_assert!(!self.has_nans());
 
-        match component {
-            0 => &self.x,
-            1 => &self.y,
-            _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
-            }
-        }
+                  match component {
+                      $($ci => &self.$c,)*
+                      _ => {
+                          panic!("Out of bounds Vec access with component {}", component);
+                      }
+                  }
+              }
+          }
+
+          impl<T> IndexMut<usize> for $ct<T>
+          where
+              T: ValueType,
+          {
+              fn index_mut(&mut self, component: usize) -> &mut Self::Output {
+                  debug_assert!(!self.has_nans());
+
+                  match component {
+                      $($ci => &mut self.$c,)*
+                      _ => {
+                          panic!("Out of bounds Vec access with component {}", component);
+                      }
+                  }
+              }
+          }
+        )*
     }
 }
-
-impl<T> Index<usize> for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = T;
-
-    fn index(&self, component: usize) -> &Self::Output {
-        debug_assert!(!self.has_nans());
-
-        match component {
-            0 => &self.x,
-            1 => &self.y,
-            2 => &self.z,
-            _ => {
-                panic!("Out of bounds Vec3 access with component {}", component);
-            }
-        }
-    }
-}
-
-impl<T> Index<usize> for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = T;
-
-    fn index(&self, component: usize) -> &Self::Output {
-        debug_assert!(!self.has_nans());
-
-        match component {
-            0 => &self.x,
-            1 => &self.y,
-            2 => &self.z,
-            3 => &self.w,
-            _ => {
-                panic!("Out of bounds Vec4 access with component {}", component);
-            }
-        }
-    }
-}
-
-impl<T> IndexMut<usize> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-        debug_assert!(!self.has_nans());
-
-        match component {
-            0 => &mut self.x,
-            1 => &mut self.y,
-            _ => {
-                panic!("Out of bounds Vec2 access with component {}", component);
-            }
-        }
-    }
-}
-
-impl<T> IndexMut<usize> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-        debug_assert!(!self.has_nans());
-
-        match component {
-            0 => &mut self.x,
-            1 => &mut self.y,
-            2 => &mut self.z,
-            _ => {
-                panic!("Out of bounds Vec3 access with component {}", component);
-            }
-        }
-    }
-}
-
-impl<T> IndexMut<usize> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-        debug_assert!(!self.has_nans());
-
-        match component {
-            0 => &mut self.x,
-            1 => &mut self.y,
-            2 => &mut self.z,
-            3 => &mut self.w,
-            _ => {
-                panic!("Out of bounds Vec4 access with component {}", component);
-            }
-        }
-    }
-}
-
-impl<T> From<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn from(v: T) -> Self {
-        Self { x: v, y: v }
-    }
-}
-
-impl<T> From<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn from(v: T) -> Self {
-        Self { x: v, y: v, z: v }
-    }
-}
-
-impl<T> From<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn from(v: T) -> Self {
-        Self {
-            x: v,
-            y: v,
-            z: v,
-            w: v,
-        }
-    }
-}
-
-impl<T> Neg for Vec2<T>
-where
-    T: Signed + ValueType,
-{
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
-}
-
-impl<T> Neg for Vec3<T>
-where
-    T: Signed + ValueType,
-{
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-        }
-    }
-}
-
-impl<T> Neg for Vec4<T>
-where
-    T: Signed + ValueType,
-{
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-            w: -self.w,
-        }
-    }
-}
-
-impl<T> Add for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-        }
-    }
-}
-
-impl<T> Add for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-}
-
-impl<T> Add for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-            w: self.w + other.w,
-        }
-    }
-}
-
-impl<T> AddAssign for Vec2<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self + other;
-    }
-}
-
-impl<T> AddAssign for Vec3<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self + other;
-    }
-}
-
-impl<T> AddAssign for Vec4<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self + other;
-    }
-}
-
-impl<T> Add<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x + other,
-            y: self.y + other,
-        }
-    }
-}
-
-impl<T> Add<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x + other,
-            y: self.y + other,
-            z: self.z + other,
-        }
-    }
-}
-
-impl<T> Add<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn add(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x + other,
-            y: self.y + other,
-            z: self.z + other,
-            w: self.w + other,
-        }
-    }
-}
-
-impl<T> AddAssign<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self + other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> AddAssign<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self + other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> AddAssign<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn add_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self + other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> Sub for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-        }
-    }
-}
-
-impl<T> Sub for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-        }
-    }
-}
-
-impl<T> Sub for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-            w: self.w - other.w,
-        }
-    }
-}
-
-impl<T> SubAssign for Vec2<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self - other;
-    }
-}
-
-impl<T> SubAssign for Vec3<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self - other;
-    }
-}
-
-impl<T> SubAssign for Vec4<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: Self) {
-        debug_assert!(!self.has_nans());
-        debug_assert!(!other.has_nans());
-
-        *self = *self - other;
-    }
-}
-
-impl<T> Sub<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x - other,
-            y: self.y - other,
-        }
-    }
-}
-
-impl<T> Sub<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x - other,
-            y: self.y - other,
-            z: self.z - other,
-        }
-    }
-}
-
-impl<T> Sub<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn sub(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x - other,
-            y: self.y - other,
-            z: self.z - other,
-            w: self.w - other,
-        }
-    }
-}
-
-impl<T> SubAssign<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self - other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> SubAssign<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self - other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> SubAssign<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn sub_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self - other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> Mul<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn mul(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x * other,
-            y: self.y * other,
-        }
-    }
-}
-
-impl<T> Mul<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn mul(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x * other,
-            y: self.y * other,
-            z: self.z * other,
-        }
-    }
-}
-
-impl<T> Mul<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn mul(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x * other,
-            y: self.y * other,
-            z: self.z * other,
-            w: self.w * other,
-        }
-    }
-}
-
-impl<T> MulAssign<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn mul_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self * other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> MulAssign<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn mul_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self * other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> MulAssign<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn mul_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self * other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> Div<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn div(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x / other,
-            y: self.y / other,
-        }
-    }
-}
-
-impl<T> Div<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn div(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-        }
-    }
-}
-
-impl<T> Div<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    type Output = Self;
-
-    fn div(self, other: T) -> Self {
-        debug_assert!(!self.has_nans());
-
-        Self {
-            x: self.x / other,
-            y: self.y / other,
-            z: self.z / other,
-            w: self.w / other,
-        }
-    }
-}
-
-impl<T> DivAssign<T> for Vec2<T>
-where
-    T: ValueType,
-{
-    fn div_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self / other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> DivAssign<T> for Vec3<T>
-where
-    T: ValueType,
-{
-    fn div_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self / other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
-
-impl<T> DivAssign<T> for Vec4<T>
-where
-    T: ValueType,
-{
-    fn div_assign(&mut self, other: T) {
-        debug_assert!(!self.has_nans());
-
-        *self = *self / other;
-
-        debug_assert!(!self.has_nans());
-    }
-}
+impl_vec_index!(
+    Vec2 [0,x 1,y],
+    Vec3 [0,x 1,y 2,z],
+    Vec4 [0,x 1,y 2,z 3,w]
+);
 
 #[cfg(test)]
 mod tests {

@@ -80,6 +80,82 @@ macro_rules! impl_abs_diff_eq {
     };
 }
 
+#[macro_export]
+macro_rules! impl_vec_vec_op {
+    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+        impl<T> $tr for $ct<T>
+        where
+            T: ValueType,
+        {
+            type Output = Self;
+
+            fn $fun(self, rhs: Self) -> Self {
+                debug_assert!(!self.has_nans());
+                debug_assert!(!rhs.has_nans());
+
+                Self {
+                    $($c: self.$c $op rhs.$c,)*
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! impl_vec_vec_assign_op {
+    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+        impl<T> $tr for $ct<T>
+        where
+            T: ValueType,
+        {
+            fn $fun(&mut self, rhs: Self) {
+                debug_assert!(!self.has_nans());
+                debug_assert!(!rhs.has_nans());
+
+                *self = *self $op rhs;
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! impl_vec_scalar_op {
+    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+        impl<T> $tr<T> for $ct<T>
+        where
+            T: ValueType,
+        {
+            type Output = Self;
+
+            fn $fun(self, rhs: T) -> Self {
+                debug_assert!(!self.has_nans());
+
+                Self {
+                    $($c: self.$c $op rhs,)*
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! impl_vec_scalar_assign_op {
+    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+        impl<T> $tr<T> for $ct<T>
+        where
+            T: ValueType,
+        {
+            fn $fun(&mut self, rhs: T) {
+                debug_assert!(!self.has_nans());
+
+                *self = *self $op rhs;
+
+                debug_assert!(!self.has_nans());
+            }
+        }
+    }
+}
+
 mod tests {
 
     #[test]
@@ -136,4 +212,7 @@ mod tests {
         let v0: Vec2<f64> = Vec2::zeros();
         assert!(abs_diff_eq!(v0, v0));
     }
+
+    // Don't test vector op generators here as they need to be tested per use to
+    // catch usage of wrong trait-op -combinations
 }
