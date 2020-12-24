@@ -17,61 +17,46 @@ pub trait Maxi {
     fn maxi(&self, other: Self) -> Self;
 }
 
-impl Mini for f32 {
-    fn mini(&self, other: f32) -> f32 {
-        self.min(other)
+macro_rules! impl_mini_float {
+    ($($vt:ty),+) => {
+        $(impl Mini for $vt {
+            fn mini(&self, other: $vt) -> $vt {
+                self.min(other)
+            }
+        })*
     }
 }
-impl Mini for f64 {
-    fn mini(&self, other: f64) -> f64 {
-        self.min(other)
-    }
-}
-impl Maxi for f32 {
-    fn maxi(&self, other: f32) -> f32 {
-        self.max(other)
-    }
-}
-impl Maxi for f64 {
-    fn maxi(&self, other: f64) -> f64 {
-        self.max(other)
-    }
-}
+impl_mini_float!(f32, f64);
 
-macro_rules! mini_impl_integer {
-    ($t:ty) => {
-        impl Mini for $t {
-            fn mini(&self, other: $t) -> $t {
+macro_rules! impl_mini_float {
+    ($($vt:ty),+) => {
+        $(impl Maxi for $vt {
+            fn maxi(&self, other: $vt) -> $vt {
+                self.max(other)
+            }
+        })*
+    }
+}
+impl_mini_float!(f32, f64);
+
+macro_rules! impl_mini_integer {
+    ($($vt:ty),+) => {
+        $(impl Mini for $vt {
+            fn mini(&self, other: $vt) -> $vt {
                 *self.min(&other)
             }
-        }
-    };
+        })*
+    }
 }
+impl_mini_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
 
-mini_impl_integer!(u8);
-mini_impl_integer!(u16);
-mini_impl_integer!(u32);
-mini_impl_integer!(u64);
-mini_impl_integer!(i8);
-mini_impl_integer!(i16);
-mini_impl_integer!(i32);
-mini_impl_integer!(i64);
-
-macro_rules! maxi_impl_integer {
-    ($t:ty) => {
-        impl Maxi for $t {
-            fn maxi(&self, other: $t) -> $t {
+macro_rules! impl_maxi_integer {
+    ($($vt:ty),+) => {
+        $(impl Maxi for $vt {
+            fn maxi(&self, other: $vt) -> $vt {
                 *self.max(&other)
             }
-        }
-    };
+        })*
+    }
 }
-
-maxi_impl_integer!(u8);
-maxi_impl_integer!(u16);
-maxi_impl_integer!(u32);
-maxi_impl_integer!(u64);
-maxi_impl_integer!(i8);
-maxi_impl_integer!(i16);
-maxi_impl_integer!(i32);
-maxi_impl_integer!(i64);
+impl_maxi_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
