@@ -82,24 +82,28 @@ where
     pub fn dot(&self, other: &Vec2<T>) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         self.x * other.x + self.y * other.y
     }
 
     /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.dot(self)
     }
 
     /// Returns the vector's length.
     pub fn len(&self) -> T {
         debug_assert!(!self.has_nans());
+
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
     /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec2<T> {
         debug_assert!(!self.has_nans());
+
         *self / self.len()
     }
 
@@ -107,6 +111,7 @@ where
     pub fn min(&self, other: Vec2<T>) -> Vec2<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec2 {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
@@ -117,6 +122,7 @@ where
     pub fn max(&self, other: Vec2<T>) -> Vec2<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec2 {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
@@ -126,18 +132,21 @@ where
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.x.mini(self.y)
     }
 
     /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.x.maxi(self.y)
     }
 
     /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
+
         if self.x > self.y {
             0
         } else {
@@ -148,6 +157,7 @@ where
     /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize) -> Vec2<T> {
         debug_assert!(!self.has_nans());
+
         Vec2 {
             x: self[x],
             y: self[y],
@@ -198,24 +208,28 @@ where
     pub fn dot(&self, other: &Vec3<T>) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         self.x * other.x + self.y * other.y + self.z * other.z
     }
 
     /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.dot(self)
     }
 
     /// Returns the vector's length.
     pub fn len(&self) -> T {
         debug_assert!(!self.has_nans());
+
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
     /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec3<T> {
         debug_assert!(!self.has_nans());
+
         *self / self.len()
     }
 
@@ -223,6 +237,7 @@ where
     pub fn min(&self, other: Vec3<T>) -> Vec3<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec3 {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
@@ -234,6 +249,7 @@ where
     pub fn max(&self, other: Vec3<T>) -> Vec3<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec3 {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
@@ -244,18 +260,21 @@ where
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.x.mini(self.y.mini(self.z))
     }
 
     /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.x.maxi(self.y.maxi(self.z))
     }
 
     /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
+
         if self.x > self.y {
             if self.x > self.z {
                 0
@@ -274,6 +293,7 @@ where
     /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize, z: usize) -> Vec3<T> {
         debug_assert!(!self.has_nans());
+
         Vec3 {
             x: self[x],
             y: self[y],
@@ -293,6 +313,7 @@ where
     pub fn cross(&self, other: Vec3<T>) -> Vec3<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         let v1x = self.x.to_f64().unwrap_or(f64::NAN);
         let v1y = self.y.to_f64().unwrap_or(f64::NAN);
         let v1z = self.z.to_f64().unwrap_or(f64::NAN);
@@ -353,24 +374,28 @@ where
     pub fn dot(&self, other: &Vec4<T>) -> T {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
     }
 
     /// Returns the vector's squared length.
     pub fn len_sqr(&self) -> T {
         debug_assert!(!self.has_nans());
+
         self.dot(self)
     }
 
     /// Returns the vector's length.
     pub fn len(&self) -> T {
         debug_assert!(!self.has_nans());
+
         T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
     }
 
     /// Returns the normalized vector.
     pub fn normalized(&self) -> Vec4<T> {
         debug_assert!(!self.has_nans());
+
         *self / self.len()
     }
 
@@ -378,6 +403,7 @@ where
     pub fn min(&self, other: Vec4<T>) -> Vec4<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec4 {
             x: self.x.mini(other.x),
             y: self.y.mini(other.y),
@@ -390,6 +416,7 @@ where
     pub fn max(&self, other: Vec4<T>) -> Vec4<T> {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Vec4 {
             x: self.x.maxi(other.x),
             y: self.y.maxi(other.y),
@@ -401,6 +428,7 @@ where
     /// Returns the value of the minumum component.
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         let a = self.x.mini(self.y);
         let b = self.z.mini(self.w);
         a.mini(b)
@@ -409,6 +437,7 @@ where
     /// Returns the value of the maximum component.
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
+
         let a = self.x.maxi(self.y);
         let b = self.z.maxi(self.w);
         a.maxi(b)
@@ -417,6 +446,7 @@ where
     /// Returns the index of the maximum component.
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
+
         if self.x > self.y {
             if self.x > self.z {
                 if self.x > self.w {
@@ -451,6 +481,7 @@ where
     /// Returns the vector permutation defined by the indices.
     pub fn permuted(&self, x: usize, y: usize, z: usize, w: usize) -> Vec4<T> {
         debug_assert!(!self.has_nans());
+
         Vec4 {
             x: self[x],
             y: self[y],
@@ -468,6 +499,7 @@ where
 
     fn index(&self, component: usize) -> &Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &self.x,
             1 => &self.y,
@@ -486,6 +518,7 @@ where
 
     fn index(&self, component: usize) -> &Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &self.x,
             1 => &self.y,
@@ -505,6 +538,7 @@ where
 
     fn index(&self, component: usize) -> &Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &self.x,
             1 => &self.y,
@@ -523,6 +557,7 @@ where
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &mut self.x,
             1 => &mut self.y,
@@ -539,6 +574,7 @@ where
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &mut self.x,
             1 => &mut self.y,
@@ -556,6 +592,7 @@ where
 {
     fn index_mut(&mut self, component: usize) -> &mut Self::Output {
         debug_assert!(!self.has_nans());
+
         match component {
             0 => &mut self.x,
             1 => &mut self.y,
@@ -576,6 +613,7 @@ where
 
     fn neg(self) -> Vec2<T> {
         debug_assert!(!self.has_nans());
+
         Vec2 {
             x: -self.x,
             y: -self.y,
@@ -591,6 +629,7 @@ where
 
     fn neg(self) -> Vec3<T> {
         debug_assert!(!self.has_nans());
+
         Vec3 {
             x: -self.x,
             y: -self.y,
@@ -607,6 +646,7 @@ where
 
     fn neg(self) -> Vec4<T> {
         debug_assert!(!self.has_nans());
+
         Vec4 {
             x: -self.x,
             y: -self.y,
@@ -625,6 +665,7 @@ where
     fn add(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x + other.x,
             y: self.y + other.y,
@@ -641,6 +682,7 @@ where
     fn add(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x + other.x,
             y: self.y + other.y,
@@ -658,6 +700,7 @@ where
     fn add(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x + other.x,
             y: self.y + other.y,
@@ -674,6 +717,7 @@ where
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self + other;
     }
 }
@@ -685,6 +729,7 @@ where
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self + other;
     }
 }
@@ -696,6 +741,7 @@ where
     fn add_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self + other;
     }
 }
@@ -708,6 +754,7 @@ where
 
     fn add(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x + other,
             y: self.y + other,
@@ -723,6 +770,7 @@ where
 
     fn add(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x + other,
             y: self.y + other,
@@ -739,6 +787,7 @@ where
 
     fn add(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x + other,
             y: self.y + other,
@@ -754,7 +803,9 @@ where
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self + other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -765,7 +816,9 @@ where
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self + other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -776,7 +829,9 @@ where
 {
     fn add_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self + other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -790,6 +845,7 @@ where
     fn sub(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
@@ -806,6 +862,7 @@ where
     fn sub(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
@@ -823,6 +880,7 @@ where
     fn sub(self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         Self {
             x: self.x - other.x,
             y: self.y - other.y,
@@ -839,6 +897,7 @@ where
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self - other;
     }
 }
@@ -850,6 +909,7 @@ where
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self - other;
     }
 }
@@ -861,6 +921,7 @@ where
     fn sub_assign(&mut self, other: Self) {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
+
         *self = *self - other;
     }
 }
@@ -873,6 +934,7 @@ where
 
     fn sub(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x - other,
             y: self.y - other,
@@ -888,6 +950,7 @@ where
 
     fn sub(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x - other,
             y: self.y - other,
@@ -904,6 +967,7 @@ where
 
     fn sub(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x - other,
             y: self.y - other,
@@ -919,7 +983,9 @@ where
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self - other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -930,7 +996,9 @@ where
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self - other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -941,7 +1009,9 @@ where
 {
     fn sub_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self - other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -954,6 +1024,7 @@ where
 
     fn mul(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x * other,
             y: self.y * other,
@@ -969,6 +1040,7 @@ where
 
     fn mul(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x * other,
             y: self.y * other,
@@ -985,6 +1057,7 @@ where
 
     fn mul(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
+
         Self {
             x: self.x * other,
             y: self.y * other,
@@ -1000,7 +1073,9 @@ where
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self * other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -1011,7 +1086,9 @@ where
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self * other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -1022,7 +1099,9 @@ where
 {
     fn mul_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
+
         *self = *self * other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -1036,6 +1115,7 @@ where
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         Self {
             x: self.x / other,
             y: self.y / other,
@@ -1052,6 +1132,7 @@ where
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         Self {
             x: self.x / other,
             y: self.y / other,
@@ -1069,6 +1150,7 @@ where
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         Self {
             x: self.x / other,
             y: self.y / other,
@@ -1085,7 +1167,9 @@ where
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         *self = *self / other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -1097,7 +1181,9 @@ where
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         *self = *self / other;
+
         debug_assert!(!self.has_nans());
     }
 }
@@ -1109,7 +1195,9 @@ where
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
         assert!(other != T::zero());
+
         *self = *self / other;
+
         debug_assert!(!self.has_nans());
     }
 }
