@@ -1114,7 +1114,6 @@ where
 
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         Self {
             x: self.x / other,
@@ -1131,7 +1130,6 @@ where
 
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         Self {
             x: self.x / other,
@@ -1149,7 +1147,6 @@ where
 
     fn div(self, other: T) -> Self {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         Self {
             x: self.x / other,
@@ -1166,7 +1163,6 @@ where
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         *self = *self / other;
 
@@ -1180,7 +1176,6 @@ where
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         *self = *self / other;
 
@@ -1194,7 +1189,6 @@ where
 {
     fn div_assign(&mut self, other: T) {
         debug_assert!(!self.has_nans());
-        assert!(other != T::zero());
 
         *self = *self / other;
 
