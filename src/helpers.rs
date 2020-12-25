@@ -82,14 +82,14 @@ macro_rules! impl_abs_diff_eq {
 
 #[macro_export]
 macro_rules! impl_vec_vec_op {
-    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+    ($ct:ident $vt:ident $rt:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
         impl<T> $tr for $ct<T>
         where
             T: ValueType,
         {
-            type Output = Self;
+            type Output = $rt<T>;
 
-            fn $fun(self, rhs: Self) -> Self {
+            fn $fun(self, rhs: $vt<T>) -> $rt<T> {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!rhs.has_nans());
 
@@ -103,8 +103,8 @@ macro_rules! impl_vec_vec_op {
 
 #[macro_export]
 macro_rules! impl_vec_vec_assign_op {
-    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
-        impl<T> $tr for $ct<T>
+    ($ct:ident $vt:ident[ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
+        impl<T> $tr<$vt<T>> for $ct<T>
         where
             T: ValueType,
         {

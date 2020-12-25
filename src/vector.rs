@@ -172,14 +172,14 @@ macro_rules! impl_vec {
               }
           }
 
-          impl_vec_vec_op!($ct [$( $c )*] Add add +);
-          impl_vec_vec_op!($ct [$( $c )*] Sub sub -);
+          impl_vec_vec_op!($ct $ct $ct[$( $c )*] Add add +);
+          impl_vec_vec_op!($ct $ct $ct [$( $c )*] Sub sub -);
           impl_vec_scalar_op!($ct [$( $c )*] Add add +);
           impl_vec_scalar_op!($ct [$( $c )*] Sub sub -);
           impl_vec_scalar_op!($ct [$( $c )*] Mul mul *);
           impl_vec_scalar_op!($ct [$( $c )*] Div div /);
-          impl_vec_vec_assign_op!($ct [$( $c )*] AddAssign add_assign +);
-          impl_vec_vec_assign_op!($ct [$( $c )*] SubAssign sub_assign -);
+          impl_vec_vec_assign_op!($ct $ct [$( $c )*] AddAssign add_assign +);
+          impl_vec_vec_assign_op!($ct $ct [$( $c )*] SubAssign sub_assign -);
           impl_vec_scalar_assign_op!($ct [$( $c )*] AddAssign add_assign +);
           impl_vec_scalar_assign_op!($ct [$( $c )*] SubAssign sub_assign -);
           impl_vec_scalar_assign_op!($ct [$( $c )*] MulAssign mul_assign *);
