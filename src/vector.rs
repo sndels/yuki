@@ -61,133 +61,136 @@ macro_rules! impl_vec {
        ),+
     ) => {
         $(
-          impl<T> $vec_type<T>
-          where
-              T: ValueType,
-          {
-              /// Constructs a new vector.
-              ///
-              /// Has a debug assert that checks for NaNs.
-              pub fn new($($component: T),*) -> Self {
-                  let v = Self{ $($component),* };
-                  debug_assert!(!v.has_nans());
-                  v
-              }
+            impl<T> $vec_type<T>
+            where
+                T: ValueType,
+            {
+                /// Constructs a new vector.
+                ///
+                /// Has a debug assert that checks for NaNs.
+                pub fn new($($component: T),*) -> Self {
+                    let v = Self{ $($component),* };
+                    debug_assert!(!v.has_nans());
+                    v
+                }
 
-              /// Constructs a new vector of 0s.
-              pub fn zeros() -> Self {
-                  Self {
-                      $($component: T::zero(),)*
-                  }
-              }
+                /// Constructs a new vector of 0s.
+                pub fn zeros() -> Self {
+                    Self {
+                        $($component: T::zero(),)*
+                    }
+                }
 
-              /// Constructs a new vector of 1s.
-              pub fn ones() -> Self {
-                  Self {
-                      $($component: T::one(),)*
-                  }
-              }
+                /// Constructs a new vector of 1s.
+                pub fn ones() -> Self {
+                    Self {
+                        $($component: T::one(),)*
+                    }
+                }
 
-              /// Returns `true` if any component is NaN.
-              pub fn has_nans(&self) -> bool {
-                  // Not all T have is_nan()
-                  $(self.$component != self.$component)||*
-              }
+                /// Returns `true` if any component is NaN.
+                pub fn has_nans(&self) -> bool {
+                    // Not all T have is_nan()
+                    $(self.$component != self.$component)||*
+                }
 
-              /// Returns the vector's squared length.
-              pub fn len_sqr(&self) -> T {
-                  debug_assert!(!self.has_nans());
+                /// Returns the vector's squared length.
+                pub fn len_sqr(&self) -> T {
+                    debug_assert!(!self.has_nans());
 
-                  self.dot(*self)
-              }
+                    self.dot(*self)
+                }
 
-              /// Returns the vector's length.
-              pub fn len(&self) -> T {
-                  debug_assert!(!self.has_nans());
+                /// Returns the vector's length.
+                pub fn len(&self) -> T {
+                    debug_assert!(!self.has_nans());
 
-                  T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-              }
+                    T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
+                }
 
-              /// Returns the normalized vector.
-              pub fn normalized(&self) -> Self {
-                  debug_assert!(!self.has_nans());
+                /// Returns the normalized vector.
+                pub fn normalized(&self) -> Self {
+                    debug_assert!(!self.has_nans());
 
-                  *self / self.len()
-              }
+                    *self / self.len()
+                }
 
-              /// Returns the component-wise minimum of the two vectors.
-              pub fn min(&self, other: Self) -> Self {
-                  debug_assert!(!self.has_nans());
-                  debug_assert!(!other.has_nans());
+                /// Returns the component-wise minimum of the two vectors.
+                pub fn min(&self, other: Self) -> Self {
+                    debug_assert!(!self.has_nans());
+                    debug_assert!(!other.has_nans());
 
-                  Self {
-                      $($component: self.$component.mini(other.$component),)*
-                  }
-              }
+                    Self {
+                        $($component: self.$component.mini(other.$component),)*
+                    }
+                }
 
-              /// Returns the component-wise maximum of the two vectors.
-              pub fn max(&self, other: Self) -> Self {
-                  debug_assert!(!self.has_nans());
-                  debug_assert!(!other.has_nans());
+                /// Returns the component-wise maximum of the two vectors.
+                pub fn max(&self, other: Self) -> Self {
+                    debug_assert!(!self.has_nans());
+                    debug_assert!(!other.has_nans());
 
-                  Self {
-                      $($component: self.$component.maxi(other.$component),)*
-                  }
-              }
+                    Self {
+                        $($component: self.$component.maxi(other.$component),)*
+                    }
+                }
 
-              /// Returns the vector permutation defined by the indices.
-              pub fn permuted(&self $(, $component: usize)*) -> Self {
-                  debug_assert!(!self.has_nans());
+                /// Returns the vector permutation defined by the indices.
+                pub fn permuted(&self $(, $component: usize)*) -> Self {
+                    debug_assert!(!self.has_nans());
 
-                  Self {
-                      $($component: self[$component],)*
-                  }
-              }
-          }
+                    Self {
+                        $($component: self[$component],)*
+                    }
+                }
+            }
 
-          /// Shorthand constructor
-          pub fn $shorthand<T>($($component: T),*) -> $vec_type<T> where T:ValueType {
-              $vec_type {$($component),*}
-          }
+            /// Shorthand constructor
+            pub fn $shorthand<T>($($component: T),*) -> $vec_type<T>
+            where
+                T: ValueType
+            {
+                $vec_type {$($component),*}
+            }
 
-          impl<T> From<T> for $vec_type<T>
-          where
-              T: ValueType,
-          {
-              fn from(v: T) -> Self {
-                  Self {
-                      $($component: v,)*
-                  }
-              }
-          }
+            impl<T> From<T> for $vec_type<T>
+            where
+                T: ValueType,
+            {
+                fn from(v: T) -> Self {
+                    Self {
+                        $($component: v,)*
+                    }
+                }
+            }
 
-          impl<T> Neg for $vec_type<T>
-          where
-              T: Signed + ValueType,
-          {
-              type Output = Self;
+            impl<T> Neg for $vec_type<T>
+            where
+                T: Signed + ValueType,
+            {
+                type Output = Self;
 
-              fn neg(self) -> Self {
-                  debug_assert!(!self.has_nans());
+                fn neg(self) -> Self {
+                    debug_assert!(!self.has_nans());
 
-                  Self {
-                      $($component: -self.$component,)*
-                  }
-              }
-          }
+                    Self {
+                        $($component: -self.$component,)*
+                    }
+                }
+            }
 
-          impl_vec_vec_op!($vec_type $vec_type $vec_type[$( $component )*] Add add +);
-          impl_vec_vec_op!($vec_type $vec_type $vec_type [$( $component )*] Sub sub -);
-          impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
-          impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
-          impl_vec_scalar_op!($vec_type [$( $component )*] Mul mul *);
-          impl_vec_scalar_op!($vec_type [$( $component )*] Div div /);
-          impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] AddAssign add_assign +);
-          impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] SubAssign sub_assign -);
-          impl_vec_scalar_assign_op!($vec_type [$( $component )*] AddAssign add_assign +);
-          impl_vec_scalar_assign_op!($vec_type [$( $component )*] SubAssign sub_assign -);
-          impl_vec_scalar_assign_op!($vec_type [$( $component )*] MulAssign mul_assign *);
-          impl_vec_scalar_assign_op!($vec_type [$( $component )*] DivAssign div_assign /);
+            impl_vec_vec_op!($vec_type $vec_type $vec_type[$( $component )*] Add add +);
+            impl_vec_vec_op!($vec_type $vec_type $vec_type [$( $component )*] Sub sub -);
+            impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
+            impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
+            impl_vec_scalar_op!($vec_type [$( $component )*] Mul mul *);
+            impl_vec_scalar_op!($vec_type [$( $component )*] Div div /);
+            impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] AddAssign add_assign +);
+            impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] SubAssign sub_assign -);
+            impl_vec_scalar_assign_op!($vec_type [$( $component )*] AddAssign add_assign +);
+            impl_vec_scalar_assign_op!($vec_type [$( $component )*] SubAssign sub_assign -);
+            impl_vec_scalar_assign_op!($vec_type [$( $component )*] MulAssign mul_assign *);
+            impl_vec_scalar_assign_op!($vec_type [$( $component )*] DivAssign div_assign /);
         )*
     };
 }
@@ -201,18 +204,18 @@ macro_rules! impl_vec_dot {
     // Need to do this separately since we cant separate expansion with '+'
     ($( $vec_type:ident [ $component0:ident $( $component:ident )+ ] ),+ ) => {
         $(
-          impl<T> $vec_type<T>
-          where
-              T: ValueType,
-          {
-              /// Returns the dot product of the two vectors.
-              pub fn dot(&self, other: Self) -> T {
-                  debug_assert!(!self.has_nans());
-                  debug_assert!(!other.has_nans());
+            impl<T> $vec_type<T>
+            where
+                T: ValueType,
+            {
+                /// Returns the dot product of the two vectors.
+                pub fn dot(&self, other: Self) -> T {
+                    debug_assert!(!self.has_nans());
+                    debug_assert!(!other.has_nans());
 
-                  self.$component0 * other.$component0 $(+ self.$component * other.$component)*
-              }
-          }
+                    self.$component0 * other.$component0 $(+ self.$component * other.$component)*
+                }
+            }
        )*
     };
 }

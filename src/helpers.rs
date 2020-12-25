@@ -19,44 +19,52 @@ pub trait Maxi {
 
 macro_rules! impl_mini_float {
     ( $( $t:ty ),+ ) => {
-        $(impl Mini for $t {
-            fn mini(&self, other: $t) -> $t {
-                self.min(other)
+        $(
+            impl Mini for $t {
+                fn mini(&self, other: $t) -> $t {
+                    self.min(other)
+                }
             }
-        })*
+        )*
     }
 }
 impl_mini_float!(f32, f64);
 
 macro_rules! impl_mini_float {
     ( $( $t:ty ),+ ) => {
-        $(impl Maxi for $t {
-            fn maxi(&self, other: $t) -> $t {
-                self.max(other)
+        $(
+            impl Maxi for $t {
+                fn maxi(&self, other: $t) -> $t {
+                    self.max(other)
+                }
             }
-        })*
+        )*
     }
 }
 impl_mini_float!(f32, f64);
 
 macro_rules! impl_mini_integer {
     ( $( $t:ty ),+ ) => {
-        $(impl Mini for $t {
-            fn mini(&self, other: $t) -> $t {
-                *self.min(&other)
+        $(
+            impl Mini for $t {
+                fn mini(&self, other: $t) -> $t {
+                    *self.min(&other)
+                }
             }
-        })*
+        )*
     }
 }
 impl_mini_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
 
 macro_rules! impl_maxi_integer {
     ( $( $t:ty ),+ ) => {
-        $(impl Maxi for $t {
-            fn maxi(&self, other: $t) -> $t {
-                *self.max(&other)
+        $(
+            impl Maxi for $t {
+                fn maxi(&self, other: $t) -> $t {
+                    *self.max(&other)
+                }
             }
-        })*
+        )*
     }
 }
 impl_maxi_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
@@ -178,39 +186,39 @@ macro_rules! impl_vec_index {
        ),+
     ) => {
         $(
-          impl<T> Index<usize> for $vec_type<T>
-          where
-              T: ValueType,
-          {
-              type Output = T;
+            impl<T> Index<usize> for $vec_type<T>
+            where
+                T: ValueType,
+            {
+                type Output = T;
 
-              fn index(&self, component: usize) -> &Self::Output {
-                  debug_assert!(!self.has_nans());
+                fn index(&self, component: usize) -> &Self::Output {
+                    debug_assert!(!self.has_nans());
 
-                  match component {
-                      $($component_index => &self.$component,)*
-                      _ => {
-                          panic!("Out of bounds Vec access with component {}", component);
-                      }
-                  }
-              }
-          }
+                    match component {
+                        $($component_index => &self.$component,)*
+                        _ => {
+                            panic!("Out of bounds Vec access with component {}", component);
+                        }
+                    }
+                }
+            }
 
-          impl<T> IndexMut<usize> for $vec_type<T>
-          where
-              T: ValueType,
-          {
-              fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-                  debug_assert!(!self.has_nans());
+            impl<T> IndexMut<usize> for $vec_type<T>
+            where
+                T: ValueType,
+            {
+                fn index_mut(&mut self, component: usize) -> &mut Self::Output {
+                    debug_assert!(!self.has_nans());
 
-                  match component {
-                      $($component_index => &mut self.$component,)*
-                      _ => {
-                          panic!("Out of bounds Vec access with component {}", component);
-                      }
-                  }
-              }
-          }
+                    match component {
+                        $($component_index => &mut self.$component,)*
+                        _ => {
+                            panic!("Out of bounds Vec access with component {}", component);
+                        }
+                    }
+                }
+            }
         )*
     }
 }
