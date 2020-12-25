@@ -12,7 +12,7 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-#[derive(Copy, Clone, Debug, PartialEq, Add)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
 /// A four-dimensional vector
 pub struct Vec2<T>
 where
@@ -24,7 +24,7 @@ where
     pub y: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
 /// A four-dimensional vector
 pub struct Vec3<T>
 where
@@ -38,7 +38,7 @@ where
     pub z: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
 /// A four-dimensional vector
 pub struct Vec4<T>
 where
@@ -191,7 +191,6 @@ macro_rules! impl_vec {
                 }
             }
 
-            impl_vec_vec_op!($vec_type $vec_type $vec_type [$( $component )*] Sub sub -);
             impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
             impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
             impl_vec_scalar_op!($vec_type [$( $component )*] Mul mul *);
@@ -720,6 +719,7 @@ mod tests {
         assert_eq!(Vec3::new(1, 2, 3) + 4, Vec3::new(5, 6, 7));
         assert_eq!(Vec4::new(1, 2, 3, 4) + 5, Vec4::new(6, 7, 8, 9));
     }
+
     #[test]
     fn add_assign() {
         let mut v = Vec2::new(1, 2);
