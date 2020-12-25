@@ -186,7 +186,7 @@ macro_rules! impl_vec_index {
        ),+
     ) => {
         $(
-            impl<T> Index<usize> for $vec_type<T>
+            impl<T> std::ops::Index<usize> for $vec_type<T>
             where
                 T: ValueType,
             {
@@ -204,7 +204,7 @@ macro_rules! impl_vec_index {
                 }
             }
 
-            impl<T> IndexMut<usize> for $vec_type<T>
+            impl<T> std::ops::IndexMut<usize> for $vec_type<T>
             where
                 T: ValueType,
             {
