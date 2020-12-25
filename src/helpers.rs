@@ -150,9 +150,10 @@ macro_rules! impl_vec_scalar_op {
             fn $trait_fn(self, rhs: T) -> Self {
                 debug_assert!(!self.has_nans());
 
-                Self {
-                    $($component: self.$component $per_component_op rhs,)*
-                }
+                // Use new since it should catch NaNs from rhs
+                Self::new(
+                    $(self.$component $per_component_op rhs),*
+                )
             }
         }
     }
