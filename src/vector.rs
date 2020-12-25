@@ -66,6 +66,7 @@ macro_rules! impl_vec {
                 /// Constructs a new vector.
                 ///
                 /// Has a debug assert that checks for NaNs.
+                #[inline]
                 pub fn new($($component: T),*) -> Self {
                     let v = Self{ $($component),* };
                     debug_assert!(!v.has_nans());
@@ -73,6 +74,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Constructs a new vector of 0s.
+                #[inline]
                 pub fn zeros() -> Self {
                     Self {
                         $($component: T::zero(),)*
@@ -80,6 +82,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Constructs a new vector of 1s.
+                #[inline]
                 pub fn ones() -> Self {
                     Self {
                         $($component: T::one(),)*
@@ -87,12 +90,14 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns `true` if any component is NaN.
+                #[inline]
                 pub fn has_nans(&self) -> bool {
                     // Not all T have is_nan()
                     $(self.$component != self.$component)||*
                 }
 
                 /// Returns the vector's squared length.
+                #[inline]
                 pub fn len_sqr(&self) -> T {
                     debug_assert!(!self.has_nans());
 
@@ -100,6 +105,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns the vector's length.
+                #[inline]
                 pub fn len(&self) -> T {
                     debug_assert!(!self.has_nans());
 
@@ -107,6 +113,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns the normalized vector.
+                #[inline]
                 pub fn normalized(&self) -> Self {
                     debug_assert!(!self.has_nans());
 
@@ -114,6 +121,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns the component-wise minimum of the two vectors.
+                #[inline]
                 pub fn min(&self, other: Self) -> Self {
                     debug_assert!(!self.has_nans());
                     debug_assert!(!other.has_nans());
@@ -124,6 +132,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns the component-wise maximum of the two vectors.
+                #[inline]
                 pub fn max(&self, other: Self) -> Self {
                     debug_assert!(!self.has_nans());
                     debug_assert!(!other.has_nans());
@@ -134,6 +143,7 @@ macro_rules! impl_vec {
                 }
 
                 /// Returns the vector permutation defined by the indices.
+                #[inline]
                 pub fn permuted(&self $(, $component: usize)*) -> Self {
                     debug_assert!(!self.has_nans());
 
@@ -144,6 +154,7 @@ macro_rules! impl_vec {
             }
 
             /// Shorthand constructor
+            #[inline]
             pub fn $shorthand<T>($($component: T),*) -> $vec_type<T>
             where
                 T: ValueType
@@ -207,6 +218,7 @@ macro_rules! impl_vec_dot {
                 T: ValueType,
             {
                 /// Returns the dot product of the two vectors.
+                #[inline]
                 pub fn dot(&self, other: Self) -> T {
                     debug_assert!(!self.has_nans());
                     debug_assert!(!other.has_nans());
@@ -228,6 +240,7 @@ where
     T: ValueType,
 {
     /// Returns the value of the minumum component.
+    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -235,6 +248,7 @@ where
     }
 
     /// Returns the value of the maximum component.
+    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -242,6 +256,7 @@ where
     }
 
     /// Returns the index of the maximum component.
+    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 
@@ -258,6 +273,7 @@ where
     T: ValueType,
 {
     /// Returns the value of the minumum component.
+    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -265,6 +281,7 @@ where
     }
 
     /// Returns the value of the maximum component.
+    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -272,6 +289,7 @@ where
     }
 
     /// Returns the index of the maximum component.
+    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 
@@ -299,6 +317,7 @@ where
     //
     // Always uses `f64` internally to avoid errors on "catastrophic cancellation".
     // See pbrt [2.2.1](http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#DotandCrossProduct) for details
+    #[inline]
     pub fn cross(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
@@ -322,6 +341,7 @@ where
     T: ValueType,
 {
     /// Returns the value of the minumum component.
+    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -331,6 +351,7 @@ where
     }
 
     /// Returns the value of the maximum component.
+    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -340,6 +361,7 @@ where
     }
 
     /// Returns the index of the maximum component.
+    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 
