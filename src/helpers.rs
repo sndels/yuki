@@ -18,9 +18,9 @@ pub trait Maxi {
 }
 
 macro_rules! impl_mini_float {
-    ($($vt:ty),+) => {
-        $(impl Mini for $vt {
-            fn mini(&self, other: $vt) -> $vt {
+    ( $( $t:ty ),+ ) => {
+        $(impl Mini for $t {
+            fn mini(&self, other: $t) -> $t {
                 self.min(other)
             }
         })*
@@ -29,9 +29,9 @@ macro_rules! impl_mini_float {
 impl_mini_float!(f32, f64);
 
 macro_rules! impl_mini_float {
-    ($($vt:ty),+) => {
-        $(impl Maxi for $vt {
-            fn maxi(&self, other: $vt) -> $vt {
+    ( $( $t:ty ),+ ) => {
+        $(impl Maxi for $t {
+            fn maxi(&self, other: $t) -> $t {
                 self.max(other)
             }
         })*
@@ -40,9 +40,9 @@ macro_rules! impl_mini_float {
 impl_mini_float!(f32, f64);
 
 macro_rules! impl_mini_integer {
-    ($($vt:ty),+) => {
-        $(impl Mini for $vt {
-            fn mini(&self, other: $vt) -> $vt {
+    ( $( $t:ty ),+ ) => {
+        $(impl Mini for $t {
+            fn mini(&self, other: $t) -> $t {
                 *self.min(&other)
             }
         })*
@@ -51,9 +51,9 @@ macro_rules! impl_mini_integer {
 impl_mini_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
 
 macro_rules! impl_maxi_integer {
-    ($($vt:ty),+) => {
-        $(impl Maxi for $vt {
-            fn maxi(&self, other: $vt) -> $vt {
+    ( $( $t:ty ),+ ) => {
+        $(impl Maxi for $t {
+            fn maxi(&self, other: $t) -> $t {
                 *self.max(&other)
             }
         })*
@@ -63,18 +63,21 @@ impl_maxi_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
 
 #[macro_export]
 macro_rules! impl_abs_diff_eq {
-    ($( $ct:ident<$vt:ty> [ $( $c:ident )+ ] ),+ ) => {
-        $(impl approx::AbsDiffEq for $ct<$vt> {
+    ( $( $vec_type:ident<$t:ty>
+         [ $( $component:ident )+ ]
+       ),+
+    ) => {
+        $(impl approx::AbsDiffEq for $vec_type<$t> {
             type Epsilon = Self;
 
             fn default_epsilon() -> Self::Epsilon {
                 Self {
-                    $($c: <$vt>::default_epsilon(),)*
+                    $($component: <$t>::default_epsilon(),)*
                 }
             }
 
             fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool{
-                true $( && self.$c.abs_diff_eq(&other.$c, epsilon.$c) )*
+                true $( && self.$component.abs_diff_eq(&other.$component, epsilon.$component) )*
             }
         })*
     };
@@ -82,19 +85,22 @@ macro_rules! impl_abs_diff_eq {
 
 #[macro_export]
 macro_rules! impl_vec_vec_op {
-    ($ct:ident $vt:ident $rt:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
-        impl<T> $tr for $ct<T>
+    ( $vec_type:ident $rhs_type:ident $return_type:ident
+      [ $( $component:ident )+ ]
+      $trait_name:ident $trait_fn:ident $per_component_op:tt
+    ) => {
+        impl<T> $trait_name for $vec_type<T>
         where
             T: ValueType,
         {
-            type Output = $rt<T>;
+            type Output = $return_type<T>;
 
-            fn $fun(self, rhs: $vt<T>) -> $rt<T> {
+            fn $trait_fn(self, rhs: $rhs_type<T>) -> $return_type<T> {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!rhs.has_nans());
 
                 Self {
-                    $($c: self.$c $op rhs.$c,)*
+                    $($component: self.$component $per_component_op rhs.$component,)*
                 }
             }
         }
@@ -103,16 +109,19 @@ macro_rules! impl_vec_vec_op {
 
 #[macro_export]
 macro_rules! impl_vec_vec_assign_op {
-    ($ct:ident $vt:ident[ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
-        impl<T> $tr<$vt<T>> for $ct<T>
+    ( $vec_type:ident $rhs_type:ident
+      [ $( $component:ident )+ ]
+      $trait_name:ident $trait_fn:ident $per_component_op:tt
+    ) => {
+        impl<T> $trait_name<$rhs_type<T>> for $vec_type<T>
         where
             T: ValueType,
         {
-            fn $fun(&mut self, rhs: Self) {
+            fn $trait_fn(&mut self, rhs: Self) {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!rhs.has_nans());
 
-                *self = *self $op rhs;
+                *self = *self $per_component_op rhs;
             }
         }
     }
@@ -120,18 +129,21 @@ macro_rules! impl_vec_vec_assign_op {
 
 #[macro_export]
 macro_rules! impl_vec_scalar_op {
-    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
-        impl<T> $tr<T> for $ct<T>
+    ( $vec_type:ident
+      [ $( $component:ident )+ ]
+      $trait_name:ident $trait_fn:ident $per_component_op:tt
+    ) => {
+        impl<T> $trait_name<T> for $vec_type<T>
         where
             T: ValueType,
         {
             type Output = Self;
 
-            fn $fun(self, rhs: T) -> Self {
+            fn $trait_fn(self, rhs: T) -> Self {
                 debug_assert!(!self.has_nans());
 
                 Self {
-                    $($c: self.$c $op rhs,)*
+                    $($component: self.$component $per_component_op rhs,)*
                 }
             }
         }
@@ -140,15 +152,18 @@ macro_rules! impl_vec_scalar_op {
 
 #[macro_export]
 macro_rules! impl_vec_scalar_assign_op {
-    ($ct:ident [ $( $c:ident )+ ] $tr:ident $fun:ident $op:tt) => {
-        impl<T> $tr<T> for $ct<T>
+    ( $vec_type:ident
+      [ $( $component:ident )+ ]
+      $trait_name:ident $trait_fn:ident $per_component_op:tt
+    ) => {
+        impl<T> $trait_name<T> for $vec_type<T>
         where
             T: ValueType,
         {
-            fn $fun(&mut self, rhs: T) {
+            fn $trait_fn(&mut self, rhs: T) {
                 debug_assert!(!self.has_nans());
 
-                *self = *self $op rhs;
+                *self = *self $per_component_op rhs;
 
                 debug_assert!(!self.has_nans());
             }
@@ -158,9 +173,12 @@ macro_rules! impl_vec_scalar_assign_op {
 
 #[macro_export]
 macro_rules! impl_vec_index {
-    ($( $ct:ident [ $( $ci:expr,$c:ident )+ ] ),+ ) => {
+    ( $( $vec_type:ident
+         [ $( $component_index:expr,$component:ident )+ ]
+       ),+
+    ) => {
         $(
-          impl<T> Index<usize> for $ct<T>
+          impl<T> Index<usize> for $vec_type<T>
           where
               T: ValueType,
           {
@@ -170,7 +188,7 @@ macro_rules! impl_vec_index {
                   debug_assert!(!self.has_nans());
 
                   match component {
-                      $($ci => &self.$c,)*
+                      $($component_index => &self.$component,)*
                       _ => {
                           panic!("Out of bounds Vec access with component {}", component);
                       }
@@ -178,7 +196,7 @@ macro_rules! impl_vec_index {
               }
           }
 
-          impl<T> IndexMut<usize> for $ct<T>
+          impl<T> IndexMut<usize> for $vec_type<T>
           where
               T: ValueType,
           {
@@ -186,7 +204,7 @@ macro_rules! impl_vec_index {
                   debug_assert!(!self.has_nans());
 
                   match component {
-                      $($ci => &mut self.$c,)*
+                      $($component_index => &mut self.$component,)*
                       _ => {
                           panic!("Out of bounds Vec access with component {}", component);
                       }

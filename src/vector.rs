@@ -55,17 +55,21 @@ where
 }
 
 macro_rules! impl_vec {
-    ($( $ct:ident [ $( $c:ident )+ ] $short:ident ),+ ) => {
+    ( $( $vec_type:ident
+         [ $( $component:ident )+ ]
+         $shorthand:ident
+       ),+
+    ) => {
         $(
-          impl<T> $ct<T>
+          impl<T> $vec_type<T>
           where
               T: ValueType,
           {
               /// Constructs a new vector.
               ///
               /// Has a debug assert that checks for NaNs.
-              pub fn new($($c: T),*) -> Self {
-                  let v = Self{ $($c),* };
+              pub fn new($($component: T),*) -> Self {
+                  let v = Self{ $($component),* };
                   debug_assert!(!v.has_nans());
                   v
               }
@@ -73,21 +77,21 @@ macro_rules! impl_vec {
               /// Constructs a new vector of 0s.
               pub fn zeros() -> Self {
                   Self {
-                      $($c: T::zero(),)*
+                      $($component: T::zero(),)*
                   }
               }
 
               /// Constructs a new vector of 1s.
               pub fn ones() -> Self {
                   Self {
-                      $($c: T::one(),)*
+                      $($component: T::one(),)*
                   }
               }
 
               /// Returns `true` if any component is NaN.
               pub fn has_nans(&self) -> bool {
                   // Not all T have is_nan()
-                  $(self.$c != self.$c)||*
+                  $(self.$component != self.$component)||*
               }
 
               /// Returns the vector's squared length.
@@ -117,7 +121,7 @@ macro_rules! impl_vec {
                   debug_assert!(!other.has_nans());
 
                   Self {
-                      $($c: self.$c.mini(other.$c),)*
+                      $($component: self.$component.mini(other.$component),)*
                   }
               }
 
@@ -127,37 +131,37 @@ macro_rules! impl_vec {
                   debug_assert!(!other.has_nans());
 
                   Self {
-                      $($c: self.$c.maxi(other.$c),)*
+                      $($component: self.$component.maxi(other.$component),)*
                   }
               }
 
               /// Returns the vector permutation defined by the indices.
-              pub fn permuted(&self $(, $c: usize)*) -> Self {
+              pub fn permuted(&self $(, $component: usize)*) -> Self {
                   debug_assert!(!self.has_nans());
 
                   Self {
-                      $($c: self[$c],)*
+                      $($component: self[$component],)*
                   }
               }
           }
 
           /// Shorthand constructor
-          pub fn $short<T>($($c: T),*) -> $ct<T> where T:ValueType {
-              $ct {$($c),*}
+          pub fn $shorthand<T>($($component: T),*) -> $vec_type<T> where T:ValueType {
+              $vec_type {$($component),*}
           }
 
-          impl<T> From<T> for $ct<T>
+          impl<T> From<T> for $vec_type<T>
           where
               T: ValueType,
           {
               fn from(v: T) -> Self {
                   Self {
-                      $($c: v,)*
+                      $($component: v,)*
                   }
               }
           }
 
-          impl<T> Neg for $ct<T>
+          impl<T> Neg for $vec_type<T>
           where
               T: Signed + ValueType,
           {
@@ -167,23 +171,23 @@ macro_rules! impl_vec {
                   debug_assert!(!self.has_nans());
 
                   Self {
-                      $($c: -self.$c,)*
+                      $($component: -self.$component,)*
                   }
               }
           }
 
-          impl_vec_vec_op!($ct $ct $ct[$( $c )*] Add add +);
-          impl_vec_vec_op!($ct $ct $ct [$( $c )*] Sub sub -);
-          impl_vec_scalar_op!($ct [$( $c )*] Add add +);
-          impl_vec_scalar_op!($ct [$( $c )*] Sub sub -);
-          impl_vec_scalar_op!($ct [$( $c )*] Mul mul *);
-          impl_vec_scalar_op!($ct [$( $c )*] Div div /);
-          impl_vec_vec_assign_op!($ct $ct [$( $c )*] AddAssign add_assign +);
-          impl_vec_vec_assign_op!($ct $ct [$( $c )*] SubAssign sub_assign -);
-          impl_vec_scalar_assign_op!($ct [$( $c )*] AddAssign add_assign +);
-          impl_vec_scalar_assign_op!($ct [$( $c )*] SubAssign sub_assign -);
-          impl_vec_scalar_assign_op!($ct [$( $c )*] MulAssign mul_assign *);
-          impl_vec_scalar_assign_op!($ct [$( $c )*] DivAssign div_assign /);
+          impl_vec_vec_op!($vec_type $vec_type $vec_type[$( $component )*] Add add +);
+          impl_vec_vec_op!($vec_type $vec_type $vec_type [$( $component )*] Sub sub -);
+          impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
+          impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
+          impl_vec_scalar_op!($vec_type [$( $component )*] Mul mul *);
+          impl_vec_scalar_op!($vec_type [$( $component )*] Div div /);
+          impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] AddAssign add_assign +);
+          impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] SubAssign sub_assign -);
+          impl_vec_scalar_assign_op!($vec_type [$( $component )*] AddAssign add_assign +);
+          impl_vec_scalar_assign_op!($vec_type [$( $component )*] SubAssign sub_assign -);
+          impl_vec_scalar_assign_op!($vec_type [$( $component )*] MulAssign mul_assign *);
+          impl_vec_scalar_assign_op!($vec_type [$( $component )*] DivAssign div_assign /);
         )*
     };
 }
@@ -195,9 +199,9 @@ impl_vec!(
 
 macro_rules! impl_vec_dot {
     // Need to do this separately since we cant separate expansion with '+'
-    ($( $ct:ident [ $c0:ident $( $c:ident )+ ] ),+ ) => {
+    ($( $vec_type:ident [ $component0:ident $( $component:ident )+ ] ),+ ) => {
         $(
-          impl<T> $ct<T>
+          impl<T> $vec_type<T>
           where
               T: ValueType,
           {
@@ -206,7 +210,7 @@ macro_rules! impl_vec_dot {
                   debug_assert!(!self.has_nans());
                   debug_assert!(!other.has_nans());
 
-                  self.$c0 * other.$c0 $(+ self.$c * other.$c)*
+                  self.$component0 * other.$component0 $(+ self.$component * other.$component)*
               }
           }
        )*
