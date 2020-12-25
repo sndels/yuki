@@ -159,7 +159,8 @@ macro_rules! impl_vec {
             where
                 T: ValueType
             {
-                $vec_type {$($component),*}
+                // Use new() to catch NANs
+                $vec_type::new($($component),*)
             }
 
             impl<T> From<T> for $vec_type<T>
@@ -500,6 +501,7 @@ mod tests {
 
     #[test]
     fn nan() {
+        // Test all permutations with constructor as it should panic
         let result = panic::catch_unwind(|| Vec2::new(f32::NAN, 0.0));
         assert!(result.is_err());
         let result = panic::catch_unwind(|| Vec2::new(0.0, f32::NAN));
@@ -519,6 +521,14 @@ mod tests {
         let result = panic::catch_unwind(|| Vec4::new(0.0, 0.0, f32::NAN, 0.0));
         assert!(result.is_err());
         let result = panic::catch_unwind(|| Vec4::new(0.0, 0.0, 0.0, f32::NAN));
+        assert!(result.is_err());
+
+        // Test shorthand constructors, they call new() internally so only need one test per
+        let result = panic::catch_unwind(|| vec2(f32::NAN, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| vec3(f32::NAN, 0.0, 0.0));
+        assert!(result.is_err());
+        let result = panic::catch_unwind(|| vec4(f32::NAN, 0.0, 0.0, 0.0));
         assert!(result.is_err());
     }
     #[test]
