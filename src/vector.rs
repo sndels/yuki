@@ -54,7 +54,7 @@ where
 }
 
 macro_rules! impl_vec {
-    ($( $ct:ident [ $( $c:ident )+ ] ),+ ) => {
+    ($( $ct:ident [ $( $c:ident )+ ] $short:ident ),+ ) => {
         $(
           impl<T> $ct<T>
           where
@@ -140,6 +140,11 @@ macro_rules! impl_vec {
               }
           }
 
+          /// Shorthand constructor
+          pub fn $short<T>($($c: T),*) -> $ct<T> where T:ValueType {
+              $ct {$($c),*}
+          }
+
           impl<T> From<T> for $ct<T>
           where
               T: ValueType,
@@ -182,9 +187,9 @@ macro_rules! impl_vec {
     };
 }
 impl_vec!(
-    Vec2 [x y],
-    Vec3 [x y z],
-    Vec4 [x y z w]
+    Vec2 [x y] vec2,
+    Vec3 [x y z] vec3,
+    Vec4 [x y z w] vec4
 );
 
 macro_rules! impl_vec_dot {
@@ -418,9 +423,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use std::panic;
 
-    use crate::vector::Vec2;
-    use crate::vector::Vec3;
-    use crate::vector::Vec4;
+    use crate::vector::{vec2, vec3, vec4, Vec2, Vec3, Vec4};
 
     #[test]
     fn new() {
@@ -466,17 +469,20 @@ mod tests {
         let v = Vec2::new(0.0, 1.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
+        assert_eq!(vec2(0.0, 1.0), v);
 
         let v = Vec3::new(0.0, 1.0, 2.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
         assert_eq!(v.z, v[2]);
+        assert_eq!(vec3(0.0, 1.0, 2.0), v);
 
         let v = Vec4::new(0.0, 1.0, 2.0, 3.0);
         assert_eq!(v.x, v[0]);
         assert_eq!(v.y, v[1]);
         assert_eq!(v.z, v[2]);
         assert_eq!(v.w, v[3]);
+        assert_eq!(vec4(0.0, 1.0, 2.0, 3.0), v);
 
         let mut v = Vec2::zeros();
         v[0] = 1.0;
