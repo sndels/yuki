@@ -3,8 +3,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::helpers::ValueType;
 use crate::{
-    impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op, impl_vec_vec_assign_op,
-    impl_vec_vec_op,
+    impl_vec_approx_eq, impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op,
+    impl_vec_vec_assign_op, impl_vec_vec_op,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -402,6 +402,15 @@ impl_vec_index!(
     Vec2 [0,x 1,y],
     Vec3 [0,x 1,y 2,z],
     Vec4 [0,x 1,y 2,z 3,w]
+);
+
+impl_vec_approx_eq!(
+    Vec2<f32> [x y ],
+    Vec3<f32> [x y z],
+    Vec4<f32> [x y z w],
+    Vec2<f64> [x y ],
+    Vec3<f64> [x y z],
+    Vec4<f64> [x y z w]
 );
 
 #[cfg(test)]
