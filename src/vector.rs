@@ -5,7 +5,8 @@ use std::ops::{
 
 use crate::helpers::ValueType;
 use crate::{
-    impl_vec_scalar_assign_op, impl_vec_scalar_op, impl_vec_vec_assign_op, impl_vec_vec_op,
+    impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op, impl_vec_vec_assign_op,
+    impl_vec_vec_op,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -369,45 +370,6 @@ where
     }
 }
 
-macro_rules! impl_vec_index {
-    ($( $ct:ident [ $( $ci:expr,$c:ident )+ ] ),+ ) => {
-        $(
-          impl<T> Index<usize> for $ct<T>
-          where
-              T: ValueType,
-          {
-              type Output = T;
-
-              fn index(&self, component: usize) -> &Self::Output {
-                  debug_assert!(!self.has_nans());
-
-                  match component {
-                      $($ci => &self.$c,)*
-                      _ => {
-                          panic!("Out of bounds Vec access with component {}", component);
-                      }
-                  }
-              }
-          }
-
-          impl<T> IndexMut<usize> for $ct<T>
-          where
-              T: ValueType,
-          {
-              fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-                  debug_assert!(!self.has_nans());
-
-                  match component {
-                      $($ci => &mut self.$c,)*
-                      _ => {
-                          panic!("Out of bounds Vec access with component {}", component);
-                      }
-                  }
-              }
-          }
-        )*
-    }
-}
 impl_vec_index!(
     Vec2 [0,x 1,y],
     Vec3 [0,x 1,y 2,z],

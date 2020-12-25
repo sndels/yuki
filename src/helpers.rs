@@ -156,6 +156,47 @@ macro_rules! impl_vec_scalar_assign_op {
     }
 }
 
+#[macro_export]
+macro_rules! impl_vec_index {
+    ($( $ct:ident [ $( $ci:expr,$c:ident )+ ] ),+ ) => {
+        $(
+          impl<T> Index<usize> for $ct<T>
+          where
+              T: ValueType,
+          {
+              type Output = T;
+
+              fn index(&self, component: usize) -> &Self::Output {
+                  debug_assert!(!self.has_nans());
+
+                  match component {
+                      $($ci => &self.$c,)*
+                      _ => {
+                          panic!("Out of bounds Vec access with component {}", component);
+                      }
+                  }
+              }
+          }
+
+          impl<T> IndexMut<usize> for $ct<T>
+          where
+              T: ValueType,
+          {
+              fn index_mut(&mut self, component: usize) -> &mut Self::Output {
+                  debug_assert!(!self.has_nans());
+
+                  match component {
+                      $($ci => &mut self.$c,)*
+                      _ => {
+                          panic!("Out of bounds Vec access with component {}", component);
+                      }
+                  }
+              }
+          }
+        )*
+    }
+}
+
 mod tests {
 
     #[test]
@@ -213,6 +254,6 @@ mod tests {
         assert!(abs_diff_eq!(v0, v0));
     }
 
-    // Don't test vector op generators here as they need to be tested per use to
-    // catch usage of wrong trait-op -combinations
+    // Don't test vector impl generators here as they need to be tested per use to
+    // catch wrong usage
 }
