@@ -89,7 +89,7 @@ macro_rules! impl_vec_vec_op {
       [ $( $component:ident )+ ]
       $trait_name:ident $trait_fn:ident $per_component_op:tt
     ) => {
-        impl<T> $trait_name for $vec_type<T>
+        impl<T> $trait_name<$rhs_type<T>> for $vec_type<T>
         where
             T: ValueType,
         {
@@ -99,7 +99,7 @@ macro_rules! impl_vec_vec_op {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!rhs.has_nans());
 
-                Self {
+                $return_type {
                     $($component: self.$component $per_component_op rhs.$component,)*
                 }
             }
@@ -111,17 +111,17 @@ macro_rules! impl_vec_vec_op {
 macro_rules! impl_vec_vec_assign_op {
     ( $vec_type:ident $rhs_type:ident
       [ $( $component:ident )+ ]
-      $trait_name:ident $trait_fn:ident $per_component_op:tt
+      $trait_name:ident $trait_fn:ident $op:tt
     ) => {
         impl<T> $trait_name<$rhs_type<T>> for $vec_type<T>
         where
             T: ValueType,
         {
-            fn $trait_fn(&mut self, rhs: Self) {
+            fn $trait_fn(&mut self, rhs: $rhs_type<T>) {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!rhs.has_nans());
 
-                *self = *self $per_component_op rhs;
+                *self = *self $op rhs;
             }
         }
     }
@@ -154,7 +154,7 @@ macro_rules! impl_vec_scalar_op {
 macro_rules! impl_vec_scalar_assign_op {
     ( $vec_type:ident
       [ $( $component:ident )+ ]
-      $trait_name:ident $trait_fn:ident $per_component_op:tt
+      $trait_name:ident $trait_fn:ident $op:tt
     ) => {
         impl<T> $trait_name<T> for $vec_type<T>
         where
@@ -163,7 +163,7 @@ macro_rules! impl_vec_scalar_assign_op {
             fn $trait_fn(&mut self, rhs: T) {
                 debug_assert!(!self.has_nans());
 
-                *self = *self $per_component_op rhs;
+                *self = *self $op rhs;
 
                 debug_assert!(!self.has_nans());
             }
