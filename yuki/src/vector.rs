@@ -1,6 +1,8 @@
 use num::traits::{Float, Signed};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use yuki_derive::*;
+
 use crate::helpers::ValueType;
 use crate::{
     impl_vec_approx_eq, impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op,
@@ -10,7 +12,7 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Add)]
 /// A four-dimensional vector
 pub struct Vec2<T>
 where
@@ -22,7 +24,7 @@ where
     pub y: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Add)]
 /// A four-dimensional vector
 pub struct Vec3<T>
 where
@@ -36,7 +38,7 @@ where
     pub z: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Add)]
 /// A four-dimensional vector
 pub struct Vec4<T>
 where
@@ -189,7 +191,6 @@ macro_rules! impl_vec {
                 }
             }
 
-            impl_vec_vec_op!($vec_type $vec_type $vec_type[$( $component )*] Add add +);
             impl_vec_vec_op!($vec_type $vec_type $vec_type [$( $component )*] Sub sub -);
             impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
             impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
