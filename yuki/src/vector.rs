@@ -10,7 +10,7 @@ use crate::{impl_vec_approx_eq, impl_vec_index};
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-/// A four-dimensional vector
+/// A two-dimensional vector
 #[derive(
     Copy,
     Clone,
@@ -39,7 +39,7 @@ where
     pub y: T,
 }
 
-/// A four-dimensional vector
+/// A three-dimensional vector
 #[derive(
     Copy,
     Clone,
