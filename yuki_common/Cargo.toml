@@ -1,5 +1,5 @@
 [package]
-name = "yuki"
+name = "yuki_common"
 version = "0.1.0"
 authors = ["Santeri Salmijärvi <santeri.salmijarvi@iki.fi>"]
 edition = "2018"
@@ -8,6 +8,3 @@ edition = "2018"
 
 [dependencies]
 num = "0.3"
-approx = "0.4"
-yuki_derive = { path = "../yuki_derive" }
-yuki_common= { path = "../yuki_common" }

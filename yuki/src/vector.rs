@@ -1,12 +1,12 @@
 use num::traits::{Float, Signed};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use yuki_common::ValueType;
 use yuki_derive::*;
 
-use crate::helpers::ValueType;
 use crate::{
     impl_vec_approx_eq, impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op,
-    impl_vec_vec_assign_op, impl_vec_vec_op,
+    impl_vec_vec_assign_op,
 };
 
 // Based on Physically Based Rendering 3rd ed.

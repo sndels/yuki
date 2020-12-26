@@ -2,4 +2,5 @@
 members = [
     "yuki",
     "yuki_derive",
+    "yuki_common",
 ]
