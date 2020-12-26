@@ -1,18 +1,19 @@
 use num::traits::{Float, Signed};
+#[allow(unused_imports)]
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use yuki_common::ValueType;
-use yuki_derive::*;
+// TODO: Fix import and resulting missing impl on the custom "traits"
+use yuki_derive::{Add, AddScalar, DivScalar, MulScalar, Sub, SubScalar};
 
 use crate::{
-    impl_vec_approx_eq, impl_vec_index, impl_vec_scalar_assign_op, impl_vec_scalar_op,
-    impl_vec_vec_assign_op,
+    impl_vec_approx_eq, impl_vec_index, impl_vec_scalar_assign_op, impl_vec_vec_assign_op,
 };
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
 pub struct Vec2<T>
 where
@@ -24,7 +25,7 @@ where
     pub y: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
 pub struct Vec3<T>
 where
@@ -38,7 +39,7 @@ where
     pub z: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub)]
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
 pub struct Vec4<T>
 where
@@ -191,10 +192,6 @@ macro_rules! impl_vec {
                 }
             }
 
-            impl_vec_scalar_op!($vec_type [$( $component )*] Add add +);
-            impl_vec_scalar_op!($vec_type [$( $component )*] Sub sub -);
-            impl_vec_scalar_op!($vec_type [$( $component )*] Mul mul *);
-            impl_vec_scalar_op!($vec_type [$( $component )*] Div div /);
             impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] AddAssign add_assign +);
             impl_vec_vec_assign_op!($vec_type $vec_type [$( $component )*] SubAssign sub_assign -);
             impl_vec_scalar_assign_op!($vec_type [$( $component )*] AddAssign add_assign +);

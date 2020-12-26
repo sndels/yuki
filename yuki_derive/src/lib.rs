@@ -4,7 +4,7 @@ use syn::{parse_macro_input, DeriveInput};
 mod derive_vec_op;
 mod vec_op_common;
 
-use derive_vec_op::derive_vec_op_vec;
+use derive_vec_op::derive_vec_op;
 
 macro_rules! derive {
     ($tr:ident $fn_name:ident $derive_fn:ident) => {
@@ -17,5 +17,12 @@ macro_rules! derive {
     };
 }
 
-derive!(Add add derive_vec_op_vec);
-derive!(Sub sub derive_vec_op_vec);
+// These implement the op assuming the type is a "vector" with separate components of type T
+// These are basically Op<"Vector"<T>> for "Vector"<T> where T: ValueType
+derive!(Add add derive_vec_op);
+derive!(Sub sub derive_vec_op);
+// These are basically Op<T> for "Vector"<T> where T: ValueType
+derive!(AddScalar add_scalar derive_vec_op);
+derive!(SubScalar sub_scalar derive_vec_op);
+derive!(MulScalar mul_scalar derive_vec_op);
+derive!(DivScalar div_scalar derive_vec_op);

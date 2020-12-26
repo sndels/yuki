@@ -4,23 +4,40 @@ use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Ident};
 
-use crate::vec_op_common::emit_vec_op_vec_impl;
+use crate::vec_op_common::{emit_vec_op_scalar_impl, emit_vec_op_vec_impl};
 
-pub fn derive_vec_op_vec(input: DeriveInput, trait_name: &str) -> TokenStream {
-    let trait_ident = Ident::new(trait_name, Span::call_site());
+pub fn derive_vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
+    let (trait_name, scalar_op) = if trait_name.ends_with("Scalar") {
+        (trait_name.strip_suffix("Scalar").unwrap(), true)
+    } else {
+        (trait_name, false)
+    };
+    let trait_ident = Ident::new(&trait_name, Span::call_site());
     let op_ident = Ident::new(&trait_name.to_lowercase(), Span::call_site());
     let type_ident = input.ident;
 
-    let component_sums = derive_component_ops(input.data, &op_ident, true);
+    if scalar_op {
+        let component_sums = derive_component_ops(input.data, &op_ident, false);
 
-    emit_vec_op_vec_impl(
-        trait_ident,
-        &type_ident,
-        &type_ident,
-        &type_ident,
-        op_ident,
-        component_sums,
-    )
+        emit_vec_op_scalar_impl(
+            trait_ident,
+            &type_ident,
+            &type_ident,
+            op_ident,
+            component_sums,
+        )
+    } else {
+        let component_sums = derive_component_ops(input.data, &op_ident, true);
+
+        emit_vec_op_vec_impl(
+            trait_ident,
+            &type_ident,
+            &type_ident,
+            &type_ident,
+            op_ident,
+            component_sums,
+        )
+    }
 }
 
 fn derive_component_ops(data: Data, op_ident: &Ident, other_has_components: bool) -> TokenStream {

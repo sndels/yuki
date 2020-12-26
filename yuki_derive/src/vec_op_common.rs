@@ -25,6 +25,28 @@ pub fn emit_vec_op_vec_impl(
     expanded
 }
 
+pub fn emit_vec_op_scalar_impl(
+    trait_ident: Ident,
+    type_ident: &Ident,
+    output_ident: &Ident,
+    op_ident: Ident,
+    component_sums: TokenStream,
+) -> TokenStream {
+    let expanded = vec_op_impl(
+        trait_ident,
+        quote! { T },
+        type_ident,
+        output_ident,
+        op_ident,
+        component_sums,
+    );
+
+    // Can be used to print the tokens
+    // panic!(expanded.to_string());
+
+    expanded
+}
+
 pub fn vec_op_impl(
     trait_ident: Ident,
     other: TokenStream,
