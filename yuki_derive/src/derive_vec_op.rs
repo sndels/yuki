@@ -4,37 +4,63 @@ use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Ident};
 
-use crate::vec_op_common::{impl_vec_op_scalar_tokens, impl_vec_op_vec_tokens};
+use crate::vec_op_common::{impl_vec_assign_op_tokens, impl_vec_op_tokens};
 
-pub fn derive_vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
-    let (trait_name, scalar_op) = if trait_name.ends_with("Scalar") {
-        (trait_name.strip_suffix("Scalar").unwrap(), true)
+pub fn vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
+    // *Scalar is our own indicator
+    // Check if its present and get the real trait to implement
+    let (trait_name, is_scalar_op) = if trait_name.ends_with("Scalar") {
+        (trait_name.trim_end_matches("Scalar"), true)
     } else {
         (trait_name, false)
     };
     let trait_ident = Ident::new(&trait_name, Span::call_site());
-    let op_ident = Ident::new(&trait_name.to_lowercase(), Span::call_site());
-    let type_ident = input.ident;
 
-    if scalar_op {
-        let opped_components = opped_components_tokens(input.data, &op_ident, false);
-
-        impl_vec_op_scalar_tokens(
-            trait_ident,
-            &type_ident,
-            &type_ident,
-            op_ident,
-            opped_components,
+    // The underlying component op is different from trait op for assign ops
+    let (trait_fn_ident, op_ident, is_assign_op) = if trait_name.ends_with("Assign") {
+        let component_op = trait_name
+            .trim_end_matches("Assign")
+            .to_lowercase()
+            .to_string();
+        (
+            Ident::new(&(component_op.clone() + "_assign"), Span::call_site()),
+            Ident::new(&component_op, Span::call_site()),
+            true,
         )
     } else {
-        let opped_components = opped_components_tokens(input.data, &op_ident, true);
+        (
+            Ident::new(&trait_name.to_lowercase(), Span::call_site()),
+            Ident::new(&trait_name.to_lowercase(), Span::call_site()),
+            false,
+        )
+    };
 
-        impl_vec_op_vec_tokens(
+    // All derive ops operate on the given type
+    let type_ident = input.ident;
+    // Scalar ops default use other: T
+    let other_ident = if is_scalar_op {
+        None
+    } else {
+        Some(&type_ident)
+    };
+
+    if is_assign_op {
+        impl_vec_assign_op_tokens(
             trait_ident,
-            &type_ident,
-            &type_ident,
-            &type_ident,
+            trait_fn_ident,
             op_ident,
+            &type_ident,
+            other_ident,
+        )
+    } else {
+        let opped_components = opped_components_tokens(input.data, &op_ident, !is_scalar_op);
+
+        impl_vec_op_tokens(
+            trait_ident,
+            trait_fn_ident,
+            &type_ident,
+            other_ident,
+            &type_ident,
             opped_components,
         )
     }
