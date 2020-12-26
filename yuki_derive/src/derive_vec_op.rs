@@ -4,7 +4,7 @@ use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Ident};
 
-use crate::vec_op_common::{emit_vec_op_scalar_impl, emit_vec_op_vec_impl};
+use crate::vec_op_common::{impl_vec_op_scalar_tokens, impl_vec_op_vec_tokens};
 
 pub fn derive_vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
     let (trait_name, scalar_op) = if trait_name.ends_with("Scalar") {
@@ -17,30 +17,34 @@ pub fn derive_vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
     let type_ident = input.ident;
 
     if scalar_op {
-        let component_sums = derive_component_ops(input.data, &op_ident, false);
+        let opped_components = opped_components_tokens(input.data, &op_ident, false);
 
-        emit_vec_op_scalar_impl(
+        impl_vec_op_scalar_tokens(
             trait_ident,
             &type_ident,
             &type_ident,
             op_ident,
-            component_sums,
+            opped_components,
         )
     } else {
-        let component_sums = derive_component_ops(input.data, &op_ident, true);
+        let opped_components = opped_components_tokens(input.data, &op_ident, true);
 
-        emit_vec_op_vec_impl(
+        impl_vec_op_vec_tokens(
             trait_ident,
             &type_ident,
             &type_ident,
             &type_ident,
             op_ident,
-            component_sums,
+            opped_components,
         )
     }
 }
 
-fn derive_component_ops(data: Data, op_ident: &Ident, other_has_components: bool) -> TokenStream {
+fn opped_components_tokens(
+    data: Data,
+    op_ident: &Ident,
+    other_has_components: bool,
+) -> TokenStream {
     match data {
         Data::Struct(ref data) => {
             match data.fields {

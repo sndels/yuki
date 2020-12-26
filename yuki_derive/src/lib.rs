@@ -12,12 +12,19 @@ macro_rules! derive {
         pub fn $fn_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Parse the input tokens into a syntax tree.
             let input = parse_macro_input!(input as DeriveInput);
-            proc_macro::TokenStream::from($derive_fn(input, stringify!($tr)))
+
+            let expanded = $derive_fn(input, stringify!($tr));
+
+            // Can be used to print the tokens
+            // panic!(expanded.to_string());
+
+            proc_macro::TokenStream::from(expanded)
         }
     };
 }
 
-// These implement the op assuming the type is a "vector" with separate components of type T
+// These implement the op assuming the type is a "vector" with separate components of type 'T'
+// They also require a construction with the form new(c0, c1...)
 // These are basically Op<"Vector"<T>> for "Vector"<T> where T: ValueType
 derive!(Add add derive_vec_op);
 derive!(Sub sub derive_vec_op);

@@ -2,58 +2,48 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
-pub fn emit_vec_op_vec_impl(
+pub fn impl_vec_op_vec_tokens(
     trait_ident: Ident,
     other_ident: &Ident,
     type_ident: &Ident,
     output_ident: &Ident,
     op_ident: Ident,
-    component_sums: TokenStream,
+    opped_components: TokenStream,
 ) -> TokenStream {
-    let expanded = vec_op_impl(
+    impl_vec_op_tokens(
         trait_ident,
         quote! { #other_ident<T> },
         type_ident,
         output_ident,
         op_ident,
-        component_sums,
-    );
-
-    // Can be used to print the tokens
-    // panic!(expanded.to_string());
-
-    expanded
+        opped_components,
+    )
 }
 
-pub fn emit_vec_op_scalar_impl(
+pub fn impl_vec_op_scalar_tokens(
     trait_ident: Ident,
     type_ident: &Ident,
     output_ident: &Ident,
     op_ident: Ident,
-    component_sums: TokenStream,
+    opped_components: TokenStream,
 ) -> TokenStream {
-    let expanded = vec_op_impl(
+    impl_vec_op_tokens(
         trait_ident,
         quote! { T },
         type_ident,
         output_ident,
         op_ident,
-        component_sums,
-    );
-
-    // Can be used to print the tokens
-    // panic!(expanded.to_string());
-
-    expanded
+        opped_components,
+    )
 }
 
-pub fn vec_op_impl(
+pub fn impl_vec_op_tokens(
     trait_ident: Ident,
     other: TokenStream,
     type_ident: &Ident,
     output_ident: &Ident,
     op_ident: Ident,
-    component_sums: TokenStream,
+    opped_components: TokenStream,
 ) -> TokenStream {
     quote! {
         impl<T> #trait_ident<#other> for #type_ident<T>
@@ -62,10 +52,8 @@ pub fn vec_op_impl(
         {
             type Output = #output_ident<T>;
 
-            fn #op_ident (self, other: #other) -> #output_ident<T>{
-                #output_ident::new(
-                    #component_sums
-                )
+            fn #op_ident(self, other: #other) -> Self::Output {
+                #output_ident::new( #opped_components )
             }
         }
     }

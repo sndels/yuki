@@ -3,7 +3,6 @@ use num::traits::{Float, Signed};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use yuki_common::ValueType;
-// TODO: Fix import and resulting missing impl on the custom "traits"
 use yuki_derive::{Add, AddScalar, DivScalar, MulScalar, Sub, SubScalar};
 
 use crate::{
@@ -13,8 +12,8 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 pub struct Vec2<T>
 where
     T: ValueType,
@@ -25,8 +24,8 @@ where
     pub y: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 pub struct Vec3<T>
 where
     T: ValueType,
@@ -39,8 +38,8 @@ where
     pub z: T,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 /// A four-dimensional vector
+#[derive(Copy, Clone, Debug, PartialEq, Add, Sub, AddScalar, SubScalar, MulScalar, DivScalar)]
 pub struct Vec4<T>
 where
     T: ValueType,
