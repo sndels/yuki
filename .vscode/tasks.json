@@ -21,6 +21,7 @@
             "command": "cargo",
             "args": [
                 "doc",
+                "--open"
             ],
             "options": {
                 "cwd": "${workspaceRoot}"
