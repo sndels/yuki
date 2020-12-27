@@ -6,6 +6,7 @@
             "group": "build",
             "command": "cargo",
             "args": [
+                "+nightly",
                 "test",
             ],
             "options": {

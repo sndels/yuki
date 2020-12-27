@@ -37,8 +37,24 @@ pub fn vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
 
     let (generic_param, type_generics, where_clause) = match parse_generics(&input.generics) {
         Ok((g, t, w)) => (g, t, w),
-        Err((err, span)) => {
-            return syn::Error::new(span, format!("Derive '{}': {}", trait_name, err))
+        Err(errors) => {
+            return errors
+                .iter()
+                .map(|&(err, span)| {
+                    syn::Error::new(
+                        if let Some(span) = span {
+                            span
+                        } else {
+                            input.ident.span()
+                        },
+                        format!("Derive '{}': {}", trait_name, err),
+                    )
+                })
+                .fold_first(|mut acc, err| {
+                    acc.combine(err);
+                    acc
+                })
+                .unwrap()
                 .to_compile_error();
         }
     };
@@ -80,41 +96,43 @@ pub fn vec_op(input: DeriveInput, trait_name: &str) -> TokenStream {
 
 fn parse_generics<'a>(
     generics: &'a Generics,
-) -> Result<(Ident, TypeGenerics, Option<&'a WhereClause>), (&str, Span)> {
+) -> Result<(Ident, TypeGenerics, Option<&'a WhereClause>), Vec<(&str, Option<Span>)>> {
     // We expect a struct with the form
     // struct Type<T>
     // where
     //      T: Bounds
     let mut generic_param = None;
+    let mut errors = vec![];
     for g in generics.params.iter() {
         match g {
             GenericParam::Type(t) => {
                 if !t.bounds.is_empty() {
-                    return Err(("Bounds should be in a where clause", t.bounds.span()));
+                    errors.push(("Bounds should be in a where clause", Some(t.bounds.span())));
                 }
                 if generic_param.is_some() {
-                    return Err(("Only one generic type param supported", t.span()));
+                    errors.push(("Only one generic type param supported", Some(t.span())));
                 }
                 generic_param = Some(t.ident.clone());
             }
             GenericParam::Lifetime(l) => {
-                return Err(("No lifetimes supported", l.span()));
+                errors.push(("Lifetimes not supported", Some(l.span())));
             }
             GenericParam::Const(c) => {
-                return Err(("No const supported", c.span()));
+                errors.push(("Consts not supported", Some(c.span())));
             }
         }
     }
     if generic_param.is_none() {
-        return Err((
-            "No generic type param. The derive expects a type of form Type<T>.",
-            generics.span(),
-        ));
+        errors.push(("A single generic param expected", None));
     }
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
     let generic_param = generic_param.unwrap();
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
-    // These should be the same unless we change them ourselves
+    // With our strict and previously validated form, this should always be true
     assert!(
         impl_generics.to_token_stream().to_string() == type_generics.to_token_stream().to_string()
     );

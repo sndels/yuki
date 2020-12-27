@@ -1,3 +1,5 @@
+#![feature(iterator_fold_self)]
+
 use proc_macro;
 use syn::{parse_macro_input, DeriveInput};
 
