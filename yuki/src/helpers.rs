@@ -47,56 +47,12 @@ macro_rules! impl_vec_approx_eq {
     };
 }
 
-#[macro_export]
-macro_rules! impl_vec_index {
-    ( $( $vec_type:ident
-         [ $( $component_index:expr,$component:ident )+ ]
-       ),+
-    ) => {
-        $(
-            impl<T> std::ops::Index<usize> for $vec_type<T>
-            where
-                T: ValueType,
-            {
-                type Output = T;
-
-                fn index(&self, component: usize) -> &Self::Output {
-                    debug_assert!(!self.has_nans());
-
-                    match component {
-                        $($component_index => &self.$component,)*
-                        _ => {
-                            panic!("Out of bounds Vec access with component {}", component);
-                        }
-                    }
-                }
-            }
-
-            impl<T> std::ops::IndexMut<usize> for $vec_type<T>
-            where
-                T: ValueType,
-            {
-                fn index_mut(&mut self, component: usize) -> &mut Self::Output {
-                    debug_assert!(!self.has_nans());
-
-                    match component {
-                        $($component_index => &mut self.$component,)*
-                        _ => {
-                            panic!("Out of bounds Vec access with component {}", component);
-                        }
-                    }
-                }
-            }
-        )*
-    }
-}
-
 mod tests {
+    use crate::common::ValueType;
     #[cfg(test)]
     use crate::impl_vec_approx_eq;
     #[cfg(test)]
     use approx::{abs_diff_eq, relative_eq};
-    use crate::common::ValueType;
 
     // The impl is generic to type and component count so we'll test with
     // a two-component vector and two value types

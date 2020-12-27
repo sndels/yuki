@@ -2,7 +2,9 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-use crate::vec_op_common::{combined_error, impl_vec_op_tokens, TraitInfo, TypeInfo};
+use crate::vec_op_common::{
+    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
+};
 
 pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
     let TraitInfo {
@@ -13,23 +15,21 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
         is_assign_op,
     } = TraitInfo::new(full_name);
 
-    let TypeInfo {
-        type_ident,
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
-    } = match TypeInfo::new(&input) {
-        Ok(info) => info,
-        Err(errors) => {
-            return combined_error(
-                &format!("Derive '{}'", full_name),
-                input.ident.span(),
-                errors,
-            )
-            .to_compile_error();
-        }
-    };
+    let generics = add_trait_bound(&input.generics, &trait_ident);
+
+    let (generic_param, impl_generics, type_generics, where_clause) =
+        match parse_generics(&generics) {
+            Ok((g, i, t, w)) => (g, i, t, w),
+            Err(errors) => {
+                return combined_error(
+                    &format!("Derive '{}'", full_name),
+                    input.ident.span(),
+                    errors,
+                )
+                .to_compile_error();
+            }
+        };
+    let type_ident = &input.ident;
 
     // Scalar ops default use other: T
     let other_tokens = if is_scalar_op {

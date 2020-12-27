@@ -1,11 +1,12 @@
 use num::traits::{Float, Signed};
-#[allow(unused_imports)]
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 use crate::common::ValueType;
 use yuki_derive::*;
 
-use crate::{impl_vec_approx_eq, impl_vec_index};
+use crate::impl_vec_approx_eq;
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
@@ -16,6 +17,8 @@ use crate::{impl_vec_approx_eq, impl_vec_index};
     Clone,
     Debug,
     PartialEq,
+    Index,
+    IndexMut,
     Add,
     Sub,
     AddScalar,
@@ -45,6 +48,8 @@ where
     Clone,
     Debug,
     PartialEq,
+    Index,
+    IndexMut,
     Add,
     Sub,
     AddScalar,
@@ -76,6 +81,8 @@ where
     Clone,
     Debug,
     PartialEq,
+    Index,
+    IndexMut,
     Add,
     Sub,
     AddScalar,
@@ -435,12 +442,6 @@ where
         }
     }
 }
-
-impl_vec_index!(
-    Vec2 [0,x 1,y],
-    Vec3 [0,x 1,y 2,z],
-    Vec4 [0,x 1,y 2,z 3,w]
-);
 
 impl_vec_approx_eq!(
     Vec2<f32> [x y ],

@@ -5,7 +5,8 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, DeriveInput, Ident};
 
-mod derive_vec_op;
+mod derive_math_op;
+mod derive_trait;
 mod impl_vec_op;
 mod vec_op_common;
 
@@ -87,14 +88,14 @@ pub fn vec_assign_op(
     proc_macro::TokenStream::from(tokens)
 }
 
-macro_rules! derive_vec_op {
-    ($tr:ident $fn_name:ident) => {
+macro_rules! derive {
+    ($tr:ident $fn_name:ident $derive_func:path) => {
         #[proc_macro_derive($tr)]
         pub fn $fn_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             // Parse the input tokens into a syntax tree.
             let input = parse_macro_input!(input as DeriveInput);
 
-            let tokens = derive_vec_op::vec_op(input, stringify!($tr));
+            let tokens = $derive_func(input, stringify!($tr));
 
             // Can be used to print the tokens
             // panic!(tokens.to_string());
@@ -108,16 +109,18 @@ macro_rules! derive_vec_op {
 // where T: yuki_common::ValueType
 // They also require a construction with the form new(c0, c1...)
 // These are basically Op<"Vector"<T>> for "Vector"<T>
-derive_vec_op!(Add add);
-derive_vec_op!(Sub sub);
-derive_vec_op!(AddAssign add_assign);
-derive_vec_op!(SubAssign sub_assign);
+derive!(Add add derive_math_op::vec_op);
+derive!(Sub sub derive_math_op::vec_op);
+derive!(AddAssign add_assign derive_math_op::vec_op);
+derive!(SubAssign sub_assign derive_math_op::vec_op);
 // These are basically Op<T> for "Vector"<T>
-derive_vec_op!(AddScalar add_scalar);
-derive_vec_op!(SubScalar sub_scalar);
-derive_vec_op!(MulScalar mul_scalar);
-derive_vec_op!(DivScalar div_scalar);
-derive_vec_op!(AddAssignScalar add_assign_scalar);
-derive_vec_op!(SubAssignScalar sub_assign_scalar);
-derive_vec_op!(MulAssignScalar mul_assign_scalar);
-derive_vec_op!(DivAssignScalar div_assign_scalar);
+derive!(AddScalar add_scalar derive_math_op::vec_op);
+derive!(SubScalar sub_scalar derive_math_op::vec_op);
+derive!(MulScalar mul_scalar derive_math_op::vec_op);
+derive!(DivScalar div_scalar derive_math_op::vec_op);
+derive!(AddAssignScalar add_assign_scalar derive_math_op::vec_op);
+derive!(SubAssignScalar sub_assign_scalar derive_math_op::vec_op);
+derive!(MulAssignScalar mul_assign_scalar derive_math_op::vec_op);
+derive!(DivAssignScalar div_assign_scalar derive_math_op::vec_op);
+derive!(Index index derive_trait::index);
+derive!(IndexMut index_mut derive_trait::index);

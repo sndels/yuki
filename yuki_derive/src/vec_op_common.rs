@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-    Data, DeriveInput, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
+    parse_quote, Data, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
     WhereClause,
 };
 
@@ -36,6 +36,16 @@ impl TraitInfo {
                 Ident::new(&component_op, Span::call_site()),
                 true,
             )
+        } else if trait_name.ends_with("Mut") {
+            let component_op = trait_name
+                .trim_end_matches("Mut")
+                .to_lowercase()
+                .to_string();
+            (
+                Ident::new(&(component_op.clone() + "_mut"), Span::call_site()),
+                Ident::new(&component_op, Span::call_site()),
+                false,
+            )
         } else {
             (
                 Ident::new(&trait_name.to_lowercase(), Span::call_site()),
@@ -54,34 +64,20 @@ impl TraitInfo {
     }
 }
 
-pub struct TypeInfo<'a> {
-    pub type_ident: &'a Ident,
-    pub generic_param: Ident,
-    pub impl_generics: ImplGenerics<'a>,
-    pub type_generics: TypeGenerics<'a>,
-    pub where_clause: Option<&'a WhereClause>,
-}
-
-impl<'a> TypeInfo<'a> {
-    pub fn new(input: &'a DeriveInput) -> Result<Self, Vec<(&str, Option<Span>)>> {
-        let (generic_param, impl_generics, type_generics, where_clause) =
-            match parse_generics(&input.generics) {
-                Ok((g, i, t, w)) => (g, i, t, w),
-                Err(errors) => {
-                    return Err(errors);
-                }
-            };
-        Ok(Self {
-            type_ident: &input.ident,
-            generic_param,
-            impl_generics,
-            type_generics,
-            where_clause,
-        })
+pub fn add_trait_bound(generics: &Generics, trait_ident: &Ident) -> Generics {
+    let mut ret = generics.clone();
+    for param in &mut ret.params {
+        if let GenericParam::Type(ref mut type_param) = *param {
+            type_param.bounds.push(parse_quote! {
+                ::core::ops::#trait_ident
+            });
+        }
     }
+    ret.make_where_clause();
+    ret
 }
 
-fn parse_generics<'a>(
+pub fn parse_generics<'a>(
     generics: &'a Generics,
 ) -> Result<(Ident, ImplGenerics, TypeGenerics, Option<&'a WhereClause>), Vec<(&str, Option<Span>)>>
 {

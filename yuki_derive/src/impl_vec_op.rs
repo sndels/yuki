@@ -2,7 +2,9 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Ident};
 
-use crate::vec_op_common::{combined_error, impl_vec_op_tokens, TraitInfo, TypeInfo};
+use crate::vec_op_common::{
+    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
+};
 
 pub fn vec_op(
     op_trait: Ident,
@@ -23,19 +25,16 @@ pub fn vec_op(
     }
     assert!(is_assign_op == output.is_none());
 
-    let TypeInfo {
-        type_ident,
-        generic_param: _,
-        impl_generics,
-        type_generics,
-        where_clause,
-    } = match TypeInfo::new(&item) {
-        Ok(info) => info,
+    let generics = add_trait_bound(&item.generics, &trait_ident);
+
+    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
+        Ok((g, i, t, w)) => (g, i, t, w),
         Err(errors) => {
             return combined_error(&format!("vec_op '{}'", op_trait), item.ident.span(), errors)
                 .to_compile_error();
         }
     };
+    let type_ident = &item.ident;
 
     // We always have other since the ops vec-vec
     let other_tokens = quote! {#other #type_generics};
