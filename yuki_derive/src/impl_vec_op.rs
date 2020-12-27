@@ -26,6 +26,7 @@ pub fn vec_op(
     let TypeInfo {
         type_ident,
         generic_param: _,
+        impl_generics,
         type_generics,
         where_clause,
     } = match TypeInfo::new(&item) {
@@ -47,6 +48,7 @@ pub fn vec_op(
         &type_ident,
         other_tokens,
         output,
+        impl_generics,
         type_generics,
         where_clause,
         false,

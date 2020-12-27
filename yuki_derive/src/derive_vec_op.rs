@@ -16,6 +16,7 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
     let TypeInfo {
         type_ident,
         generic_param,
+        impl_generics,
         type_generics,
         where_clause,
     } = match TypeInfo::new(&input) {
@@ -48,6 +49,7 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
         &type_ident,
         other_tokens,
         output,
+        impl_generics,
         type_generics,
         where_clause,
         is_scalar_op,

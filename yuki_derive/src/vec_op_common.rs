@@ -1,8 +1,10 @@
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Fields, GenericParam, Generics, Ident, TypeGenerics, WhereClause};
+use syn::{
+    Data, DeriveInput, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
+    WhereClause,
+};
 
 pub struct TraitInfo {
     pub ident: Ident,
@@ -55,21 +57,24 @@ impl TraitInfo {
 pub struct TypeInfo<'a> {
     pub type_ident: &'a Ident,
     pub generic_param: Ident,
+    pub impl_generics: ImplGenerics<'a>,
     pub type_generics: TypeGenerics<'a>,
     pub where_clause: Option<&'a WhereClause>,
 }
 
 impl<'a> TypeInfo<'a> {
     pub fn new(input: &'a DeriveInput) -> Result<Self, Vec<(&str, Option<Span>)>> {
-        let (generic_param, type_generics, where_clause) = match parse_generics(&input.generics) {
-            Ok((g, t, w)) => (g, t, w),
-            Err(errors) => {
-                return Err(errors);
-            }
-        };
+        let (generic_param, impl_generics, type_generics, where_clause) =
+            match parse_generics(&input.generics) {
+                Ok((g, i, t, w)) => (g, i, t, w),
+                Err(errors) => {
+                    return Err(errors);
+                }
+            };
         Ok(Self {
             type_ident: &input.ident,
             generic_param,
+            impl_generics,
             type_generics,
             where_clause,
         })
@@ -78,7 +83,8 @@ impl<'a> TypeInfo<'a> {
 
 fn parse_generics<'a>(
     generics: &'a Generics,
-) -> Result<(Ident, TypeGenerics, Option<&'a WhereClause>), Vec<(&str, Option<Span>)>> {
+) -> Result<(Ident, ImplGenerics, TypeGenerics, Option<&'a WhereClause>), Vec<(&str, Option<Span>)>>
+{
     // We expect a struct with the form
     // struct Type<T>
     // where
@@ -88,9 +94,6 @@ fn parse_generics<'a>(
     for g in generics.params.iter() {
         match g {
             GenericParam::Type(t) => {
-                if !t.bounds.is_empty() {
-                    errors.push(("Bounds should be in a where clause", Some(t.bounds.span())));
-                }
                 if generic_param.is_some() {
                     errors.push(("Only one generic type param supported", Some(t.span())));
                 }
@@ -114,12 +117,8 @@ fn parse_generics<'a>(
     let generic_param = generic_param.unwrap();
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
-    // With our strict and previously validated form, this should always be true
-    assert!(
-        impl_generics.to_token_stream().to_string() == type_generics.to_token_stream().to_string()
-    );
 
-    Ok((generic_param, type_generics, where_clause))
+    Ok((generic_param, impl_generics, type_generics, where_clause))
 }
 
 pub fn combined_error(
@@ -180,6 +179,7 @@ pub fn impl_vec_op_tokens(
     type_ident: &Ident,
     other_tokens: TokenStream,
     output_ident: Option<&Ident>,
+    impl_generics: ImplGenerics,
     type_generics: TypeGenerics,
     where_clause: Option<&WhereClause>,
     is_scalar_op: bool,
@@ -189,7 +189,7 @@ pub fn impl_vec_op_tokens(
 
         // We only support impl_generics == type_generics
         quote! {
-            impl #type_generics #trait_ident<#other_tokens> for #type_ident #type_generics
+            impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics
             #where_clause
             {
                 type Output = #output_ident #type_generics;
@@ -202,7 +202,7 @@ pub fn impl_vec_op_tokens(
     } else {
         // We only support impl_generics == type_generics
         quote! {
-            impl #type_generics #trait_ident<#other_tokens> for #type_ident #type_generics
+            impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics
             #where_clause
             {
                 fn #trait_fn_ident(&mut self, other: #other_tokens) {
