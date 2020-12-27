@@ -10,7 +10,6 @@ edition = "2018"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"
-yuki_common= { path = "../yuki_common" }
 
 [lib]
 proc-macro = true

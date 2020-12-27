@@ -2,7 +2,7 @@ use num::traits::{Float, Signed};
 #[allow(unused_imports)]
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use yuki_common::ValueType;
+use crate::common::ValueType;
 use yuki_derive::*;
 
 use crate::{impl_vec_approx_eq, impl_vec_index};

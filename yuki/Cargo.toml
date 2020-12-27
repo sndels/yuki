@@ -10,4 +10,3 @@ edition = "2018"
 num = "0.3"
 approx = "0.4"
 yuki_derive = { path = "../yuki_derive" }
-yuki_common= { path = "../yuki_common" }

@@ -96,7 +96,7 @@ mod tests {
     use crate::impl_vec_approx_eq;
     #[cfg(test)]
     use approx::{abs_diff_eq, relative_eq};
-    use yuki_common::ValueType;
+    use crate::common::ValueType;
 
     // The impl is generic to type and component count so we'll test with
     // a two-component vector and two value types
