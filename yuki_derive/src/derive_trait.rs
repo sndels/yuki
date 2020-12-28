@@ -51,7 +51,6 @@ pub fn index(input: DeriveInput, name: &str) -> TokenStream {
         }
     };
 
-    // We only support impl_generics == type_generics
     quote! {
         impl #impl_generics #trait_ident <usize> for #type_ident #type_generics
         #where_clause

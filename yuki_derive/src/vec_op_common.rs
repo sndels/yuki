@@ -183,7 +183,6 @@ pub fn impl_vec_op_tokens(
     if output_ident.is_some() {
         let opped_components = opped_components_tokens(item_data, &trait_fn_ident, !is_scalar_op);
 
-        // We only support impl_generics == type_generics
         quote! {
             impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics
             #where_clause
@@ -196,7 +195,6 @@ pub fn impl_vec_op_tokens(
             }
         }
     } else {
-        // We only support impl_generics == type_generics
         quote! {
             impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics
             #where_clause
