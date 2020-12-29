@@ -25,31 +25,35 @@ impl TraitInfo {
         };
         let trait_ident = Ident::new(&trait_name, Span::call_site());
 
+        // This could be much cleaner but hey, it works
+        let snake_case_op: String = trait_name.chars().fold(String::new(), |mut acc, c| {
+            if c.is_uppercase() {
+                acc.push('_');
+            }
+            acc.push_str(&c.to_lowercase().collect::<String>());
+            acc
+        })[1..]
+            .into();
+
         // The underlying component op is different from trait op for assign ops
-        let (trait_fn_ident, op_ident, is_assign_op) = if trait_name.ends_with("Assign") {
-            let component_op = trait_name
-                .trim_end_matches("Assign")
-                .to_lowercase()
-                .to_string();
+        let (trait_fn_ident, op_ident, is_assign_op) = if snake_case_op.ends_with("_assign") {
+            let component_op = snake_case_op.trim_end_matches("_assign");
             (
-                Ident::new(&(component_op.clone() + "_assign"), Span::call_site()),
+                Ident::new(&snake_case_op, Span::call_site()),
                 Ident::new(&component_op, Span::call_site()),
                 true,
             )
-        } else if trait_name.ends_with("Mut") {
-            let component_op = trait_name
-                .trim_end_matches("Mut")
-                .to_lowercase()
-                .to_string();
+        } else if trait_name.ends_with("_mut") {
+            let component_op = snake_case_op.trim_end_matches("_mut");
             (
-                Ident::new(&(component_op.clone() + "_mut"), Span::call_site()),
+                Ident::new(&snake_case_op, Span::call_site()),
                 Ident::new(&component_op, Span::call_site()),
                 false,
             )
         } else {
             (
-                Ident::new(&trait_name.to_lowercase(), Span::call_site()),
-                Ident::new(&trait_name.to_lowercase(), Span::call_site()),
+                Ident::new(&snake_case_op, Span::call_site()),
+                Ident::new(&snake_case_op, Span::call_site()),
                 false,
             )
         };
