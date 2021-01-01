@@ -1,10 +1,11 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Fields, Ident};
+use syn::{DeriveInput, Field, Ident};
 
 use crate::common::{
-    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
+    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, per_component_tokens,
+    TraitInfo,
 };
 
 pub fn vec_op(
@@ -58,13 +59,21 @@ pub fn vec_op(
 pub fn abs_diff_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
     let vec_type = &item.ident;
 
-    let default_epsilon_tokens = type_op_init_tokens(
+    let default_epsilon_tokens = per_component_tokens(
         &item.data,
-        value_type,
-        &Ident::new("default_epsilon", Span::call_site()),
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #value_type::default_epsilon()),
+        &|recurse| quote!(#(#recurse),*),
     );
 
-    let abs_diff_eq_tokens = abs_diff_eq_and_tokens(&item.data);
+    let abs_diff_eq_tokens = per_component_tokens(
+        &item.data,
+        &|c: &Option<Ident>, f: &Field| {
+            quote_spanned! { f.span() =>
+                self.#c.abs_diff_eq(&other.#c, epsilon.#c)
+            }
+        },
+        &|recurse| quote!(#(#recurse)&&*),
+    );
 
     quote! {
         impl approx::AbsDiffEq for #vec_type<#value_type>
@@ -84,62 +93,24 @@ pub fn abs_diff_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
     }
 }
 
-fn type_op_init_tokens(data: &Data, value_type: &Ident, op: &Ident) -> TokenStream {
-    match data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    let recurse = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        // Use correct field span to get potential error on correct line
-                        quote_spanned! { f.span() =>
-                            #name: #value_type::#op()
-                        }
-                    });
-                    quote! {
-                        #(#recurse),*
-                    }
-                }
-                _ => unimplemented!(),
-            }
-        }
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
-    }
-}
-
-fn abs_diff_eq_and_tokens(data: &Data) -> TokenStream {
-    match data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    let recurse = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        // Use correct field span to get potential error on correct line
-                        quote_spanned! { f.span() =>
-                            self.#name.abs_diff_eq(&other.#name, epsilon.#name)
-                        }
-                    });
-                    quote! {
-                        #(#recurse)&&*
-                    }
-                }
-                _ => unimplemented!(),
-            }
-        }
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
-    }
-}
-
 pub fn relative_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
     let vec_type = &item.ident;
 
-    let default_max_relative_tokens = type_op_init_tokens(
+    let default_max_relative_tokens = per_component_tokens(
         &item.data,
-        value_type,
-        &Ident::new("default_max_relative", Span::call_site()),
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #value_type::default_max_relative()),
+        &|recurse| quote!(#(#recurse),*),
     );
 
-    let relative_eq_tokens = relative_eq_and_tokens(&item.data);
+    let relative_eq_tokens = per_component_tokens(
+        &item.data,
+        &|c: &Option<Ident>, f: &Field| {
+            quote_spanned! { f.span() =>
+                self.#c.relative_eq(&other.#c, epsilon.#c, max_relative.#c)
+            }
+        },
+        &|recurse| quote!(#(#recurse)&&*),
+    );
 
     quote! {
         impl approx::RelativeEq for #vec_type<#value_type>
@@ -154,28 +125,5 @@ pub fn relative_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
                 #relative_eq_tokens
             }
         }
-    }
-}
-
-fn relative_eq_and_tokens(data: &Data) -> TokenStream {
-    match data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    let recurse = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        // Use correct field span to get potential error on correct line
-                        quote_spanned! { f.span() =>
-                            self.#name.relative_eq(&other.#name, epsilon.#name, max_relative.#name)
-                        }
-                    });
-                    quote! {
-                        #(#recurse)&&*
-                    }
-                }
-                _ => unimplemented!(),
-            }
-        }
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
     }
 }
