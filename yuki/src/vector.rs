@@ -149,32 +149,6 @@ impl_vec!(
     Vec4 [x y z w] vec4
 );
 
-macro_rules! impl_vec_dot {
-    // Need to do this separately since we cant separate expansion with '+'
-    ($( $vec_type:ident [ $component0:ident $( $component:ident )+ ] ),+ ) => {
-        $(
-            impl<T> $vec_type<T>
-            where
-                T: ValueType,
-            {
-                /// Returns the dot product of the two vectors.
-                #[inline]
-                pub fn dot(&self, other: Self) -> T {
-                    debug_assert!(!self.has_nans());
-                    debug_assert!(!other.has_nans());
-
-                    self.$component0 * other.$component0 $(+ self.$component * other.$component)*
-                }
-            }
-       )*
-    };
-}
-impl_vec_dot!(
-    Vec2 [x y],
-    Vec3 [x y z],
-    Vec4 [x y z w]
-);
-
 impl<T> Vec2<T>
 where
     T: ValueType,

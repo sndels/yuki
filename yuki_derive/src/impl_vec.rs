@@ -52,6 +52,11 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c != self.#c),
         &|recurse| quote!(#(#recurse)||*),
     );
+    let dot_ret = per_component_tokens(
+        &fields,
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
+        &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
+    );
     let min_init = per_component_tokens(
         &fields,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: self.#c.mini(other.#c)),
@@ -112,6 +117,15 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
             #[inline]
             pub fn has_nans(&self) -> bool {
                 #has_nans_pred
+            }
+
+            /// Returns the dot product of the two vectors.
+            #[inline]
+            pub fn dot(&self, other: Self) -> #generic_param {
+                debug_assert!(!self.has_nans());
+                debug_assert!(!other.has_nans());
+
+                #dot_ret
             }
 
             /// Returns the vector's squared length.
