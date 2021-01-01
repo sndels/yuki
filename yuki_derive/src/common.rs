@@ -69,12 +69,12 @@ impl TraitInfo {
     }
 }
 
-pub fn add_trait_bound(generics: &Generics, trait_ident: &Ident) -> Generics {
+pub fn add_trait_bound(generics: &Generics, trait_tokens: TokenStream) -> Generics {
     let mut ret = generics.clone();
     for param in &mut ret.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(parse_quote! {
-                #trait_ident
+                #trait_tokens
             });
         }
     }

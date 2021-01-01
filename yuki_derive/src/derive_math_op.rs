@@ -15,7 +15,7 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
         is_assign_op,
     } = TraitInfo::new(full_name);
 
-    let generics = add_trait_bound(&input.generics, &trait_ident);
+    let generics = add_trait_bound(&input.generics, quote!(#trait_ident));
 
     let (generic_param, impl_generics, type_generics, where_clause) =
         match parse_generics(&generics) {

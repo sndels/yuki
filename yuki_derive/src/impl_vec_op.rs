@@ -26,7 +26,7 @@ pub fn vec_op(
     }
     assert!(is_assign_op == output.is_none());
 
-    let generics = add_trait_bound(&item.generics, &trait_ident);
+    let generics = add_trait_bound(&item.generics, quote!(#trait_ident));
 
     let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
         Ok((g, i, t, w)) => (g, i, t, w),
