@@ -1,8 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
+use std::vec::IntoIter;
 use syn::spanned::Spanned;
 use syn::{
-    parse_quote, Data, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
+    parse_quote, Data, Field, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
     WhereClause,
 };
 
@@ -138,35 +139,27 @@ pub fn combined_error(
         .unwrap();
 }
 
-pub fn opped_components_tokens(
+pub fn per_component_tokens(
     data: &Data,
-    op_ident: &Ident,
-    other_has_components: bool,
+    component_tokens: &dyn Fn(&Option<Ident>, &Field) -> TokenStream,
+    meta_tokens: &dyn Fn(IntoIter<TokenStream>) -> TokenStream,
 ) -> TokenStream {
     match data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    // Use correct field span to get potential error on correct line
-                    let recurse = fields.named.iter().map(|f| {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let component_streams = fields
+                    .named
+                    .iter()
+                    .map(|f| {
                         let name = &f.ident;
-                        if other_has_components {
-                            quote_spanned! {f.span() =>
-                                self.#name.#op_ident(other.#name)
-                            }
-                        } else {
-                            quote_spanned! {f.span() =>
-                                self.#name.#op_ident(other)
-                            }
-                        }
-                    });
-                    quote! {
-                        #(#recurse,)*
-                    }
-                }
-                _ => unimplemented!(),
+                        // Use correct field span to get potential error on correct line
+                        component_tokens(name, f)
+                    })
+                    .collect::<Vec<TokenStream>>();
+                meta_tokens(component_streams.into_iter())
             }
-        }
+            _ => unimplemented!(),
+        },
         Data::Enum(_) | Data::Union(_) => unimplemented!(),
     }
 }
@@ -185,7 +178,26 @@ pub fn impl_vec_op_tokens(
     is_scalar_op: bool,
 ) -> TokenStream {
     if output_ident.is_some() {
-        let opped_components = opped_components_tokens(item_data, &trait_fn_ident, !is_scalar_op);
+        let component_tokens = |c: &Option<Ident>, f: &Field| {
+            if is_scalar_op {
+                {
+                    quote_spanned! {f.span() =>
+                        self.#c.#op_ident(other)
+                    }
+                }
+            } else {
+                {
+                    quote_spanned! {f.span() =>
+                        self.#c.#op_ident(other.#c)
+                    }
+                }
+            }
+        };
+        let opped_components = per_component_tokens(
+            item_data,
+            &component_tokens,
+            &|recurse| quote!(#(#recurse,)*),
+        );
 
         quote! {
             impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics

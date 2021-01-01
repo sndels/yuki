@@ -1,10 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use std::vec::IntoIter;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, FieldsNamed, Ident};
+use syn::{DeriveInput, Field, Ident};
 
-use crate::vec_op_common::{combined_error, parse_generics};
+use crate::vec_op_common::{combined_error, parse_generics, per_component_tokens};
 
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;
@@ -18,67 +17,59 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
             }
         };
 
-    let fields = match &item.data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => fields,
-            _ => unimplemented!(),
-        },
-        Data::Enum(_) | Data::Union(_) => unimplemented!(),
-    };
-
     let new_args = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param),
         &|recurse| quote!(#(#recurse),*),
     );
     let new_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c),
         &|recurse| quote!(#(#recurse),*),
     );
     let zeros_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::zero()),
         &|recurse| quote!(#(#recurse,)*),
     );
     let ones_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::one()),
         &|recurse| quote!(#(#recurse,)*),
     );
     // Not all T have is_nan() so use NaN != NaN
     let has_nans_pred = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c != self.#c),
         &|recurse| quote!(#(#recurse)||*),
     );
     let dot_ret = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
         &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
     );
     let min_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: self.#c.mini(other.#c)),
         &|recurse| quote!(#(#recurse,)*),
     );
     let max_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: self.#c.maxi(other.#c)),
         &|recurse| quote!(#(#recurse,)*),
     );
     let permuted_args = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: usize),
         &|recurse| quote!(#(, #recurse)*),
     );
     let permuted_init = per_component_tokens(
-        &fields,
+        &item.data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: self[#c]),
         &|recurse| quote!(#(#recurse,)*),
     );
     let from_args = per_component_tokens(
-        &fields,
+        &item.data,
         &|_c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => v),
         &|recurse| quote!(#(#recurse),*),
     );
@@ -202,21 +193,4 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
             }
         }
     }
-}
-
-fn per_component_tokens(
-    fields: &FieldsNamed,
-    component_tokens: &dyn Fn(&Option<Ident>, &Field) -> TokenStream,
-    meta_tokens: &dyn Fn(IntoIter<TokenStream>) -> TokenStream,
-) -> TokenStream {
-    let component_streams = fields
-        .named
-        .iter()
-        .map(|f| {
-            let name = &f.ident;
-            // Use correct field span to get potential error on correct line
-            component_tokens(name, f)
-        })
-        .collect::<Vec<TokenStream>>();
-    meta_tokens(component_streams.into_iter())
 }
