@@ -5,8 +5,6 @@ use std::ops::{
 
 use crate::common::ValueType;
 use yuki_derive::*;
-// Manually to keep rls happy
-use yuki_derive::{impl_abs_diff_eq, impl_relative_eq};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
