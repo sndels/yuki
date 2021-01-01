@@ -1,62 +1,14 @@
-#[macro_export]
-// Incorrect use results in a compile error as duplicate/missing/extra components
-// won't compile
-macro_rules! impl_vec_approx_eq {
-    ( $( $vec_type:ident<$t:ty>
-         [ $( $component:ident )+ ]
-       ),+
-    ) => {
-        $(
-            impl approx::AbsDiffEq for $vec_type<$t> {
-                type Epsilon = Self;
-
-                fn default_epsilon() -> Self::Epsilon {
-                    Self {
-                        $($component: <$t>::default_epsilon(),)*
-                    }
-                }
-
-                fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool{
-                    $(
-                        <$t>::abs_diff_eq(
-                            &self.$component, &other.$component, epsilon.$component
-                        )
-                    )&&*
-                }
-            }
-
-            impl approx::RelativeEq for $vec_type<$t> {
-                fn default_max_relative() -> Self::Epsilon {
-                    Self {
-                        $($component: <$t>::default_max_relative(),)*
-                    }
-                }
-
-                fn relative_eq(&self, other: &Self, epsilon: Self::Epsilon, max_relative: Self::Epsilon) -> bool{
-                    $(
-                        <$t>::relative_eq(
-                            &self.$component,
-                            &other.$component,
-                            epsilon.$component,
-                            max_relative.$component
-                        )
-                    )&&*
-                }
-            }
-        )*
-    };
-}
-
 mod tests {
     use crate::common::ValueType;
     #[cfg(test)]
-    use crate::impl_vec_approx_eq;
-    #[cfg(test)]
     use approx::{abs_diff_eq, relative_eq};
+    use yuki_derive::*;
 
     // The impl is generic to type and component count so we'll test with
     // a two-component vector and two value types
 
+    #[impl_abs_diff_eq(f32, f64)]
+    #[impl_relative_eq(f32, f64)]
     #[derive(PartialEq)]
     struct Vec2<T>
     where
@@ -89,10 +41,6 @@ mod tests {
             }
         }
     }
-    impl_vec_approx_eq!(
-        Vec2<f32> [x y],
-        Vec2<f64> [x y]
-    );
 
     #[test]
     fn abs_diff_eq() {

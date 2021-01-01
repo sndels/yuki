@@ -73,7 +73,7 @@ pub fn add_trait_bound(generics: &Generics, trait_ident: &Ident) -> Generics {
     for param in &mut ret.params {
         if let GenericParam::Type(ref mut type_param) = *param {
             type_param.bounds.push(parse_quote! {
-                ::core::ops::#trait_ident
+                #trait_ident
             });
         }
     }

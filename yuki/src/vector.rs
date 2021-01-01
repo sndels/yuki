@@ -5,13 +5,15 @@ use std::ops::{
 
 use crate::common::ValueType;
 use yuki_derive::*;
-
-use crate::impl_vec_approx_eq;
+// Manually to keep rls happy
+use yuki_derive::{impl_abs_diff_eq, impl_relative_eq};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
 /// A two-dimensional vector
+#[impl_abs_diff_eq(f32, f64)]
+#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
@@ -43,6 +45,8 @@ where
 }
 
 /// A three-dimensional vector
+#[impl_abs_diff_eq(f32, f64)]
+#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
@@ -76,6 +80,8 @@ where
 }
 
 /// A four-dimensional vector
+#[impl_abs_diff_eq(f32, f64)]
+#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
@@ -442,15 +448,6 @@ where
         }
     }
 }
-
-impl_vec_approx_eq!(
-    Vec2<f32> [x y ],
-    Vec3<f32> [x y z],
-    Vec4<f32> [x y z w],
-    Vec2<f64> [x y ],
-    Vec3<f64> [x y z],
-    Vec4<f64> [x y z w]
-);
 
 #[cfg(test)]
 mod tests {
