@@ -12,6 +12,7 @@ use yuki_derive::{impl_abs_diff_eq, impl_relative_eq};
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
 /// A two-dimensional vector
+#[impl_vec]
 #[impl_abs_diff_eq(f32, f64)]
 #[impl_relative_eq(f32, f64)]
 #[derive(
@@ -45,6 +46,7 @@ where
 }
 
 /// A three-dimensional vector
+#[impl_vec]
 #[impl_abs_diff_eq(f32, f64)]
 #[impl_relative_eq(f32, f64)]
 #[derive(
@@ -80,6 +82,7 @@ where
 }
 
 /// A four-dimensional vector
+#[impl_vec]
 #[impl_abs_diff_eq(f32, f64)]
 #[impl_relative_eq(f32, f64)]
 #[derive(
@@ -123,121 +126,6 @@ macro_rules! impl_vec {
        ),+
     ) => {
         $(
-            impl<T> $vec_type<T>
-            where
-                T: ValueType,
-            {
-                /// Constructs a new vector.
-                ///
-                /// Has a debug assert that checks for NaNs.
-                #[inline]
-                pub fn new($($component: T),*) -> Self {
-                    let v = Self{ $($component),* };
-                    debug_assert!(!v.has_nans());
-                    v
-                }
-
-                /// Constructs a new vector of 0s.
-                #[inline]
-                pub fn zeros() -> Self {
-                    Self {
-                        $($component: T::zero(),)*
-                    }
-                }
-
-                /// Constructs a new vector of 1s.
-                #[inline]
-                pub fn ones() -> Self {
-                    Self {
-                        $($component: T::one(),)*
-                    }
-                }
-
-                /// Returns `true` if any component is NaN.
-                #[inline]
-                pub fn has_nans(&self) -> bool {
-                    // Not all T have is_nan()
-                    $(self.$component != self.$component)||*
-                }
-
-                /// Returns the vector's squared length.
-                #[inline]
-                pub fn len_sqr(&self) -> T {
-                    debug_assert!(!self.has_nans());
-
-                    self.dot(*self)
-                }
-
-                /// Returns the vector's length.
-                #[inline]
-                pub fn len(&self) -> T {
-                    debug_assert!(!self.has_nans());
-
-                    T::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-                }
-
-                /// Returns the normalized vector.
-                #[inline]
-                pub fn normalized(&self) -> Self {
-                    debug_assert!(!self.has_nans());
-
-                    *self / self.len()
-                }
-
-                /// Returns the component-wise minimum of the two vectors.
-                #[inline]
-                pub fn min(&self, other: Self) -> Self {
-                    debug_assert!(!self.has_nans());
-                    debug_assert!(!other.has_nans());
-
-                    Self {
-                        $($component: self.$component.mini(other.$component),)*
-                    }
-                }
-
-                /// Returns the component-wise maximum of the two vectors.
-                #[inline]
-                pub fn max(&self, other: Self) -> Self {
-                    debug_assert!(!self.has_nans());
-                    debug_assert!(!other.has_nans());
-
-                    Self {
-                        $($component: self.$component.maxi(other.$component),)*
-                    }
-                }
-
-                /// Returns the vector permutation defined by the indices.
-                #[inline]
-                pub fn permuted(&self $(, $component: usize)*) -> Self {
-                    debug_assert!(!self.has_nans());
-
-                    Self {
-                        $($component: self[$component],)*
-                    }
-                }
-            }
-
-            /// Shorthand constructor
-            #[inline]
-            pub fn $shorthand<T>($($component: T),*) -> $vec_type<T>
-            where
-                T: ValueType
-            {
-                // Use new() to catch NANs
-                $vec_type::new($($component),*)
-            }
-
-            impl<T> From<T> for $vec_type<T>
-            where
-                T: ValueType,
-            {
-                fn from(v: T) -> Self {
-                    Self {
-                        $($component: v,)*
-                    }
-                }
-            }
-
             impl<T> Neg for $vec_type<T>
             where
                 T: Signed + ValueType,
