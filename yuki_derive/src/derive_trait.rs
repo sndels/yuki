@@ -3,7 +3,7 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields};
 
-use crate::vec_op_common::{combined_error, parse_generics, TraitInfo};
+use crate::common::{combined_error, parse_generics, TraitInfo};
 
 pub fn index(input: DeriveInput, name: &str) -> TokenStream {
     let TraitInfo {

@@ -5,11 +5,11 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, DeriveInput, Ident};
 
+mod common;
 mod derive_math_op;
 mod derive_trait;
 mod impl_vec;
 mod impl_vec_op;
-mod vec_op_common;
 
 use impl_vec as vec_impl;
 

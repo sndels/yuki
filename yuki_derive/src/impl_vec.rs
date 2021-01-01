@@ -3,7 +3,7 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{DeriveInput, Field, Ident};
 
-use crate::vec_op_common::{combined_error, parse_generics, per_component_tokens};
+use crate::common::{combined_error, parse_generics, per_component_tokens};
 
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;

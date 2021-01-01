@@ -3,7 +3,7 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Ident};
 
-use crate::vec_op_common::{
+use crate::common::{
     add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
 };
 

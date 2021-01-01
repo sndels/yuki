@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-use crate::vec_op_common::{
+use crate::common::{
     add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
 };
 
