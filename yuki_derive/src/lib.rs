@@ -212,3 +212,4 @@ derive!(MulAssignScalar mul_assign_scalar derive_math_op::vec_op);
 derive!(DivAssignScalar div_assign_scalar derive_math_op::vec_op);
 derive!(Index index derive_trait::index);
 derive!(IndexMut index_mut derive_trait::index);
+derive!(Neg neg derive_math_op::neg);

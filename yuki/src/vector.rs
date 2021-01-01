@@ -1,4 +1,4 @@
-use num::traits::{Float, Signed};
+use num::traits::Float;
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
@@ -22,6 +22,7 @@ use yuki_derive::{impl_abs_diff_eq, impl_relative_eq};
     PartialEq,
     Index,
     IndexMut,
+    Neg,
     Add,
     Sub,
     AddScalar,
@@ -56,6 +57,7 @@ where
     PartialEq,
     Index,
     IndexMut,
+    Neg,
     Add,
     Sub,
     AddScalar,
@@ -92,6 +94,7 @@ where
     PartialEq,
     Index,
     IndexMut,
+    Neg,
     Add,
     Sub,
     AddScalar,
@@ -118,36 +121,6 @@ where
     /// The w component of the vector
     pub w: T,
 }
-
-macro_rules! impl_vec {
-    ( $( $vec_type:ident
-         [ $( $component:ident )+ ]
-         $shorthand:ident
-       ),+
-    ) => {
-        $(
-            impl<T> Neg for $vec_type<T>
-            where
-                T: Signed + ValueType,
-            {
-                type Output = Self;
-
-                fn neg(self) -> Self {
-                    debug_assert!(!self.has_nans());
-
-                    Self {
-                        $($component: -self.$component,)*
-                    }
-                }
-            }
-        )*
-    };
-}
-impl_vec!(
-    Vec2 [x y] vec2,
-    Vec3 [x y z] vec3,
-    Vec4 [x y z w] vec4
-);
 
 impl<T> Vec2<T>
 where
