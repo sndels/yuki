@@ -9,6 +9,7 @@ mod common;
 mod derive_math_op;
 mod derive_trait;
 mod impl_vec;
+mod impl_vec_like;
 mod impl_vec_op;
 
 use impl_vec as vec_impl;
