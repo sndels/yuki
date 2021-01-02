@@ -13,7 +13,7 @@ pub fn vec_like_impl(
     type_generics: TypeGenerics,
     where_clause: Option<&WhereClause>,
     member_ops: Option<TokenStream>,
-    trait_impls: Option<TokenStream>,
+    post_impl: Option<TokenStream>,
 ) -> TokenStream {
     let shorthand = Ident::new(&vec_type.to_string().to_lowercase(), Span::call_site());
 
@@ -144,6 +144,6 @@ pub fn vec_like_impl(
             #vec_type::new(#new_init)
         }
 
-        #trait_impls
+        #post_impl
     }
 }

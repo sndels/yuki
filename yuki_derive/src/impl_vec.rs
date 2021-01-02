@@ -65,7 +65,7 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
         &|recurse| quote!(#(#recurse),*),
     );
 
-    let trait_impls = quote! {
+    let post_impl = quote! {
         // I don't really like that this trait gets generated from the impl macro,
         // though deriving From<T> with a derive macro seems as cryptic.
         // Then again, this whole thing is an exercise in rubegoldberging and should
@@ -87,6 +87,6 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
         type_generics,
         where_clause,
         Some(member_ops),
-        Some(trait_impls),
+        Some(post_impl),
     )
 }
