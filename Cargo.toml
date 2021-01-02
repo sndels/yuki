@@ -1,5 +1,2 @@
 [workspace]
-members = [
-    "yuki",
-    "yuki_derive",
-]
+members = ["tests", "yuki", "yuki_derive"]

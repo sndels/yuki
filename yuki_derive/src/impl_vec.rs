@@ -185,6 +185,10 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
             #vec_type::new(#new_init)
         }
 
+        // I don't really like that this trait gets generated from the impl macro,
+        // though deriving From<T> with a derive macro seems as cryptic.
+        // Then again, this whole thing is an exercise in rubegoldberging and should
+        // only be used through the generated docs...
         impl #impl_generics From #type_generics for #vec_type #type_generics
         #where_clause
         {
