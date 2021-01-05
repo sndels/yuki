@@ -11,7 +11,6 @@ use crate::common::{
 pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
     let TraitInfo {
         ident: trait_ident,
-        trait_fn_ident,
         op_ident,
         is_scalar_op,
         is_assign_op,
@@ -46,7 +45,6 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
     impl_vec_op_tokens(
         &input.data,
         trait_ident,
-        trait_fn_ident,
         op_ident,
         &type_ident,
         other_tokens,

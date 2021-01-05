@@ -9,7 +9,6 @@ use syn::{
 
 pub struct TraitInfo {
     pub ident: Ident,
-    pub trait_fn_ident: Ident,
     pub op_ident: Ident,
     pub is_scalar_op: bool,
     pub is_assign_op: bool,
@@ -24,6 +23,9 @@ impl TraitInfo {
         } else {
             (full_name, false)
         };
+
+        let is_assign_op = trait_name.ends_with("Assign");
+
         let trait_ident = Ident::new(&trait_name, Span::call_site());
 
         // This could be much cleaner but hey, it works
@@ -37,31 +39,10 @@ impl TraitInfo {
             .into();
 
         // The underlying component op is different from trait op for assign ops
-        let (trait_fn_ident, op_ident, is_assign_op) = if snake_case_op.ends_with("_assign") {
-            let component_op = snake_case_op.trim_end_matches("_assign");
-            (
-                Ident::new(&snake_case_op, Span::call_site()),
-                Ident::new(&component_op, Span::call_site()),
-                true,
-            )
-        } else if trait_name.ends_with("_mut") {
-            let component_op = snake_case_op.trim_end_matches("_mut");
-            (
-                Ident::new(&snake_case_op, Span::call_site()),
-                Ident::new(&component_op, Span::call_site()),
-                false,
-            )
-        } else {
-            (
-                Ident::new(&snake_case_op, Span::call_site()),
-                Ident::new(&snake_case_op, Span::call_site()),
-                false,
-            )
-        };
+        let op_ident = Ident::new(&snake_case_op, Span::call_site());
 
         Self {
             ident: trait_ident,
-            trait_fn_ident,
             op_ident,
             is_scalar_op,
             is_assign_op,
@@ -167,7 +148,6 @@ pub fn per_component_tokens(
 pub fn impl_vec_op_tokens(
     item_data: &Data,
     trait_ident: Ident,
-    trait_fn_ident: Ident,
     op_ident: Ident,
     type_ident: &Ident,
     other_tokens: TokenStream,
@@ -177,22 +157,23 @@ pub fn impl_vec_op_tokens(
     where_clause: Option<&WhereClause>,
     is_scalar_op: bool,
 ) -> TokenStream {
-    if output_ident.is_some() {
-        let component_tokens = |c: &Option<Ident>, f: &Field| {
-            if is_scalar_op {
-                {
-                    quote_spanned! {f.span() =>
-                        self.#c.#op_ident(other)
-                    }
-                }
-            } else {
-                {
-                    quote_spanned! {f.span() =>
-                        self.#c.#op_ident(other.#c)
-                    }
+    let component_tokens = |c: &Option<Ident>, f: &Field| {
+        if is_scalar_op {
+            {
+                quote_spanned! {f.span() =>
+                    self.#c.#op_ident(other)
                 }
             }
-        };
+        } else {
+            {
+                quote_spanned! {f.span() =>
+                    self.#c.#op_ident(other.#c)
+                }
+            }
+        }
+    };
+    if output_ident.is_some() {
+        // recurse gives result of each component, let's join with ',' for new-args
         let opped_components = per_component_tokens(
             item_data,
             &component_tokens,
@@ -205,19 +186,25 @@ pub fn impl_vec_op_tokens(
             {
                 type Output = #output_ident #type_generics;
 
-                fn #trait_fn_ident(self, other: #other_tokens) -> Self::Output {
+                fn #op_ident(self, other: #other_tokens) -> Self::Output {
                     #output_ident::new( #opped_components )
                 }
             }
         }
     } else {
+        // recurse gives assignment expr, just add ';' to complete
+        let opped_components = per_component_tokens(
+            item_data,
+            &component_tokens,
+            &|recurse| quote!(#(#recurse;)*),
+        );
         quote! {
             impl #impl_generics #trait_ident<#other_tokens> for #type_ident #type_generics
             #where_clause
             {
-                fn #trait_fn_ident(&mut self, other: #other_tokens) {
+                fn #op_ident(&mut self, other: #other_tokens) {
                     debug_assert!(!self.has_nans());
-                    *self = self.#op_ident(other);
+                    #opped_components
                     debug_assert!(!self.has_nans());
                 }
             }

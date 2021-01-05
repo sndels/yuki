@@ -8,7 +8,7 @@ use crate::common::{combined_error, parse_generics, TraitInfo};
 pub fn index(input: DeriveInput, name: &str) -> TokenStream {
     let TraitInfo {
         ident: trait_ident,
-        trait_fn_ident,
+        op_ident,
         ..
     } = TraitInfo::new(name);
 
@@ -57,7 +57,7 @@ pub fn index(input: DeriveInput, name: &str) -> TokenStream {
         {
             #trait_output_tokens
 
-            fn #trait_fn_ident(#self_ref_tokens, component: usize) -> #fn_output_tokens {
+            fn #op_ident(#self_ref_tokens, component: usize) -> #fn_output_tokens {
                 match component {
                     #match_tokens
                     _ => {
