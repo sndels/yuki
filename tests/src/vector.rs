@@ -78,11 +78,14 @@ mod tests {
     }
     #[test]
     fn dot() {
-        assert_eq!(Vec2::new(2, 3).len_sqr(), 2 * 2 + 3 * 3);
-        assert_eq!(Vec3::new(2, 3, 4).len_sqr(), 2 * 2 + 3 * 3 + 4 * 4);
+        assert_eq!(Vec2::new(2, 3).dot(Vec2::new(4, 5)), 2 * 4 + 3 * 5);
         assert_eq!(
-            Vec4::new(2, 3, 4, 5).len_sqr(),
-            2 * 2 + 3 * 3 + 4 * 4 + 5 * 5
+            Vec3::new(2, 3, 4).dot(Vec3::new(4, 5, 6)),
+            2 * 4 + 3 * 5 + 4 * 6
+        );
+        assert_eq!(
+            Vec4::new(2, 3, 4, 5).dot(Vec4::new(4, 5, 6, 7)),
+            2 * 4 + 3 * 5 + 4 * 6 + 5 * 7
         );
 
         assert_eq!(
