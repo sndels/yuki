@@ -8,11 +8,34 @@ use syn::{parse_macro_input, DeriveInput, Ident};
 mod common;
 mod derive_math_op;
 mod derive_trait;
+mod impl_point;
 mod impl_vec;
 mod impl_vec_like;
 mod impl_vec_op;
 
+use impl_point as point_impl;
 use impl_vec as vec_impl;
+
+#[proc_macro_attribute]
+/// Doesn't expect attributes
+pub fn impl_point(
+    _attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let item = parse_macro_input!(item as DeriveInput);
+
+    let impl_tokens = point_impl::point_impl(&item);
+    let tokens = quote! {
+        #item
+        #impl_tokens
+    };
+
+    // Can be used to print the tokens
+    // panic!(impl_tokens.to_string());
+    // panic!(tokens.to_string());
+
+    proc_macro::TokenStream::from(tokens)
+}
 
 #[proc_macro_attribute]
 /// Doesn't expect attributes
