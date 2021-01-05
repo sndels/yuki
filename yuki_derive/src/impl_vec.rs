@@ -4,7 +4,7 @@ use syn::spanned::Spanned;
 use syn::{DeriveInput, Field, Ident};
 
 use crate::common::{combined_error, parse_generics, per_component_tokens};
-use crate::impl_vec_like::vec_like_impl;
+use crate::impl_vec_like::{vec_like_impl, vec_normal_members_impl};
 
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;
@@ -17,47 +17,7 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
             }
         };
 
-    let dot_ret = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
-        &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
-    );
-
-    let member_ops = quote! {
-        /// Returns the dot product of the two vectors.
-        #[inline]
-        pub fn dot(&self, other: Self) -> #generic_param {
-            debug_assert!(!self.has_nans());
-            debug_assert!(!other.has_nans());
-
-            #dot_ret
-        }
-
-        /// Returns the vector's squared length.
-        #[inline]
-        pub fn len_sqr(&self) -> #generic_param {
-            debug_assert!(!self.has_nans());
-
-            self.dot(*self)
-        }
-
-        /// Returns the vector's length.
-        #[inline]
-        pub fn len(&self) -> #generic_param {
-            debug_assert!(!self.has_nans());
-
-            #generic_param::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
-        }
-
-        /// Returns the normalized vector.
-        #[inline]
-        pub fn normalized(&self) -> Self {
-            debug_assert!(!self.has_nans());
-
-            *self / self.len()
-        }
-
-    };
+    let member_ops = vec_normal_members_impl(&item.data, &generic_param);
 
     let from_args = per_component_tokens(
         &item.data,

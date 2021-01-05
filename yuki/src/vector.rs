@@ -4,6 +4,7 @@ use std::ops::{
 };
 
 use crate::common::ValueType;
+use crate::normal::Normal;
 use yuki_derive::*;
 
 // Based on Physically Based Rendering 3rd ed.
@@ -191,6 +192,20 @@ where
                 2
             }
         }
+    }
+
+    #[inline]
+    pub fn dot_n(&self, n: Normal<T>) -> T {
+        self.x * n.x + self.y * n.y + self.z * n.z
+    }
+}
+
+impl<T> From<Normal<T>> for Vec3<T>
+where
+    T: ValueType,
+{
+    fn from(n: Normal<T>) -> Self {
+        Self::new(n.x, n.y, n.z)
     }
 }
 

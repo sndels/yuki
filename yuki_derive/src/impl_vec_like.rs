@@ -147,3 +147,47 @@ pub fn vec_like_impl(
         #post_impl
     }
 }
+
+pub fn vec_normal_members_impl(data: &Data, generic_param: &Ident) -> TokenStream {
+    let dot_ret = per_component_tokens(
+        &data,
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
+        &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
+    );
+
+    quote! {
+        /// Returns the dot product of the two vectors.
+        #[inline]
+        pub fn dot(&self, other: Self) -> #generic_param {
+            debug_assert!(!self.has_nans());
+            debug_assert!(!other.has_nans());
+
+            #dot_ret
+        }
+
+        /// Returns the vector's squared length.
+        #[inline]
+        pub fn len_sqr(&self) -> #generic_param {
+            debug_assert!(!self.has_nans());
+
+            self.dot(*self)
+        }
+
+        /// Returns the vector's length.
+        #[inline]
+        pub fn len(&self) -> #generic_param {
+            debug_assert!(!self.has_nans());
+
+            #generic_param::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
+        }
+
+        /// Returns the normalized vector.
+        #[inline]
+        pub fn normalized(&self) -> Self {
+            debug_assert!(!self.has_nans());
+
+            *self / self.len()
+        }
+
+    }
+}

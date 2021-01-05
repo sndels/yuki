@@ -2,6 +2,7 @@
 mod tests {
     use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
     use std::panic;
+    use yuki::normal::Normal;
     use yuki::vector::{vec2, vec3, vec4, Vec2, Vec3, Vec4};
 
     // Test both Vec* structs and the generation macros here.
@@ -82,6 +83,11 @@ mod tests {
         assert_eq!(
             Vec4::new(2, 3, 4, 5).len_sqr(),
             2 * 2 + 3 * 3 + 4 * 4 + 5 * 5
+        );
+
+        assert_eq!(
+            Vec3::new(2, 3, 4).dot_n(Normal::new(5, 6, 7)),
+            2 * 5 + 3 * 6 + 4 * 7
         );
     }
 
@@ -202,6 +208,8 @@ mod tests {
         assert_eq!(Vec2::from(2), Vec2::new(2, 2));
         assert_eq!(Vec3::from(2), Vec3::new(2, 2, 2));
         assert_eq!(Vec4::from(2), Vec4::new(2, 2, 2, 2));
+
+        assert_eq!(Vec3::from(Normal::new(1, 2, 3)), Vec3::new(1, 2, 3));
     }
 
     #[test]
