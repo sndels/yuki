@@ -2,6 +2,21 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build bench",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--release"
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}/bench",
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "Cargo Test",
             "group": "build",
             "command": "cargo",
