@@ -9,4 +9,5 @@ edition = "2018"
 [dependencies]
 num = "0.3"
 approx = "0.4"
+itertools = "0.10"
 yuki_derive = { path = "../yuki_derive" }
