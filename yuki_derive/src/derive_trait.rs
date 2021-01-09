@@ -145,17 +145,11 @@ fn abs_diff_eq(
     type_generics: TypeGenerics,
     where_clause: Option<&WhereClause>,
 ) -> TokenStream {
-    let default_epsilon_tokens = per_component_tokens(
-        &data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::default_epsilon()),
-        &|recurse| quote!(#(#recurse),*),
-    );
-
     let abs_diff_eq_tokens = per_component_tokens(
         &data,
         &|c: &Option<Ident>, f: &Field| {
             quote_spanned! { f.span() =>
-                self.#c.abs_diff_eq(&other.#c, epsilon.#c)
+                self.#c.abs_diff_eq(&other.#c, epsilon)
             }
         },
         &|recurse| quote!(#(#recurse)&&*),
@@ -165,12 +159,10 @@ fn abs_diff_eq(
         impl #impl_generics approx::AbsDiffEq for #vec_type #type_generics
         #where_clause
         {
-            type Epsilon = Self;
+            type Epsilon = #generic_param::Epsilon;
 
             fn default_epsilon() -> Self::Epsilon {
-                #vec_type {
-                    #default_epsilon_tokens
-                }
+                #generic_param::default_epsilon()
             }
 
             fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
@@ -188,17 +180,11 @@ pub fn relative_eq(
     type_generics: TypeGenerics,
     where_clause: Option<&WhereClause>,
 ) -> TokenStream {
-    let default_max_relative_tokens = per_component_tokens(
-        &data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::default_max_relative()),
-        &|recurse| quote!(#(#recurse),*),
-    );
-
     let relative_eq_tokens = per_component_tokens(
         &data,
         &|c: &Option<Ident>, f: &Field| {
             quote_spanned! { f.span() =>
-                self.#c.relative_eq(&other.#c, epsilon.#c, max_relative.#c)
+                self.#c.relative_eq(&other.#c, epsilon, max_relative)
             }
         },
         &|recurse| quote!(#(#recurse)&&*),
@@ -209,9 +195,7 @@ pub fn relative_eq(
         #where_clause
         {
             fn default_max_relative() -> Self::Epsilon {
-                #vec_type {
-                    #default_max_relative_tokens
-                }
+                #generic_param::default_max_relative()
             }
 
             fn relative_eq(&self, other: &Self, epsilon: Self::Epsilon, max_relative: Self::Epsilon) -> bool {
