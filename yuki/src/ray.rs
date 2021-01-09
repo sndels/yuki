@@ -50,39 +50,39 @@ where
     }
 }
 
-// impl<T> AbsDiffEq for Ray<T>
-// where
-//     T: FloatValueType + AbsDiffEq + approx::AbsDiffEq<Epsilon = T>,
-// {
-//     type Epsilon = T::Epsilon;
+impl<T> AbsDiffEq for Ray<T>
+where
+    T: FloatValueType + AbsDiffEq + approx::AbsDiffEq<Epsilon = T>,
+{
+    type Epsilon = T::Epsilon;
 
-//     fn default_epsilon() -> Self::Epsilon {
-//         T::default_epsilon()
-//     }
+    fn default_epsilon() -> Self::Epsilon {
+        T::default_epsilon()
+    }
 
-//     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-//         self.o.abs_diff_eq(&other.o, epsilon)
-//             && self.d.abs_diff_eq(&other.d, epsilon)
-//             && self.t_max.abs_diff_eq(&other.t_max, epsilon)
-//     }
-// }
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.o.abs_diff_eq(&other.o, epsilon)
+            && self.d.abs_diff_eq(&other.d, epsilon)
+            && self.t_max.abs_diff_eq(&other.t_max, epsilon)
+    }
+}
 
-// impl<T> RelativeEq for Ray<T>
-// where
-//     T: FloatValueType + RelativeEq + approx::AbsDiffEq<Epsilon = T>,
-// {
-//     fn default_max_relative() -> Self::Epsilon {
-//         T::default_max_relative()
-//     }
+impl<T> RelativeEq for Ray<T>
+where
+    T: FloatValueType + RelativeEq + approx::AbsDiffEq<Epsilon = T>,
+{
+    fn default_max_relative() -> Self::Epsilon {
+        T::default_max_relative()
+    }
 
-//     fn relative_eq(
-//         &self,
-//         other: &Self,
-//         epsilon: Self::Epsilon,
-//         max_relative: Self::Epsilon,
-//     ) -> bool {
-//         self.o.relative_eq(&other.o, epsilon)
-//             && self.d.relative_eq(&other.d, epsilon)
-//             && self.t_max.relative_eq(&other.t_max, epsilon)
-//     }
-// }
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.o.relative_eq(&other.o, epsilon, max_relative)
+            && self.d.relative_eq(&other.d, epsilon, max_relative)
+            && self.t_max.relative_eq(&other.t_max, epsilon, max_relative)
+    }
+}
