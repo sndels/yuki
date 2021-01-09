@@ -50,6 +50,7 @@ where
     T: FloatValueType,
 {
     #[inline]
+    /// Calculates the dot product of this `Normal` and a [Vec3].
     pub fn dot_v(&self, v: Vec3<T>) -> T {
         self.x * v.x + self.y * v.y + self.z * v.z
     }

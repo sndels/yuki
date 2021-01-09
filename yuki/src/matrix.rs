@@ -5,7 +5,7 @@ use std::ops::Mul;
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Utilities/Mathematical_Routines.html#Matrix4x4
 
-/// A row-major 4x4 matrix
+/// A row-major 4x4 `Matrix4x4`
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Matrix4x4<T>
 where
@@ -19,9 +19,7 @@ impl<T> Matrix4x4<T>
 where
     T: FloatValueType,
 {
-    /// Constructs a new matrix.
-    ///
-    /// Has a debug assert that checks for NaNs.
+    /// Creates a new `Matrix4x4`.
     #[inline]
     pub fn new(m: [[T; 4]; 4]) -> Self {
         let ret = Self { m };
@@ -29,7 +27,7 @@ where
         ret
     }
 
-    /// Constructs a new identity matrix.
+    /// Creates a new identity `Matrix4x4`.
     #[inline]
     pub fn identity() -> Self {
         Self {
@@ -42,7 +40,7 @@ where
         }
     }
 
-    /// Constructs a new matrix filled with zeroes.
+    /// Creates a new `Matrix4x4` filled with zeroes.
     #[inline]
     pub fn zeros() -> Self {
         Self {
@@ -55,7 +53,7 @@ where
         }
     }
 
-    /// Returns `true` if the matrix has NaN in any position.
+    /// Checks if this `Matrix4x4` contains NaNs.
     #[inline]
     pub fn has_nans(&self) -> bool {
         // NaNs are the rare special case so no need to early out
@@ -67,25 +65,25 @@ where
             .any(|p| p)
     }
 
-    /// Returns the ith row of the matrix.
+    /// Returns the `i`th row of this `Matrix4x4`.
     #[inline]
     pub fn row(&self, i: usize) -> [T; 4] {
         self.m[i]
     }
 
-    /// Returns a mutable reference to the ith row of the matrix.
+    /// Returns a mutable reference to the `i`th row in this `Matrix4x4`.
     #[inline]
     pub fn row_mut(&mut self, i: usize) -> &mut [T; 4] {
         &mut self.m[i]
     }
 
-    /// Returns the ith column of the matrix.
+    /// Returns the `i`th column of this `Matrix4x4`.
     #[inline]
     pub fn col(&self, i: usize) -> [T; 4] {
         [self.m[0][i], self.m[1][i], self.m[2][i], self.m[3][i]]
     }
 
-    /// Returns an array of mutable references to the elements of ith column in the matrix.
+    /// Returns mutable references to the elements in the `i`th column of this `Matrix4x4`.
     #[inline]
     pub fn col_mut(&mut self, i: usize) -> [&mut T; 4] {
         // TODO: Check how this performs
@@ -100,7 +98,7 @@ where
         ]
     }
 
-    /// Returns the transpose of the matrix.
+    /// Returns the transpose of this `Matrix4x4`.
     #[inline]
     pub fn transposed(&self) -> Self {
         Self {
@@ -113,7 +111,7 @@ where
         }
     }
 
-    /// Returns the inverse of the matrix.
+    /// Returns the inverse of this `Matrix4x4`.
     pub fn inverted(&self) -> Self {
         // Gauss-Jordan elimination with full pivoting
         // TODO: Would Cramer's rule be faster with the same accuracy by using sse/avx?

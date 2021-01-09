@@ -15,7 +15,7 @@ pub fn normal_impl(item: &DeriveInput) -> TokenStream {
             }
         };
 
-    let member_ops = vec_normal_members_impl(&item.data, &generic_param);
+    let member_ops = vec_normal_members_impl(&item.data, &vec_type, &generic_param);
 
     vec_like_impl(
         &item.data,

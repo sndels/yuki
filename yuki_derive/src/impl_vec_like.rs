@@ -64,13 +64,21 @@ pub fn vec_like_impl(
         &|recurse| quote!(#(#recurse,)*),
     );
 
+    let str_type = vec_type.to_string();
+    let new_doc = format! { "Creates a new `{0}`.", str_type};
+    let zeros_doc = format! { "Creates a new `{0}` filled with `0`s.", str_type};
+    let ones_doc = format! { "Creates a new `{0}` filled with `1`s.", str_type};
+    let has_nans_doc = format! { "Checks if this `{0}` contains NaNs.", str_type};
+    let min_doc = format! { "Returns a new `{0}` with the component-wise minimum of this `{0}` and another `{0}`.", str_type};
+    let max_doc = format! { "Returns a new `{0}` with the component-wise maximum of this `{0}` and another `{0}`.", str_type};
+    let permuted_doc = format! { "Returns a new `{0}` with a permutation of this `{0}`. The arguments define what index in this `{0}` to map for each component in the new `{0}`.", str_type};
+    let shorthand_doc = format! { "A shorthand version of [{0}::new].", str_type};
+
     quote! {
         impl #impl_generics #vec_type #type_generics
         #where_clause
         {
-            /// Constructs a new vector.
-            ///
-            /// Has a debug assert that checks for NaNs.
+            #[doc = #new_doc]
             #[inline]
             pub fn new(#new_args) -> Self {
                 let v = Self{ #new_init };
@@ -78,7 +86,7 @@ pub fn vec_like_impl(
                 v
             }
 
-            /// Constructs a new vector of 0s.
+            #[doc = #zeros_doc]
             #[inline]
             pub fn zeros() -> Self {
                 Self {
@@ -86,7 +94,7 @@ pub fn vec_like_impl(
                 }
             }
 
-            /// Constructs a new vector of 1s.
+            #[doc = #ones_doc]
             #[inline]
             pub fn ones() -> Self {
                 Self {
@@ -94,7 +102,7 @@ pub fn vec_like_impl(
                 }
             }
 
-            /// Returns `true` if any component is NaN.
+            #[doc = #has_nans_doc]
             #[inline]
             pub fn has_nans(&self) -> bool {
                 #has_nans_pred
@@ -102,7 +110,7 @@ pub fn vec_like_impl(
 
             #member_ops
 
-            /// Returns the component-wise minimum of the two vectors.
+            #[doc = #min_doc]
             #[inline]
             pub fn min(&self, other: Self) -> Self {
                 debug_assert!(!self.has_nans());
@@ -113,7 +121,7 @@ pub fn vec_like_impl(
                 }
             }
 
-            /// Returns the component-wise maximum of the two vectors.
+            #[doc = #max_doc]
             #[inline]
             pub fn max(&self, other: Self) -> Self {
                 debug_assert!(!self.has_nans());
@@ -124,7 +132,7 @@ pub fn vec_like_impl(
                 }
             }
 
-            /// Returns the vector permutation defined by the indices.
+            #[doc = #permuted_doc]
             #[inline]
             pub fn permuted(&self #permuted_args) -> Self {
                 debug_assert!(!self.has_nans());
@@ -135,7 +143,7 @@ pub fn vec_like_impl(
             }
         }
 
-        /// Shorthand constructor
+        #[doc = #shorthand_doc]
         #[inline]
         pub fn #shorthand #type_generics (#new_args) -> #vec_type #type_generics
         #where_clause
@@ -148,15 +156,26 @@ pub fn vec_like_impl(
     }
 }
 
-pub fn vec_normal_members_impl(data: &Data, generic_param: &Ident) -> TokenStream {
+pub fn vec_normal_members_impl(
+    data: &Data,
+    vec_type: &Ident,
+    generic_param: &Ident,
+) -> TokenStream {
     let dot_ret = per_component_tokens(
         &data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
         &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
     );
 
+    let str_type = vec_type.to_string();
+    let dot_doc =
+        format! { "Calculates the dot product of this `{0}` and another `{0}`.", str_type};
+    let len_sqr_doc = format! { "Calculates the squared length of this `{0}`.", str_type};
+    let len_doc = format! { "Calculates the length of this `{0}`.", str_type};
+    let normalized_doc = format! { "Returns a new `{0}` with this `{0}` normalized.", str_type};
+
     quote! {
-        /// Returns the dot product of the two vectors.
+        #[doc = #dot_doc]
         #[inline]
         pub fn dot(&self, other: Self) -> #generic_param {
             debug_assert!(!self.has_nans());
@@ -165,7 +184,7 @@ pub fn vec_normal_members_impl(data: &Data, generic_param: &Ident) -> TokenStrea
             #dot_ret
         }
 
-        /// Returns the vector's squared length.
+        #[doc = #len_sqr_doc]
         #[inline]
         pub fn len_sqr(&self) -> #generic_param {
             debug_assert!(!self.has_nans());
@@ -173,7 +192,7 @@ pub fn vec_normal_members_impl(data: &Data, generic_param: &Ident) -> TokenStrea
             self.dot(*self)
         }
 
-        /// Returns the vector's length.
+        #[doc = #len_doc]
         #[inline]
         pub fn len(&self) -> #generic_param {
             debug_assert!(!self.has_nans());
@@ -181,7 +200,7 @@ pub fn vec_normal_members_impl(data: &Data, generic_param: &Ident) -> TokenStrea
             #generic_param::from_f64(self.len_sqr().to_f64().unwrap().sqrt()).unwrap()
         }
 
-        /// Returns the normalized vector.
+        #[doc = #normalized_doc]
         #[inline]
         pub fn normalized(&self) -> Self {
             debug_assert!(!self.has_nans());

@@ -14,7 +14,7 @@ use crate::vector::{Vec2, Vec3};
 // point * scalar = point
 // point *= scalar
 
-/// A two-dimensional point
+/// A two-dimensional point.
 #[impl_point]
 #[vec_op(Add Vec2 Point2)]
 #[vec_op(Add Point2 Point2)]
@@ -41,13 +41,13 @@ pub struct Point2<T>
 where
     T: ValueType,
 {
-    /// The x component of the point
+    /// The x component of the point.
     pub x: T,
-    /// The y component of the point
+    /// The y component of the point.
     pub y: T,
 }
 
-/// A three-dimensional point
+/// A three-dimensional point.
 #[impl_point]
 #[vec_op(Add Vec3 Point3)]
 #[vec_op(Add Point3 Point3)]
@@ -74,10 +74,10 @@ pub struct Point3<T>
 where
     T: ValueType,
 {
-    /// The x component of the point
+    /// The x component of the point.
     pub x: T,
-    /// The y component of the point
+    /// The y component of the point.
     pub y: T,
-    /// The z component of the point
+    /// The z component of the point.
     pub z: T,
 }

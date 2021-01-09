@@ -16,8 +16,15 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
                 return combined_error("Impl Point", item.ident.span(), errors).to_compile_error();
             }
         };
+
+    let str_type = point_type.to_string();
+    let dist_doc =
+        format! { "Calculates the distance between this `{0}` and another `{0}`.", str_type};
+    let dist_sqr_doc = format! { "Calculates the squared distance between this `{0}` and another `{0}`.", str_type};
+    let lerp_doc = format! { "Returns a new `{0}` that was linearly interpolated between this `{0}` and another `{0}` by the factor `t`.", str_type};
+
     let member_ops = quote! {
-            /// Returns the distance between the points.
+            #[doc = #dist_doc]
             #[inline]
             pub fn dist(&self, other: Self ) -> T {
                 debug_assert!(!self.has_nans());
@@ -26,7 +33,7 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
                 (*self - other).len()
             }
 
-            /// Returns the distance between the points.
+            #[doc = #dist_sqr_doc]
             #[inline]
             pub fn dist_sqr(&self, other: Self ) -> T {
                 debug_assert!(!self.has_nans());
@@ -35,7 +42,7 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
                 (*self - other).len_sqr()
             }
 
-            /// Linearly interpolates between the points by factor t
+            #[doc = #lerp_doc]
             #[inline]
             pub fn lerp(&self, other: Self , t: #generic_param) -> Self {
                 debug_assert!(!self.has_nans());
@@ -86,17 +93,23 @@ fn point_floor_ceil_impl(point_type: &Ident, item: &DeriveInput) -> TokenStream 
         &|recurse| quote!(Self::new(#(#recurse),*)),
     );
 
+    let str_type = point_type.to_string();
+    let floor_doc =
+        format! { "Returns a new `{0}` with the components of this `{0}` rounded down.", str_type};
+    let ceil_doc =
+        format! { "Returns a new `{0}` with the components of this `{0}` rounded up.", str_type};
+
     quote! {
         impl #impl_generics #point_type #type_generics
         #where_clause
         {
-            /// Returns the vector with each of the components rounded down
+            #[doc = #floor_doc]
             #[inline]
             pub fn floor(&self) -> Self {
                 #floor_ret
             }
 
-            /// Returns the vector with each of the components rounded up
+            #[doc = #ceil_doc]
             #[inline]
             pub fn ceil(&self) -> Self {
                 #ceil_ret
@@ -122,11 +135,14 @@ fn point_abs_impl(point_type: &Ident, item: &DeriveInput) -> TokenStream {
         &|recurse| quote!(Self::new(#(#recurse),*)),
     );
 
+    let str_type = point_type.to_string();
+    let abs_doc = format! { "Returns a new `{0}` with the absolute values of the components in this `{0}`.", str_type};
+
     quote! {
         impl #impl_generics #point_type #type_generics
         #where_clause
         {
-            /// Returns the vector with the absolute value for each component
+            #[doc = #abs_doc]
             #[inline]
             pub fn abs(&self) -> Self {
                 #abs_ret
