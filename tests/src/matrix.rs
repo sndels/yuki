@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use approx::assert_abs_diff_eq;
+    use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
     use yuki::matrix::Matrix4x4;
@@ -198,5 +198,35 @@ mod tests {
 
         // m should remain untouched
         assert_eq!(m, mc);
+    }
+
+    #[test]
+    fn abs_diff_eq() {
+        assert_abs_diff_eq!(Matrix4x4::<f32>::identity(), Matrix4x4::identity());
+        for row in 0..4 {
+            for col in 0..4 {
+                let mut m = Matrix4x4::zeros();
+                m.m[row][col] = 1.0;
+                assert_abs_diff_ne!(m, Matrix4x4::identity());
+                assert_abs_diff_eq!(m, Matrix4x4::identity(), epsilon = 1.0)
+            }
+        }
+    }
+
+    #[test]
+    fn relative_eq() {
+        assert_abs_diff_eq!(Matrix4x4::<f32>::identity(), Matrix4x4::identity());
+        for row in 0..4 {
+            for col in 0..4 {
+                let mut m = Matrix4x4::new([[2.0; 4]; 4]);
+                let mc = m;
+                m.m[row][col] = 1.0;
+                assert_relative_ne!(m, mc);
+                assert_relative_ne!(m, mc, epsilon = 0.0);
+                assert_relative_eq!(m, mc, epsilon = 1.0);
+                assert_relative_ne!(m, mc, epsilon = 0.0, max_relative = 0.0);
+                assert_relative_eq!(m, mc, epsilon = 0.0, max_relative = 0.5);
+            }
+        }
     }
 }
