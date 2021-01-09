@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
+    use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
     use yuki::normal::Normal;
     use yuki::vector::{vec2, vec3, vec4, Vec2, Vec3, Vec4};
@@ -393,85 +393,73 @@ mod tests {
     #[test]
     fn abs_diff_eq() {
         // Basic cases
-        assert!(abs_diff_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::zeros()));
-        assert!(!abs_diff_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::ones()));
+        assert_abs_diff_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::zeros());
+        assert_abs_diff_ne!(&Vec2::<f32>::zeros(), &Vec2::<f32>::ones());
 
         // Should fail on diff in any coordinate if no epsilon is given
-        assert!(!abs_diff_eq!(&Vec2::new(0.0, 1.0), &Vec2::zeros()));
-        assert!(!abs_diff_eq!(&Vec2::new(1.0, 0.0), &Vec2::zeros()));
+        assert_abs_diff_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros());
+        assert_abs_diff_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
         // Should fail on diff in any coordinate that doesn't fit epsilon
-        assert!(!abs_diff_eq!(
-            &Vec2::new(0.0, 1.0),
-            &Vec2::zeros(),
-            epsilon = 0.0
-        ));
-        assert!(!abs_diff_eq!(
-            &Vec2::new(1.0, 0.0),
-            &Vec2::zeros(),
-            epsilon = 0.0
-        ));
+        assert_abs_diff_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros(), epsilon = 0.0);
+        assert_abs_diff_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros(), epsilon = 0.0);
 
         // Should succeed with matching epsilon
-        assert!(abs_diff_eq!(
-            &Vec2::new(1.0, 1.0),
-            &Vec2::zeros(),
-            epsilon = 1.0
-        ));
+        assert_abs_diff_eq!(&Vec2::new(1.0, 1.0), &Vec2::zeros(), epsilon = 1.0);
     }
 
     #[test]
     fn relative_eq() {
         // Basic cases
-        assert!(relative_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::zeros()));
-        assert!(!relative_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::ones()));
+        assert_relative_eq!(&Vec2::<f32>::zeros(), &Vec2::<f32>::zeros());
+        assert_relative_ne!(&Vec2::<f32>::zeros(), &Vec2::<f32>::ones());
 
         // Should fail on diff in any coordinate if no epsilon is given
-        assert!(!relative_eq!(&Vec2::new(0.0, 1.0), &Vec2::zeros()));
-        assert!(!relative_eq!(&Vec2::new(1.0, 0.0), &Vec2::zeros()));
+        assert_relative_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros());
+        assert_relative_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
         // Should fail on diff in any coordinate that doesn't fit epsilon
-        assert!(!relative_eq!(
+        assert_relative_ne!(
             &Vec2::new(0.0, 1.0),
             &Vec2::zeros(),
             epsilon = 0.0,
             max_relative = 0.0
-        ));
-        assert!(!relative_eq!(
+        );
+        assert_relative_ne!(
             &Vec2::new(1.0, 0.0),
             &Vec2::zeros(),
             epsilon = 0.0,
             max_relative = 0.0
-        ));
+        );
 
         // Should succeed with matching epsilon
-        assert!(relative_eq!(
+        assert_relative_eq!(
             &Vec2::new(1.0, 1.0),
             &Vec2::zeros(),
             epsilon = 1.0,
             max_relative = 0.0
-        ));
+        );
 
         // Should fail on diff in any coordinate that doesn't fit epsilon or max_relative
-        assert!(!relative_eq!(
+        assert_relative_ne!(
             &Vec2::new(0.0, 2.0),
             &Vec2::ones(),
             epsilon = 0.0,
             max_relative = 0.0
-        ));
-        assert!(!relative_eq!(
+        );
+        assert_relative_ne!(
             &Vec2::new(2.0, 0.0),
             &Vec2::ones(),
             epsilon = 0.0,
             max_relative = 0.0
-        ));
+        );
 
         // Should succeed with diff that fits max_relative
-        assert!(relative_eq!(
+        assert_relative_eq!(
             &Vec2::new(2.0, 2.0),
             &Vec2::ones(),
             epsilon = 0.0,
             max_relative = 0.5
-        ));
+        );
     }
 }
