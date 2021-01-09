@@ -401,8 +401,8 @@ mod tests {
         assert_abs_diff_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
         // Should fail on diff in any coordinate that doesn't fit epsilon
-        assert_abs_diff_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros(), epsilon = 0.0);
-        assert_abs_diff_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros(), epsilon = 0.0);
+        assert_abs_diff_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros());
+        assert_abs_diff_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
         // Should succeed with matching epsilon
         assert_abs_diff_eq!(&Vec2::new(1.0, 1.0), &Vec2::zeros(), epsilon = 1.0);
@@ -418,41 +418,12 @@ mod tests {
         assert_relative_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros());
         assert_relative_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
-        // Should fail on diff in any coordinate that doesn't fit epsilon
-        assert_relative_ne!(
-            &Vec2::new(0.0, 1.0),
-            &Vec2::zeros(),
-            epsilon = 0.0,
-            max_relative = 0.0
-        );
-        assert_relative_ne!(
-            &Vec2::new(1.0, 0.0),
-            &Vec2::zeros(),
-            epsilon = 0.0,
-            max_relative = 0.0
-        );
+        // Should fail on diff in any coordinate that doesn't fit epsilon or max_relative
+        assert_relative_ne!(&Vec2::new(0.0, 1.0), &Vec2::zeros());
+        assert_relative_ne!(&Vec2::new(1.0, 0.0), &Vec2::zeros());
 
         // Should succeed with matching epsilon
-        assert_relative_eq!(
-            &Vec2::new(1.0, 1.0),
-            &Vec2::zeros(),
-            epsilon = 1.0,
-            max_relative = 0.0
-        );
-
-        // Should fail on diff in any coordinate that doesn't fit epsilon or max_relative
-        assert_relative_ne!(
-            &Vec2::new(0.0, 2.0),
-            &Vec2::ones(),
-            epsilon = 0.0,
-            max_relative = 0.0
-        );
-        assert_relative_ne!(
-            &Vec2::new(2.0, 0.0),
-            &Vec2::ones(),
-            epsilon = 0.0,
-            max_relative = 0.0
-        );
+        assert_relative_eq!(&Vec2::new(1.0, 1.0), &Vec2::zeros(), epsilon = 1.0,);
 
         // Should succeed with diff that fits max_relative
         assert_relative_eq!(

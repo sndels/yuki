@@ -222,9 +222,8 @@ mod tests {
                 let mc = m;
                 m.m[row][col] = 1.0;
                 assert_relative_ne!(m, mc);
-                assert_relative_ne!(m, mc, epsilon = 0.0);
+                assert_relative_ne!(m, mc);
                 assert_relative_eq!(m, mc, epsilon = 1.0);
-                assert_relative_ne!(m, mc, epsilon = 0.0, max_relative = 0.0);
                 assert_relative_eq!(m, mc, epsilon = 0.0, max_relative = 0.5);
             }
         }
