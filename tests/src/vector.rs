@@ -89,8 +89,8 @@ mod tests {
         );
 
         assert_eq!(
-            Vec3::new(2, 3, 4).dot_n(Normal::new(5, 6, 7)),
-            2 * 5 + 3 * 6 + 4 * 7
+            Vec3::new(2.0, 3.0, 4.0).dot_n(Normal::new(5.0, 6.0, 7.0)),
+            2.0 * 5.0 + 3.0 * 6.0 + 4.0 * 7.0
         );
     }
 
@@ -212,7 +212,10 @@ mod tests {
         assert_eq!(Vec3::from(2), Vec3::new(2, 2, 2));
         assert_eq!(Vec4::from(2), Vec4::new(2, 2, 2, 2));
 
-        assert_eq!(Vec3::from(Normal::new(1, 2, 3)), Vec3::new(1, 2, 3));
+        assert_eq!(
+            Vec3::from(Normal::new(1.0, 2.0, 3.0)),
+            Vec3::new(1.0, 2.0, 3.0)
+        );
     }
 
     #[test]

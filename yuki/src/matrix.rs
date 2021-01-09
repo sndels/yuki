@@ -1,16 +1,15 @@
-use crate::common::ValueType;
+use crate::common::FloatValueType;
 use approx::{AbsDiffEq, RelativeEq};
-use num::Float;
-use std::ops::{DivAssign, Mul, MulAssign, SubAssign};
+use std::ops::Mul;
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Utilities/Mathematical_Routines.html#Matrix4x4
 
-/// A row-major 4x4 matrix.
+/// A row-major 4x4 matrix
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Matrix4x4<T>
 where
-    T: ValueType + Float + DivAssign + MulAssign + SubAssign,
+    T: FloatValueType,
 {
     /// Raw values in row-major order.
     pub m: [[T; 4]; 4],
@@ -18,7 +17,7 @@ where
 
 impl<T> Matrix4x4<T>
 where
-    T: ValueType + Float + DivAssign + MulAssign + SubAssign,
+    T: FloatValueType,
 {
     /// Constructs a new matrix.
     ///
@@ -233,7 +232,7 @@ where
 // By ref is about twice as fast as by value so let's just endure the syntax
 impl<'a, 'b, T> Mul<&'b Matrix4x4<T>> for &'a Matrix4x4<T>
 where
-    T: ValueType + Float + DivAssign + MulAssign + SubAssign,
+    T: FloatValueType,
 {
     type Output = Matrix4x4<T>;
 

@@ -2,7 +2,7 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use crate::common::ValueType;
+use crate::common::FloatValueType;
 use crate::vector::Vec3;
 use yuki_derive::*;
 
@@ -35,7 +35,7 @@ use yuki_derive::*;
 )]
 pub struct Normal<T>
 where
-    T: ValueType,
+    T: FloatValueType,
 {
     /// The x component of the normal
     pub x: T,
@@ -47,7 +47,7 @@ where
 
 impl<T> Normal<T>
 where
-    T: ValueType,
+    T: FloatValueType,
 {
     #[inline]
     pub fn dot_v(&self, v: Vec3<T>) -> T {
@@ -57,7 +57,7 @@ where
 
 impl<T> From<Vec3<T>> for Normal<T>
 where
-    T: ValueType,
+    T: FloatValueType,
 {
     fn from(v: Vec3<T>) -> Self {
         Self::new(v.x, v.y, v.z)

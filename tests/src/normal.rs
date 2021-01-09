@@ -20,12 +20,12 @@ mod tests {
 
     #[test]
     fn zeros() {
-        assert_eq!(Normal::zeros(), Normal::new(0, 0, 0));
+        assert_eq!(Normal::zeros(), Normal::new(0.0, 0.0, 0.0));
     }
 
     #[test]
     fn ones() {
-        assert_eq!(Normal::ones(), Normal::new(1, 1, 1));
+        assert_eq!(Normal::ones(), Normal::new(1.0, 1.0, 1.0));
     }
 
     #[test]
@@ -41,18 +41,18 @@ mod tests {
     #[test]
     fn dot() {
         assert_eq!(
-            Normal::new(2, 3, 4).dot(Normal::new(5, 6, 7)),
-            2 * 5 + 3 * 6 + 4 * 7
+            Normal::new(2.0, 3.0, 4.0).dot(Normal::new(5.0, 6.0, 7.0)),
+            2.0 * 5.0 + 3.0 * 6.0 + 4.0 * 7.0
         );
         assert_eq!(
-            Normal::new(2, 3, 4).dot_v(Vec3::new(5, 6, 7)),
-            2 * 5 + 3 * 6 + 4 * 7
+            Normal::new(2.0, 3.0, 4.0).dot_v(Vec3::new(5.0, 6.0, 7.0)),
+            2.0 * 5.0 + 3.0 * 6.0 + 4.0 * 7.0
         );
     }
 
     #[test]
     fn len_sqr() {
-        assert_eq!(Normal::new(2, 3, 4).len_sqr(), 2 * 2 + 3 * 3 + 4 * 4);
+        assert_eq!(Normal::new(2.0, 3.0, 4.0).len_sqr(), 2.0 * 2.0 + 3.0 * 3.0 + 4.0 * 4.0);
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn from() {
-        assert_eq!(Normal::from(Vec3::new(1, 2, 3)), Normal::new(1, 2, 3));
+        assert_eq!(Normal::from(Vec3::new(1.0, 2.0, 3.0)), Normal::new(1.0, 2.0, 3.0));
     }
 
     #[test]
@@ -93,61 +93,61 @@ mod tests {
 
     #[test]
     fn neg() {
-        assert_eq!(-Normal::new(1, 2, 3), Normal::new(-1, -2, -3));
+        assert_eq!(-Normal::new(1.0, 2.0, 3.0), Normal::new(-1.0, -2.0, -3.0));
     }
 
     #[test]
     fn add() {
         assert_eq!(
-            Normal::new(1, 2, 3) + Normal::new(4, 6, 7),
-            Normal::new(5, 8, 10)
+            Normal::new(1.0, 2.0, 3.0) + Normal::new(4.0, 6.0, 7.0),
+            Normal::new(5.0, 8.0, 10.0)
         );
     }
 
     #[test]
     fn sub() {
         assert_eq!(
-            Normal::new(7, 7, 7) - Normal::new(1, 2, 3),
-            Normal::new(6, 5, 4)
+            Normal::new(7.0, 7.0, 7.0) - Normal::new(1.0, 2.0, 3.0),
+            Normal::new(6.0, 5.0, 4.0)
         );
     }
 
     #[test]
     fn mul() {
-        assert_eq!(Normal::new(2, 3, 4) * 5, Normal::new(10, 15, 20));
+        assert_eq!(Normal::new(2.0, 3.0, 4.0) * 5.0, Normal::new(10.0, 15.0, 20.0));
     }
 
     #[test]
     fn div() {
-        assert_eq!(Normal::new(10, 15, 20) / 5, Normal::new(2, 3, 4));
+        assert_eq!(Normal::new(10.0, 15.0, 20.0) / 5.0, Normal::new(2.0, 3.0, 4.0));
     }
 
     #[test]
     fn add_assign() {
-        let mut v = Normal::new(1, 2, 3);
-        v += Normal::new(4, 6, 7);
-        assert_eq!(v, Normal::new(5, 8, 10));
+        let mut v = Normal::new(1.0, 2.0, 3.0);
+        v += Normal::new(4.0, 6.0, 7.0);
+        assert_eq!(v, Normal::new(5.0, 8.0, 10.0));
     }
 
     #[test]
     fn sub_assign() {
-        let mut v = Normal::new(7, 7, 7);
-        v -= Normal::new(1, 2, 3);
-        assert_eq!(v, Normal::new(6, 5, 4));
+        let mut v = Normal::new(7.0, 7.0, 7.0);
+        v -= Normal::new(1.0, 2.0, 3.0);
+        assert_eq!(v, Normal::new(6.0, 5.0, 4.0));
     }
 
     #[test]
     fn mul_assign() {
-        let mut v = Normal::new(2, 3, 4);
-        v *= 5;
-        assert_eq!(v, Normal::new(10, 15, 20));
+        let mut v = Normal::new(2.0, 3.0, 4.0);
+        v *= 5.0;
+        assert_eq!(v, Normal::new(10.0, 15.0, 20.0));
     }
 
     #[test]
     fn div_assign() {
-        let mut v = Normal::new(10, 15, 20);
-        v /= 5;
-        assert_eq!(v, Normal::new(2, 3, 4));
+        let mut v = Normal::new(10.0, 15.0, 20.0);
+        v /= 5.0;
+        assert_eq!(v, Normal::new(2.0, 3.0, 4.0));
     }
 
     #[test]

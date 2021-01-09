@@ -1,9 +1,8 @@
-use num::traits::Float;
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use crate::common::ValueType;
+use crate::common::{FloatValueType, ValueType};
 use crate::normal::Normal;
 use yuki_derive::*;
 
@@ -193,16 +192,11 @@ where
             }
         }
     }
-
-    #[inline]
-    pub fn dot_n(&self, n: Normal<T>) -> T {
-        self.x * n.x + self.y * n.y + self.z * n.z
-    }
 }
 
 impl<T> From<Normal<T>> for Vec3<T>
 where
-    T: ValueType,
+    T: FloatValueType,
 {
     fn from(n: Normal<T>) -> Self {
         Self::new(n.x, n.y, n.z)
@@ -211,8 +205,14 @@ where
 
 impl<T> Vec3<T>
 where
-    T: Float + ValueType,
+    T: FloatValueType,
 {
+    #[inline]
+    /// Calculates the dot product of this `Vec3` and a [Normal].
+    pub fn dot_n(&self, n: Normal<T>) -> T {
+        self.x * n.x + self.y * n.y + self.z * n.z
+    }
+
     /// Returns the cross product of the two vectors.
     //
     // Always uses `f64` internally to avoid errors on "catastrophic cancellation".
