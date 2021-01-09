@@ -1,9 +1,11 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Field, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause};
 
-use crate::common::{combined_error, parse_generics, TraitInfo};
+use crate::common::{
+    add_trait_bound, combined_error, parse_generics, per_component_tokens, TraitInfo,
+};
 
 pub fn index(input: DeriveInput, name: &str) -> TokenStream {
     let TraitInfo {
@@ -89,5 +91,132 @@ fn index_match_tokens(data: &Data, self_ref_tokens: &TokenStream) -> TokenStream
             }
         }
         Data::Enum(_) | Data::Union(_) => unimplemented!(),
+    }
+}
+
+pub fn approx(input: DeriveInput, name: &str) -> TokenStream {
+    let trait_ident = Ident::new(name, Span::call_site());
+
+    let generic_param = match parse_generics(&input.generics) {
+        Ok((g, _, _, _)) => g,
+        Err(errors) => {
+            return combined_error(&format!("Derive '{}'", name), input.ident.span(), errors)
+                .to_compile_error();
+        }
+    };
+
+    let generics = add_trait_bound(&input.generics, quote! { #trait_ident });
+    let generics = add_trait_bound(&generics, quote! { AbsDiffEq<Epsilon = #generic_param> });
+    let (generic_param, impl_generics, type_generics, where_clause) =
+        match parse_generics(&generics) {
+            Ok((g, i, t, w)) => (g, i, t, w),
+            Err(errors) => {
+                return combined_error(&format!("Derive '{}'", name), input.ident.span(), errors)
+                    .to_compile_error();
+            }
+        };
+
+    match name {
+        "AbsDiffEq" => abs_diff_eq(
+            input.data,
+            &input.ident,
+            &generic_param,
+            impl_generics,
+            type_generics,
+            where_clause,
+        ),
+        "RelativeEq" => relative_eq(
+            input.data,
+            &input.ident,
+            &generic_param,
+            impl_generics,
+            type_generics,
+            where_clause,
+        ),
+        _ => unimplemented!(),
+    }
+}
+
+fn abs_diff_eq(
+    data: Data,
+    vec_type: &Ident,
+    generic_param: &Ident,
+    impl_generics: ImplGenerics,
+    type_generics: TypeGenerics,
+    where_clause: Option<&WhereClause>,
+) -> TokenStream {
+    let default_epsilon_tokens = per_component_tokens(
+        &data,
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::default_epsilon()),
+        &|recurse| quote!(#(#recurse),*),
+    );
+
+    let abs_diff_eq_tokens = per_component_tokens(
+        &data,
+        &|c: &Option<Ident>, f: &Field| {
+            quote_spanned! { f.span() =>
+                self.#c.abs_diff_eq(&other.#c, epsilon.#c)
+            }
+        },
+        &|recurse| quote!(#(#recurse)&&*),
+    );
+
+    quote! {
+        impl #impl_generics approx::AbsDiffEq for #vec_type #type_generics
+        #where_clause
+        {
+            type Epsilon = Self;
+
+            fn default_epsilon() -> Self::Epsilon {
+                #vec_type {
+                    #default_epsilon_tokens
+                }
+            }
+
+            fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+                #abs_diff_eq_tokens
+            }
+        }
+    }
+}
+
+pub fn relative_eq(
+    data: Data,
+    vec_type: &Ident,
+    generic_param: &Ident,
+    impl_generics: ImplGenerics,
+    type_generics: TypeGenerics,
+    where_clause: Option<&WhereClause>,
+) -> TokenStream {
+    let default_max_relative_tokens = per_component_tokens(
+        &data,
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param::default_max_relative()),
+        &|recurse| quote!(#(#recurse),*),
+    );
+
+    let relative_eq_tokens = per_component_tokens(
+        &data,
+        &|c: &Option<Ident>, f: &Field| {
+            quote_spanned! { f.span() =>
+                self.#c.relative_eq(&other.#c, epsilon.#c, max_relative.#c)
+            }
+        },
+        &|recurse| quote!(#(#recurse)&&*),
+    );
+
+    quote! {
+        impl #impl_generics approx::RelativeEq for #vec_type #type_generics
+        #where_clause
+        {
+            fn default_max_relative() -> Self::Epsilon {
+                #vec_type {
+                    #default_max_relative_tokens
+                }
+            }
+
+            fn relative_eq(&self, other: &Self, epsilon: Self::Epsilon, max_relative: Self::Epsilon) -> bool {
+                #relative_eq_tokens
+            }
+        }
     }
 }

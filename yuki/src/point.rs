@@ -1,3 +1,4 @@
+use approx::{AbsDiffEq, RelativeEq};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
 use crate::common::ValueType;
@@ -22,12 +23,12 @@ use crate::vector::{Vec2, Vec3};
 #[vec_op(Sub Point2 Vec2)]
 #[vec_assign_op(AddAssign Vec2)]
 #[vec_assign_op(SubAssign Vec2)]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
+    AbsDiffEq,
+    RelativeEq,
     PartialEq,
     Index,
     IndexMut,
@@ -55,13 +56,13 @@ where
 #[vec_op(Sub Point3 Vec3)]
 #[vec_assign_op(AddAssign Vec3)]
 #[vec_assign_op(SubAssign Vec3)]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
     PartialEq,
+    AbsDiffEq,
+    RelativeEq,
     Index,
     IndexMut,
     AddAssign,

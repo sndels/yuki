@@ -249,51 +249,49 @@ where
     }
 }
 
-macro_rules! impl_cmps {
-    ( $( $t:ty ),+ ) => {
-        $(
-            impl AbsDiffEq for Matrix4x4<$t> {
-                type Epsilon = $t;
+impl<T> AbsDiffEq for Matrix4x4<T>
+where
+    T: FloatValueType + AbsDiffEq + approx::AbsDiffEq<Epsilon = T>,
+{
+    type Epsilon = T::Epsilon;
 
-                fn default_epsilon() -> Self::Epsilon {
-                    <$t>::default_epsilon()
-                }
+    fn default_epsilon() -> Self::Epsilon {
+        T::default_epsilon()
+    }
 
-                fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-                    for row in 0..4 {
-                        for col in 0..4 {
-                            if !self.m[row][col].abs_diff_eq(&other.m[row][col], epsilon) {
-                                return false;
-                            }
-                        }
-                    }
-                    true
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        for row in 0..4 {
+            for col in 0..4 {
+                if !self.m[row][col].abs_diff_eq(&other.m[row][col], epsilon) {
+                    return false;
                 }
             }
-
-            impl RelativeEq for Matrix4x4<$t> {
-                fn default_max_relative() -> Self::Epsilon {
-                    <$t>::default_max_relative()
-                }
-
-                fn relative_eq(
-                    &self,
-                    other: &Self,
-                    epsilon: Self::Epsilon,
-                    max_relative: Self::Epsilon,
-                ) -> bool {
-                    for row in 0..4 {
-                        for col in 0..4 {
-                            if !self.m[row][col].relative_eq(&other.m[row][col], epsilon, max_relative)
-                            {
-                                return false;
-                            }
-                        }
-                    }
-                    true
-                }
-            }
-        )*
-    };
+        }
+        true
+    }
 }
-impl_cmps!(f32, f64);
+
+impl<T> RelativeEq for Matrix4x4<T>
+where
+    T: FloatValueType + RelativeEq + approx::AbsDiffEq<Epsilon = T>,
+{
+    fn default_max_relative() -> Self::Epsilon {
+        T::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        for row in 0..4 {
+            for col in 0..4 {
+                if !self.m[row][col].relative_eq(&other.m[row][col], epsilon, max_relative) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}

@@ -81,70 +81,6 @@ pub fn impl_normal(
     proc_macro::TokenStream::from(tokens)
 }
 
-struct ApproxAttr {
-    value_types: Vec<Ident>,
-}
-
-impl Parse for ApproxAttr {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut value_types = vec![input.parse()?];
-        while !input.is_empty() {
-            input.parse::<syn::token::Comma>()?;
-            value_types.push(input.parse()?);
-        }
-        Ok(ApproxAttr { value_types })
-    }
-}
-
-#[proc_macro_attribute]
-/// Expects a list of value types, e.g. (f32, f64)
-pub fn impl_abs_diff_eq(
-    attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let ApproxAttr { value_types } = parse_macro_input!(attr as ApproxAttr);
-    let item = parse_macro_input!(item as DeriveInput);
-
-    let mut tokens = quote! {#item};
-    for value_type in value_types {
-        let impl_tokens = impl_vec_op::abs_diff_eq(&item, &value_type);
-        tokens = quote! {
-            #tokens
-            #impl_tokens
-
-        };
-    }
-
-    // Can be used to print the tokens
-    // panic!(tokens.to_string());
-
-    proc_macro::TokenStream::from(tokens)
-}
-
-#[proc_macro_attribute]
-/// Expects a list of value types, e.g. (f32, f64)
-pub fn impl_relative_eq(
-    attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let ApproxAttr { value_types } = parse_macro_input!(attr as ApproxAttr);
-    let item = parse_macro_input!(item as DeriveInput);
-
-    let mut tokens = quote! {#item};
-    for value_type in value_types {
-        let impl_tokens = impl_vec_op::relative_eq(&item, &value_type);
-        tokens = quote! {
-            #tokens
-            #impl_tokens
-
-        };
-    }
-
-    // Can be used to print the tokens
-    // panic!(tokens.to_string());
-
-    proc_macro::TokenStream::from(tokens)
-}
 struct VecOpAttr {
     op_trait: Ident,
     other: Ident,
@@ -259,4 +195,6 @@ derive!(MulAssignScalar mul_assign_scalar derive_math_op::vec_op);
 derive!(DivAssignScalar div_assign_scalar derive_math_op::vec_op);
 derive!(Index index derive_trait::index);
 derive!(IndexMut index_mut derive_trait::index);
+derive!(AbsDiffEq abs_diff_eq derive_trait::approx);
+derive!(RelativeEq relative_eq derive_trait::approx);
 derive!(Neg neg derive_math_op::neg);

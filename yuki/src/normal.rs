@@ -1,3 +1,4 @@
+use approx::{AbsDiffEq, RelativeEq};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
@@ -14,13 +15,13 @@ use yuki_derive::*;
 /// Note that a [Normal] is not necessarily normalized as it is merely a vector perpendicular
 /// to a surface at a position on it.
 #[impl_normal]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
     PartialEq,
+    AbsDiffEq,
+    RelativeEq,
     Index,
     IndexMut,
     Neg,

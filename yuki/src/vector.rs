@@ -1,3 +1,4 @@
+use approx::{AbsDiffEq, RelativeEq};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
@@ -11,13 +12,13 @@ use yuki_derive::*;
 
 /// A two-dimensional vector.
 #[impl_vec]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
     PartialEq,
+    AbsDiffEq,
+    RelativeEq,
     Index,
     IndexMut,
     Neg,
@@ -46,13 +47,13 @@ where
 
 /// A three-dimensional vector.
 #[impl_vec]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
     PartialEq,
+    AbsDiffEq,
+    RelativeEq,
     Index,
     IndexMut,
     Neg,
@@ -83,13 +84,13 @@ where
 
 /// A four-dimensional vector.
 #[impl_vec]
-#[impl_abs_diff_eq(f32, f64)]
-#[impl_relative_eq(f32, f64)]
 #[derive(
     Copy,
     Clone,
     Debug,
     PartialEq,
+    AbsDiffEq,
+    RelativeEq,
     Index,
     IndexMut,
     Neg,

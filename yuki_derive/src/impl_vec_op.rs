@@ -1,11 +1,9 @@
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{DeriveInput, Field, Ident};
+use quote::quote;
+use syn::{DeriveInput, Ident};
 
 use crate::common::{
-    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, per_component_tokens,
-    TraitInfo,
+    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
 };
 
 pub fn vec_op(
@@ -52,76 +50,4 @@ pub fn vec_op(
         where_clause,
         false,
     )
-}
-
-pub fn abs_diff_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
-    let vec_type = &item.ident;
-
-    let default_epsilon_tokens = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #value_type::default_epsilon()),
-        &|recurse| quote!(#(#recurse),*),
-    );
-
-    let abs_diff_eq_tokens = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| {
-            quote_spanned! { f.span() =>
-                self.#c.abs_diff_eq(&other.#c, epsilon.#c)
-            }
-        },
-        &|recurse| quote!(#(#recurse)&&*),
-    );
-
-    quote! {
-        impl approx::AbsDiffEq for #vec_type<#value_type>
-        {
-            type Epsilon = Self;
-
-            fn default_epsilon() -> Self::Epsilon {
-                #vec_type {
-                    #default_epsilon_tokens
-                }
-            }
-
-            fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-                #abs_diff_eq_tokens
-            }
-        }
-    }
-}
-
-pub fn relative_eq(item: &DeriveInput, value_type: &Ident) -> TokenStream {
-    let vec_type = &item.ident;
-
-    let default_max_relative_tokens = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #value_type::default_max_relative()),
-        &|recurse| quote!(#(#recurse),*),
-    );
-
-    let relative_eq_tokens = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| {
-            quote_spanned! { f.span() =>
-                self.#c.relative_eq(&other.#c, epsilon.#c, max_relative.#c)
-            }
-        },
-        &|recurse| quote!(#(#recurse)&&*),
-    );
-
-    quote! {
-        impl approx::RelativeEq for #vec_type<#value_type>
-        {
-            fn default_max_relative() -> Self::Epsilon {
-                #vec_type {
-                    #default_max_relative_tokens
-                }
-            }
-
-            fn relative_eq(&self, other: &Self, epsilon: Self::Epsilon, max_relative: Self::Epsilon) -> bool {
-                #relative_eq_tokens
-            }
-        }
-    }
 }
