@@ -12,6 +12,9 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/bench",
+                "env": {
+                    "RUSTFLAGS": "-g"
+                }
             },
             "problemMatcher": [
                 "$rustc"
