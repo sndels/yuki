@@ -54,9 +54,28 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
 
     let float_floor_ceil_impl = point_floor_ceil_impl(point_type, item);
     let signed_abs_impl = point_abs_impl(point_type, item);
+
+    let from_args = per_component_tokens(
+        &item.data,
+        &|_c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => v),
+        &|recurse| quote!(#(#recurse),*),
+    );
+
     let post_impl = quote! {
         #float_floor_ceil_impl
         #signed_abs_impl
+
+        // I don't really like that this trait gets generated from the impl macro,
+        // though deriving From<T> with a derive macro seems as cryptic.
+        // Then again, this whole thing is an exercise in rubegoldberging and should
+        // only be used through the generated docs...
+        impl #impl_generics From #type_generics for #point_type #type_generics
+        #where_clause
+        {
+            fn from(v: #generic_param) -> Self {
+                Self::new(#from_args)
+            }
+        }
     };
 
     vec_like_impl(
