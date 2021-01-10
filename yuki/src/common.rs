@@ -1,10 +1,11 @@
 use num::cast::{FromPrimitive, ToPrimitive};
-use num::traits::{Float, Num};
+use num::{Bounded, Float, Num};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Generic types that can be stored in the lib containers
 pub trait ValueType:
     Num
+    + Bounded
     + Mini
     + Maxi
     + PartialOrd
@@ -26,6 +27,7 @@ pub trait FloatValueType: ValueType + Float {}
 // Impls for all matching types
 impl<T> ValueType for T where
     T: Num
+        + Bounded
         + Mini
         + Maxi
         + PartialOrd

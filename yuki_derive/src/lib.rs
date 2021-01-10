@@ -8,78 +8,47 @@ use syn::{parse_macro_input, DeriveInput, Ident};
 mod common;
 mod derive_math_op;
 mod derive_trait;
+mod impl_bounds;
 mod impl_normal;
 mod impl_point;
 mod impl_vec;
 mod impl_vec_like;
 mod impl_vec_op;
 
+use impl_bounds as bounds_impl;
 use impl_normal as normal_impl;
 use impl_point as point_impl;
 use impl_vec as vec_impl;
 
-#[proc_macro_attribute]
-/// Doesn't expect attributes
-pub fn impl_point(
-    _attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let item = parse_macro_input!(item as DeriveInput);
+macro_rules! impl_t {
+    ($fn_name:ident $impl_fn:path) => {
+        #[proc_macro_attribute]
+        /// Doesn't expect attributes
+        pub fn $fn_name(
+            _attr: proc_macro::TokenStream,
+            item: proc_macro::TokenStream,
+        ) -> proc_macro::TokenStream {
+            let item = parse_macro_input!(item as DeriveInput);
 
-    let impl_tokens = point_impl::point_impl(&item);
-    let tokens = quote! {
-        #item
-        #impl_tokens
+            let impl_tokens = $impl_fn(&item);
+            let tokens = quote! {
+                #item
+                #impl_tokens
+            };
+
+            // Can be used to print the tokens
+            // panic!(impl_tokens.to_string());
+            // panic!(tokens.to_string());
+
+            proc_macro::TokenStream::from(tokens)
+        }
     };
-
-    // Can be used to print the tokens
-    // panic!(impl_tokens.to_string());
-    // panic!(tokens.to_string());
-
-    proc_macro::TokenStream::from(tokens)
 }
 
-#[proc_macro_attribute]
-/// Doesn't expect attributes
-pub fn impl_vec(
-    _attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let item = parse_macro_input!(item as DeriveInput);
-
-    let impl_tokens = vec_impl::vec_impl(&item);
-    let tokens = quote! {
-        #item
-        #impl_tokens
-    };
-
-    // Can be used to print the tokens
-    // panic!(impl_tokens.to_string());
-    // panic!(tokens.to_string());
-
-    proc_macro::TokenStream::from(tokens)
-}
-
-#[proc_macro_attribute]
-/// Doesn't expect attributes
-pub fn impl_normal(
-    _attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let item = parse_macro_input!(item as DeriveInput);
-
-    let impl_tokens = normal_impl::normal_impl(&item);
-    let tokens = quote! {
-        #item
-        #impl_tokens
-    };
-
-    // Can be used to print the tokens
-    // panic!(impl_tokens.to_string());
-    // panic!(tokens.to_string());
-
-    proc_macro::TokenStream::from(tokens)
-}
+impl_t!(impl_bounds bounds_impl::bounds_impl);
+impl_t!(impl_normal normal_impl::normal_impl);
+impl_t!(impl_point point_impl::point_impl);
+impl_t!(impl_vec vec_impl::vec_impl);
 
 struct VecOpAttr {
     op_trait: Ident,

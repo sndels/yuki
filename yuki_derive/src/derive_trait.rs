@@ -38,9 +38,19 @@ pub fn index(input: DeriveInput, name: &str) -> TokenStream {
     let trait_output_tokens = if is_mutable_index {
         None
     } else {
-        Some(quote! {
-            type Output = #generic_param;
-        })
+        let type_name = type_ident.to_string();
+        if type_name.starts_with("Bounds") {
+            // We should have already checked this is fine back in bounds_impl
+            let component_count = type_name.chars().last().unwrap().to_digit(10).unwrap();
+            let point_ident = Ident::new(&format!("Point{}", component_count), Span::call_site());
+            Some(quote! {
+                type Output = #point_ident #type_generics;
+            })
+        } else {
+            Some(quote! {
+                type Output = #generic_param;
+            })
+        }
     };
 
     let fn_output_tokens = if is_mutable_index {
@@ -59,11 +69,11 @@ pub fn index(input: DeriveInput, name: &str) -> TokenStream {
         {
             #trait_output_tokens
 
-            fn #op_ident(#self_ref_tokens, component: usize) -> #fn_output_tokens {
-                match component {
+            fn #op_ident(#self_ref_tokens, index: usize) -> #fn_output_tokens {
+                match index {
                     #match_tokens
                     _ => {
-                        panic!("Component {} is out of bounds", component);
+                        panic!("Index {} is out of bounds", index);
                     }
                 }
             }
