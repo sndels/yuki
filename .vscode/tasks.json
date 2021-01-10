@@ -6,6 +6,7 @@
             "group": "build",
             "command": "cargo",
             "args": [
+                "+nightly",
                 "build",
                 "--release"
             ],
@@ -37,6 +38,7 @@
             "group": "build",
             "command": "cargo",
             "args": [
+                "+nightly",
                 "doc",
                 "--open"
             ],
