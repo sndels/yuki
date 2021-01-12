@@ -22,6 +22,19 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
         format! { "Calculates the distance between this `{0}` and another `{0}`.", str_type};
     let dist_sqr_doc = format! { "Calculates the squared distance between this `{0}` and another `{0}`.", str_type};
     let lerp_doc = format! { "Returns a new `{0}` that was linearly interpolated between this `{0}` and another `{0}` by the factor `t`.", str_type};
+    let lerp_components = per_component_tokens(
+        &item.data,
+        // We assume any Num type can be converted to and from f32
+        &|c: &Option<Ident>, f: &Field| {
+            quote_spanned! {
+                f.span() =>
+                   #c: #generic_param::from_f32(
+                        (1.0 - t) * self.#c.to_f32().unwrap() + t * other.#c.to_f32().unwrap()
+                    ).unwrap()
+            }
+        },
+        &|recurse| quote!(#(#recurse,)*),
+    );
 
     let member_ops = quote! {
             #[doc = #dist_doc]
@@ -44,11 +57,12 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
 
             #[doc = #lerp_doc]
             #[inline]
-            pub fn lerp(&self, other: Self , t: #generic_param) -> Self {
+            pub fn lerp(&self, other: Self , t: f32) -> Self {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
+                debug_assert!(!t.is_nan());
 
-                *self * (#generic_param::one() - t) + other * t
+                Self { #lerp_components }
             }
     };
 
