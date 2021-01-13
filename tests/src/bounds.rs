@@ -389,4 +389,16 @@ mod tests {
         };
         assert!(bb.bounding_sphere().is_none());
     }
+
+    #[test]
+    fn iter() {
+        let bb = Bounds2::new(point2(-1, -2), point2(3, 4));
+        let mut bb_iter = bb.into_iter();
+        for j in -2..4 {
+            for i in -1..3 {
+                assert_eq!(bb_iter.next().unwrap(), point2(i, j));
+            }
+        }
+        assert!(bb_iter.next().is_none());
+    }
 }

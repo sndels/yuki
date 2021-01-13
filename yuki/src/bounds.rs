@@ -1,3 +1,5 @@
+use num::Integer;
+use std::iter::{IntoIterator, Iterator};
 use std::ops::{Index, IndexMut};
 
 use crate::common::ValueType;
@@ -54,6 +56,64 @@ where
         } else {
             1
         }
+    }
+}
+
+/// A row-by-row iterator over the [Point2]s in a `Bounds2`.
+/// Starts from `p_min` and excludes the upper bounds.
+pub struct Bounds2IntoIter<T>
+where
+    T: ValueType + Integer,
+{
+    bb: Bounds2<T>,
+    curr: Point2<T>,
+}
+
+/// A row-by-row iterator over the [Point2]s in a `Bounds2`.
+/// Starts from `p_min` and excludes the upper bounds.
+impl<T> IntoIterator for Bounds2<T>
+where
+    T: ValueType + Integer,
+{
+    type Item = Point2<T>;
+    type IntoIter = Bounds2IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        assert!(
+            self.p_min.x < self.p_max.x && self.p_min.y < self.p_max.y,
+            "Bounds2 with a dimension <= 0"
+        );
+        Bounds2IntoIter {
+            bb: self,
+            curr: self.p_min,
+        }
+    }
+}
+
+impl<T> Iterator for Bounds2IntoIter<T>
+where
+    T: ValueType + Integer,
+{
+    type Item = Point2<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // We exclude the max bound
+        let ret = if self.curr.y >= self.bb.p_max.y {
+            None
+        } else {
+            Some(self.curr)
+        };
+
+        if ret.is_some() {
+            self.curr.x += T::one();
+            // We exclude the max bound
+            if self.curr.x >= self.bb.p_max.x {
+                self.curr.x = self.bb.p_min.x;
+                self.curr.y += T::one();
+            }
+        }
+
+        ret
     }
 }
 

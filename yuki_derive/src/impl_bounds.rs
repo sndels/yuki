@@ -118,7 +118,7 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
         &|recurse| quote!(#(#recurse)*),
     );
 
-    let ret = quote! {
+    quote! {
         impl #impl_generics #bounds_type
         #where_clause
         {
@@ -250,10 +250,7 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
                 o
             }
         }
-        // TODO: Impl iter over cells for integer
-    };
-    // panic!(ret.to_string());
-    ret
+    }
 }
 
 fn per_component_tokens(
