@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use approx::{
-        abs_diff_eq, assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne,
-    };
+    use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
     use yuki::point::{point3, Point3};
