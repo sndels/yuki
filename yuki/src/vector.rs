@@ -232,7 +232,7 @@ where
         Self {
             x: T::from((v1y * v2z) - (v1z * v2y)).unwrap(),
             y: T::from((v1z * v2x) - (v1x * v2z)).unwrap(),
-            z: T::from((v1x * v2y) - (v1y * v2y)).unwrap(),
+            z: T::from((v1x * v2y) - (v1y * v2x)).unwrap(),
         }
     }
 }

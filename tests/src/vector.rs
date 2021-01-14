@@ -76,6 +76,7 @@ mod tests {
         let result = panic::catch_unwind(|| vec4(f32::NAN, 0.0, 0.0, 0.0));
         assert!(result.is_err());
     }
+
     #[test]
     fn dot() {
         assert_eq!(Vec2::new(2, 3).dot(Vec2::new(4, 5)), 2 * 4 + 3 * 5);
@@ -91,6 +92,14 @@ mod tests {
         assert_eq!(
             Vec3::new(2.0, 3.0, 4.0).dot_n(Normal::new(5.0, 6.0, 7.0)),
             2.0 * 5.0 + 3.0 * 6.0 + 4.0 * 7.0
+        );
+    }
+
+    #[test]
+    fn cross() {
+        assert_eq!(
+            Vec3::new(2.0, 3.0, 4.0).cross(Vec3::new(5.0, 6.0, -7.0)),
+            Vec3::new(-45.0, 34.0, -3.0)
         );
     }
 
