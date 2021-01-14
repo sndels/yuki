@@ -1,6 +1,6 @@
 # yuki
 
-Linear algebra for graphics purposes based on [pbrt3](http://www.pbr-book.org/) ([source](https://github.com/mmp/pbrt-v3)). An excercise in new stuff like proc_macros and thorough testing.
+Ray cast renderer based on [pbrt3](http://www.pbr-book.org/) ([source](https://github.com/mmp/pbrt-v3)).
 
-`yuki_derive` was inspired by [derive_more](https://github.com/JelteF/derive_more), though the implementation itself is quite specific to how I want my error handling. It also supports "deriving" ops with scalar values as well as other "vectors" of matching dimensions.
+Math lib is an excercise in new stuff, most notably proc_macros inspired by [derive_more](https://github.com/JelteF/derive_more). The implementation itself is quite specific to how my vector types are structured and supports "deriving" ops with scalar values as well as with other "vectors" of matching dimensions. The whole thing macro spaghetti is a overkill and likely more code than implementing the same stuff directly, especially if done through standard macros. But hey, it's cool I don't have to list component names for the impl :D
 
