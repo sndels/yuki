@@ -81,12 +81,12 @@ mod tests {
     fn dot() {
         assert_eq!(Vec2::new(2, 3).dot(Vec2::new(4, 5)), 2 * 4 + 3 * 5);
         assert_eq!(
-            Vec3::new(2, 3, 4).dot(Vec3::new(4, 5, 6)),
-            2 * 4 + 3 * 5 + 4 * 6
+            Vec3::new(2, 3, 4).dot(Vec3::new(5, 6, 7)),
+            2 * 5 + 3 * 6 + 4 * 7
         );
         assert_eq!(
-            Vec4::new(2, 3, 4, 5).dot(Vec4::new(4, 5, 6, 7)),
-            2 * 4 + 3 * 5 + 4 * 6 + 5 * 7
+            Vec4::new(2, 3, 4, 5).dot(Vec4::new(6, 7, 8, 9)),
+            2 * 6 + 3 * 7 + 4 * 8 + 5 * 9
         );
 
         assert_eq!(
