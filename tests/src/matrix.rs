@@ -3,7 +3,7 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
-    use yuki::matrix::Matrix4x4;
+    use yuki::math::matrix::Matrix4x4;
 
     #[test]
     fn zeros() {

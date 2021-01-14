@@ -1,6 +1,6 @@
 use std::io::prelude::*;
 use std::time::Instant;
-use yuki::matrix::Matrix4x4;
+use yuki::math::matrix::Matrix4x4;
 
 const ITERATIONS: usize = 5000000;
 

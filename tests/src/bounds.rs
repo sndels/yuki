@@ -2,9 +2,9 @@
 mod tests {
     use num::Bounded;
 
-    use yuki::bounds::{Bounds2, Bounds3};
-    use yuki::point::{point2, point3, Point2};
-    use yuki::vector::{vec2, vec3, Vec2};
+    use yuki::math::bounds::{Bounds2, Bounds3};
+    use yuki::math::point::{point2, point3, Point2};
+    use yuki::math::vector::{vec2, vec3, Vec2};
 
     #[test]
     fn new() {

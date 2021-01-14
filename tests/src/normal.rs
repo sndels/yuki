@@ -2,8 +2,8 @@
 mod tests {
     use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
     use std::panic;
-    use yuki::normal::{normal, Normal};
-    use yuki::vector::Vec3;
+    use yuki::math::normal::{normal, Normal};
+    use yuki::math::vector::Vec3;
 
     // Test the Normal specific methods and merely the existence of methods shared
     // with Vec* since vector tests already validate permutations for those
@@ -52,7 +52,10 @@ mod tests {
 
     #[test]
     fn len_sqr() {
-        assert_eq!(Normal::new(2.0, 3.0, 4.0).len_sqr(), 2.0 * 2.0 + 3.0 * 3.0 + 4.0 * 4.0);
+        assert_eq!(
+            Normal::new(2.0, 3.0, 4.0).len_sqr(),
+            2.0 * 2.0 + 3.0 * 3.0 + 4.0 * 4.0
+        );
     }
 
     #[test]
@@ -78,7 +81,10 @@ mod tests {
 
     #[test]
     fn from() {
-        assert_eq!(Normal::from(Vec3::new(1.0, 2.0, 3.0)), Normal::new(1.0, 2.0, 3.0));
+        assert_eq!(
+            Normal::from(Vec3::new(1.0, 2.0, 3.0)),
+            Normal::new(1.0, 2.0, 3.0)
+        );
     }
 
     #[test]
@@ -114,12 +120,18 @@ mod tests {
 
     #[test]
     fn mul() {
-        assert_eq!(Normal::new(2.0, 3.0, 4.0) * 5.0, Normal::new(10.0, 15.0, 20.0));
+        assert_eq!(
+            Normal::new(2.0, 3.0, 4.0) * 5.0,
+            Normal::new(10.0, 15.0, 20.0)
+        );
     }
 
     #[test]
     fn div() {
-        assert_eq!(Normal::new(10.0, 15.0, 20.0) / 5.0, Normal::new(2.0, 3.0, 4.0));
+        assert_eq!(
+            Normal::new(10.0, 15.0, 20.0) / 5.0,
+            Normal::new(2.0, 3.0, 4.0)
+        );
     }
 
     #[test]

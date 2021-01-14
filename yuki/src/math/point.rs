@@ -1,10 +1,10 @@
 use approx::{AbsDiffEq, RelativeEq};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
-use crate::common::ValueType;
+use super::common::ValueType;
 use yuki_derive::*;
 
-use crate::vector::{Vec2, Vec3};
+use super::vector::{Vec2, Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Points.html

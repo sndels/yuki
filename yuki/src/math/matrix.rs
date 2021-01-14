@@ -1,4 +1,4 @@
-use crate::common::FloatValueType;
+use super::common::FloatValueType;
 use approx::{AbsDiffEq, RelativeEq};
 use std::ops::Mul;
 

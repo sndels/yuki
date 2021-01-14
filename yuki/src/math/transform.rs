@@ -1,12 +1,12 @@
 use std::ops::Mul;
 
-use crate::bounds::Bounds3;
-use crate::common::FloatValueType;
-use crate::matrix::Matrix4x4;
-use crate::normal::Normal;
-use crate::point::Point3;
-use crate::ray::Ray;
-use crate::vector::Vec3;
+use super::bounds::Bounds3;
+use super::common::FloatValueType;
+use super::matrix::Matrix4x4;
+use super::normal::Normal;
+use super::point::Point3;
+use super::ray::Ray;
+use super::vector::Vec3;
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transforms/Transforms.html

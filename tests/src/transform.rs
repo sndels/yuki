@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use yuki::bounds::Bounds3;
-    use yuki::matrix::Matrix4x4;
-    use yuki::normal::Normal;
-    use yuki::point::point3;
-    use yuki::ray::Ray;
-    use yuki::transform::Transform;
-    use yuki::vector::vec3;
+    use yuki::math::bounds::Bounds3;
+    use yuki::math::matrix::Matrix4x4;
+    use yuki::math::normal::Normal;
+    use yuki::math::point::point3;
+    use yuki::math::ray::Ray;
+    use yuki::math::transform::Transform;
+    use yuki::math::vector::vec3;
 
     // These are by no means exhaustive. We throw some simple cases at the implementation
     // to catch obvious typos
@@ -169,7 +169,7 @@ mod tests {
             [0.0, 0.0, 1.0, 4.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let tt = yuki::transform::translation(vec3(2.0, 3.0, 4.0));
+        let tt = yuki::math::transform::translation(vec3(2.0, 3.0, 4.0));
         assert_eq!(tt.m(), &tm);
         assert_eq!(tt.m_inv(), &tm.inverted());
     }
@@ -182,7 +182,7 @@ mod tests {
             [0.0, 0.0, 4.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let st = yuki::transform::scale(2.0, 3.0, 4.0);
+        let st = yuki::math::transform::scale(2.0, 3.0, 4.0);
         assert_eq!(st.m(), &sm);
         assert_eq!(st.m_inv(), &sm.inverted());
     }
@@ -195,7 +195,7 @@ mod tests {
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let rt = yuki::transform::rotation_x(std::f64::consts::FRAC_PI_2);
+        let rt = yuki::math::transform::rotation_x(std::f64::consts::FRAC_PI_2);
         assert_abs_diff_eq!(rt.m(), &rm, epsilon = 1e-16);
         assert_abs_diff_eq!(rt.m_inv(), &rm.inverted(), epsilon = 1e-16);
     }
@@ -208,7 +208,7 @@ mod tests {
             [-1.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let rt = yuki::transform::rotation_y(std::f64::consts::FRAC_PI_2);
+        let rt = yuki::math::transform::rotation_y(std::f64::consts::FRAC_PI_2);
         assert_abs_diff_eq!(rt.m(), &rm, epsilon = 1e-16);
         assert_abs_diff_eq!(rt.m_inv(), &rm.inverted(), epsilon = 1e-16);
     }
@@ -221,7 +221,7 @@ mod tests {
             [0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let rt = yuki::transform::rotation_z(std::f64::consts::FRAC_PI_2);
+        let rt = yuki::math::transform::rotation_z(std::f64::consts::FRAC_PI_2);
         assert_abs_diff_eq!(rt.m(), &rm, epsilon = 1e-16);
         assert_abs_diff_eq!(rt.m_inv(), &rm.inverted(), epsilon = 1e-16);
     }
@@ -249,7 +249,7 @@ mod tests {
             ],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let rt = yuki::transform::rotation(std::f64::consts::FRAC_PI_2, vec3(1.0, 1.0, 1.0));
+        let rt = yuki::math::transform::rotation(std::f64::consts::FRAC_PI_2, vec3(1.0, 1.0, 1.0));
         assert_abs_diff_eq!(rt.m(), &rm, epsilon = 1e-15);
         assert_abs_diff_eq!(rt.m_inv(), &rm.inverted(), epsilon = 1e-15);
     }
@@ -272,7 +272,7 @@ mod tests {
             ],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let mt = yuki::transform::look_at(
+        let mt = yuki::math::transform::look_at(
             point3(1.0, 2.0, 3.0),
             point3(40.0, 50.0, 60.0),
             vec3(0.0, 1.0, 0.0),

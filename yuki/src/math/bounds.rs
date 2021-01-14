@@ -2,9 +2,9 @@ use num::Integer;
 use std::iter::{IntoIterator, Iterator};
 use std::ops::{Index, IndexMut};
 
-use crate::common::ValueType;
-use crate::point::{Point2, Point3};
-use crate::vector::{Vec2, Vec3};
+use super::common::ValueType;
+use super::point::{Point2, Point3};
+use super::vector::{Vec2, Vec3};
 use yuki_derive::*;
 
 // Based on Physically Based Rendering 3rd ed.

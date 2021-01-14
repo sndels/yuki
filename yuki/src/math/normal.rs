@@ -3,8 +3,8 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use crate::common::FloatValueType;
-use crate::vector::Vec3;
+use super::common::FloatValueType;
+use super::vector::Vec3;
 use yuki_derive::*;
 
 // Based on Physically Based Rendering 3rd ed.
