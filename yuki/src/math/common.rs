@@ -95,7 +95,7 @@ macro_rules! impl_mini_integer {
         )*
     }
 }
-impl_mini_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
+impl_mini_integer!(usize, u8, u16, u32, u64, i8, i16, i32, i64);
 
 macro_rules! impl_maxi_integer {
     ( $( $t:ty ),+ ) => {
@@ -108,4 +108,4 @@ macro_rules! impl_maxi_integer {
         )*
     }
 }
-impl_maxi_integer!(u8, u16, u32, u64, i8, i16, i32, i64);
+impl_maxi_integer!(usize, u8, u16, u32, u64, i8, i16, i32, i64);
