@@ -2,6 +2,43 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build yuki release",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "+nightly",
+                "build",
+                "--release",
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}/yuki",
+                "env": {
+                    "RUSTFLAGS": "-g"
+                }
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
+            "label": "Build yuki debug",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "+nightly",
+                "build",
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}/yuki",
+                "env": {
+                    "RUSTFLAGS": "-g"
+                }
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "Build bench",
             "group": "build",
             "command": "cargo",
