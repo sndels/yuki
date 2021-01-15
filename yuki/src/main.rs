@@ -1,12 +1,8 @@
-use std::io::prelude::*;
+mod window;
 
-use yuki::math::point::Point2;
+use window::Window;
 
 fn main() {
-    let p = Point2::new(2, 3);
-    println!("Hello {:?}", p);
-
-    println!("Press enter to quit...");
-    // Read a single byte and discard
-    let _ = std::io::stdin().read(&mut [0u8]).unwrap();
+    let window = Window::new("yuki", (1920, 1080));
+    window.main_loop();
 }
