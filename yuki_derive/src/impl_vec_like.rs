@@ -65,10 +65,31 @@ pub fn vec_like_impl(
     );
 
     let str_type = vec_type.to_string();
+    let component_count = if str_type == "Normal" {
+        3
+    } else {
+        match str_type.chars().last().unwrap().to_digit(10) {
+            Some(c) => c as usize,
+            None => {
+                return syn::Error::new_spanned(
+                    vec_type,
+                    format!(
+                        "Impl '{}': Expected component count at the end of name.",
+                        str_type
+                    ),
+                )
+                .to_compile_error()
+            }
+        }
+    };
+
     let new_doc = format! { "Creates a new `{0}`.", str_type};
     let zeros_doc = format! { "Creates a new `{0}` filled with `0`s.", str_type};
     let ones_doc = format! { "Creates a new `{0}` filled with `1`s.", str_type};
     let has_nans_doc = format! { "Checks if this `{0}` contains NaNs.", str_type};
+    let array_doc = format! { "Returns a reference to this `{0}` as an array.", str_type};
+    let array_mut_doc =
+        format! { "Returns a mutable reference to this `{0}` as an array.", str_type};
     let min_doc = format! { "Returns a new `{0}` with the component-wise minimum of this `{0}` and another `{0}`.", str_type};
     let max_doc = format! { "Returns a new `{0}` with the component-wise maximum of this `{0}` and another `{0}`.", str_type};
     let permuted_doc = format! { "Returns a new `{0}` with a permutation of this `{0}`. The arguments define what index in this `{0}` to map for each component in the new `{0}`.", str_type};
@@ -106,6 +127,22 @@ pub fn vec_like_impl(
             #[inline]
             pub fn has_nans(&self) -> bool {
                 #has_nans_pred
+            }
+
+            #[doc = #array_doc]
+            #[inline]
+            pub fn array(&mut self) -> &[#generic_param] {
+                self.array_mut()
+            }
+
+            #[doc = #array_mut_doc]
+            #[inline]
+            pub fn array_mut(&mut self) -> &mut [#generic_param; #component_count] {
+                use std::convert::TryFrom;
+                unsafe {
+                    let slice_ref = std::slice::from_raw_parts_mut(self as *mut Self as *mut #generic_param, #component_count);
+                    <&mut [#generic_param; #component_count]>::try_from(slice_ref).unwrap()
+                }
             }
 
             #member_ops
