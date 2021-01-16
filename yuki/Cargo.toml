@@ -8,10 +8,13 @@ edition = "2018"
 
 [dependencies]
 approx = "0.4"
-glium = { version = "0.29", default-features = true }
+gfx = "0.18"
+gfx_device_gl = "0.16"
+glutin = "0.26"
 imgui = "0.6.1"
-imgui-glium-renderer = "0.6.1"
+imgui-gfx-renderer = "0.6.1"
 imgui-winit-support = "0.6.1"
 itertools = "0.10"
 num = "0.3"
+old_school_gfx_glutin_ext = "0.26"
 yuki_derive = { path = "../yuki_derive" }
