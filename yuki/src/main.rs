@@ -1,6 +1,6 @@
-mod window;
+mod ui;
 
-use window::Window;
+use ui::Window;
 
 fn main() {
     let window = Window::new("yuki", (1920, 1080));
