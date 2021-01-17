@@ -34,17 +34,20 @@ pub struct FilmTile {
     pub bb: Bounds2<u16>,
     /// Pixel values in this tile, stored in RGB order.
     pub pixels: Vec<Vec<Vec3<f32>>>,
+    // Generation of this tile. Used to verify inputs in update_tile.
+    generation: u64,
 }
 
 impl FilmTile {
     /// Creates a new `FilmTile` with the given [Bounds2].
-    pub fn new(bb: Bounds2<u16>) -> Self {
+    pub fn new(bb: Bounds2<u16>, generation: u64) -> Self {
         let width = (bb.p_max.x - bb.p_min.x) as usize;
         let height = (bb.p_max.y - bb.p_min.y) as usize;
 
         FilmTile {
             bb,
             pixels: vec![vec![Vec3::zeros(); width]; height],
+            generation,
         }
     }
 }
@@ -64,6 +67,8 @@ pub struct Film {
     res: Vec2<u16>,
     // Pixels wrapped in a mutex for parallel tile rendering.
     pixels: Mutex<FilmPixels>,
+    // Generation of the stored pixels. Used to verify inputs in update_tile.
+    generation: u64,
 }
 
 impl Film {
@@ -75,6 +80,7 @@ impl Film {
                 pixels: vec![Vec3::zeros(); 4 * 4],
                 dirty: true,
             }),
+            generation: 0,
         }
     }
 
@@ -93,8 +99,11 @@ impl Film {
     }
 
     /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
-    /// Caller should make sure that the previous tiles are no longer in use.
+    /// [FilmTile]s from previous calls should no longer be used.
     pub fn tiles(&mut self, settings: &FilmSettings) -> Vec<FilmTile> {
+        // Bump generation for tile verification.
+        self.generation += 1;
+
         // Resize pixel storage
         if settings.res != self.res {
             let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
@@ -120,10 +129,10 @@ impl Film {
                 let max_x = (i + dim).min(settings.res.x);
                 let max_y = (j + dim).min(settings.res.y);
 
-                tiles.push(FilmTile::new(Bounds2::new(
-                    point2(i, j),
-                    point2(max_x, max_y),
-                )))
+                tiles.push(FilmTile::new(
+                    Bounds2::new(point2(i, j), point2(max_x, max_y)),
+                    self.generation,
+                ))
             }
         }
 
@@ -134,6 +143,14 @@ impl Film {
 
     /// Updates this `Film` with the pixel values in a [FilmTile].
     pub fn update_tile(&mut self, tile: &FilmTile) {
+        if tile.generation != self.generation {
+            error!(format!(
+                "Tile generation {} doesn't match film generation {}",
+                tile.generation, self.generation
+            ));
+            return;
+        }
+
         let tile_min = tile.bb.p_min;
         let tile_max = tile.bb.p_max;
 
