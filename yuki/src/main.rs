@@ -27,8 +27,23 @@ fn setup_logger() -> Result<(), fern::InitError> {
 
 fn main() {
     if let Err(why) = setup_logger() {
+        win_dbg_logger::output_debug_string(&format!("{}", why));
         panic!("{}", why);
     };
+
+    // Let's catch panic messages ourselves and output everywhere
+    std::panic::set_hook(Box::new(|info| {
+        let loc = if let Some(loc) = info.location() {
+            format!("Panic at {}:{}!", loc.file(), loc.line())
+        } else {
+            String::from("Panic!")
+        };
+        let msg = format!("{} {}", loc, info);
+
+        log::error!("{}", msg);
+        eprintln!("{}", msg);
+        win_dbg_logger::output_debug_string(&msg);
+    }));
 
     let window = Window::new("yuki", (1920, 1080));
     window.main_loop();

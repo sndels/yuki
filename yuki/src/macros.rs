@@ -4,9 +4,7 @@ macro_rules! expect {
         match $result {
             Ok(t) => t,
             Err(why) => {
-                let err = format!("{}: {}", $msg, why);
-                log::error!("{}", err);
-                panic!("{}", err);
+                panic!("{}: {:?}", $msg, why);
             }
         }
     };
