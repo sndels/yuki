@@ -4,7 +4,7 @@
 use gfx;
 use gfx::{
     gfx_defines, gfx_impl_struct_meta, gfx_pipeline, gfx_pipeline_inner, gfx_vertex_struct_meta,
-    handle::{DepthStencilView, RenderTargetView},
+    handle::DepthStencilView,
     traits::{Factory, FactoryExt},
 };
 use glutin::{
@@ -99,7 +99,7 @@ pub struct Window {
     // GL context
     device: gfx_device_gl::Device,
     factory: gfx_device_gl::Factory,
-    main_color: RenderTargetView<gfx_device_gl::Resources, OutputColorFormat>,
+    // main_color is owned by draw_params
     main_depth: DepthStencilView<gfx_device_gl::Resources, DepthFormat>,
 
     // Imgui
@@ -113,8 +113,11 @@ pub struct Window {
     clear_color: Vec3<f32>,
 
     // Film draw
-    film_texture: FilmTextureHandle,
     film_pso: gfx::PipelineState<gfx_device_gl::Resources, pipe::Meta>,
+    draw_params: pipe::Data<gfx_device_gl::Resources>,
+    // vbo is owned by params
+    film_ibo: gfx::Slice<gfx_device_gl::Resources>,
+    film_texture: FilmTextureHandle,
 }
 
 const MIN_TILE: u16 = 2;
@@ -188,10 +191,12 @@ impl Window {
             HiDpiMode::Rounded,
         );
 
+        // Film
+        let film = Arc::new(Mutex::new(Film::default()));
+
         let film_settings = FilmSettings::default();
 
-        let film_texture = allocate_film_texture(&mut factory, film_settings.res);
-
+        // Film draw
         let shader_set = expect!(
             factory.create_shader_set(VS_CODE, FS_CODE),
             "Failed to create shader set"
@@ -207,21 +212,64 @@ impl Window {
             "Failed to create pso"
         );
 
+        let quad = [
+            Vertex {
+                pos: [-1.0, -1.0],
+                uv: [0.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, -1.0],
+                uv: [1.0, 1.0],
+            },
+            Vertex {
+                pos: [1.0, 1.0],
+                uv: [1.0, 0.0],
+            },
+            Vertex {
+                pos: [-1.0, 1.0],
+                uv: [0.0, 0.0],
+            },
+        ];
+        let (film_vbo, film_ibo) =
+            factory.create_vertex_buffer_with_slice(&quad, &[0u16, 1, 2, 0, 2, 3] as &[u16]);
+
+        let film_texture = allocate_film_texture(&mut factory, film_settings.res);
+
+        let film_view = expect!(
+            factory.view_texture_as_shader_resource::<FilmFormat>(
+                &film_texture,
+                (0, 0),
+                gfx::format::Swizzle::new(),
+            ),
+            "Failed to create film shader resource view"
+        );
+        let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+            gfx::texture::FilterMethod::Scale,
+            gfx::texture::WrapMode::Clamp,
+        ));
+
+        let draw_params = pipe::Data {
+            vbuf: film_vbo.clone(),
+            film_color: (film_view, film_sampler),
+            out_color: main_color,
+        };
+
         Window {
             event_loop,
             windowed_context,
             device,
             factory,
-            main_color,
             main_depth,
             imgui_context,
             imgui_platform,
             imgui_renderer,
             film_settings,
-            film: Arc::new(Mutex::new(Film::default())),
+            film,
             clear_color: Vec3::zeros(),
-            film_texture,
             film_pso,
+            draw_params,
+            film_ibo,
+            film_texture,
         }
     }
 
@@ -231,7 +279,6 @@ impl Window {
             windowed_context,
             mut device,
             mut factory,
-            mut main_color,
             mut main_depth,
             mut imgui_context,
             mut imgui_platform,
@@ -241,6 +288,8 @@ impl Window {
             mut clear_color,
             film_pso,
             mut film_texture,
+            mut draw_params,
+            film_ibo,
             ..
         } = self;
         let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -249,6 +298,7 @@ impl Window {
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut render_manager: Option<JoinHandle<_>> = None;
+        let mut update_film_vbo = true;
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
@@ -291,20 +341,24 @@ impl Window {
                         render_triggered = false;
                     }
 
-                    update_texture(&mut encoder, &mut factory, &mut film_texture, &film);
+                    if let Some(film_view) =
+                        update_texture(&mut encoder, &mut factory, &mut film_texture, &film)
+                    {
+                        draw_params.film_color.0 = film_view;
+                        // Texture size changed so we need to update output scaling
+                        update_film_vbo = true;
+                    }
 
-                    let (film_indices, film_params) = create_film_draw_parameters(
-                        &mut factory,
-                        &window,
-                        &main_color,
-                        &film_texture,
-                        &film,
-                    );
+                    if update_film_vbo {
+                        draw_params.vbuf = create_film_vbo(&mut factory, &window, &film);
+
+                        update_film_vbo = false;
+                    }
 
                     // Draw frame
-                    encoder.clear(&mut main_color, [0.0, 0.0, 0.0, 0.0]);
+                    encoder.clear(&mut draw_params.out_color, [0.0, 0.0, 0.0, 0.0]);
 
-                    encoder.draw(&film_indices, &film_pso, &film_params);
+                    encoder.draw(&film_ibo, &film_pso, &draw_params);
 
                     // UI
                     imgui_platform.prepare_render(&ui, window);
@@ -312,7 +366,7 @@ impl Window {
                         imgui_renderer.render(
                             &mut factory,
                             &mut encoder,
-                            &mut main_color,
+                            &mut draw_params.out_color,
                             ui.render(),
                         ),
                         "Rendering GL window failed"
@@ -326,7 +380,9 @@ impl Window {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(size) => {
                         windowed_context.resize(size);
-                        windowed_context.update_gfx(&mut main_color, &mut main_depth);
+                        windowed_context.update_gfx(&mut draw_params.out_color, &mut main_depth);
+
+                        update_film_vbo = true;
                     }
                     WindowEvent::KeyboardInput {
                         input:
@@ -397,55 +453,6 @@ fn vec2_u16_picker(
         .build_array(ui, &mut vi);
     v.x = vi[0] as u16;
     v.y = vi[1] as u16;
-}
-
-fn create_film_quad<F, R>(
-    factory: &mut F,
-    window_res: Vec2<u16>,
-    film_res: Vec2<u16>,
-) -> (gfx::handle::Buffer<R, Vertex>, gfx::Slice<R>)
-where
-    F: gfx::Factory<R>,
-    R: gfx::Resources,
-{
-    // Retain film aspect ratio by scaling quad vertices directly
-    let window_aspect = (window_res.x as f32) / (window_res.y as f32);
-    let film_aspect = (film_res.x as f32) / (film_res.y as f32);
-    let (left, right, top, bottom) = if window_aspect < film_aspect {
-        let left = -1.0;
-        let right = 1.0;
-        let scale_y = window_aspect / film_aspect;
-        let top = scale_y;
-        let bottom = -scale_y;
-        (left, right, top, bottom)
-    } else {
-        let top = 1.0;
-        let bottom = -1.0;
-        let scale_x = film_aspect / window_aspect;
-        let left = -scale_x;
-        let right = scale_x;
-        (left, right, top, bottom)
-    };
-
-    let quad = [
-        Vertex {
-            pos: [left, bottom],
-            uv: [0.0, 1.0],
-        },
-        Vertex {
-            pos: [right, bottom],
-            uv: [1.0, 1.0],
-        },
-        Vertex {
-            pos: [right, top],
-            uv: [1.0, 0.0],
-        },
-        Vertex {
-            pos: [left, top],
-            uv: [0.0, 0.0],
-        },
-    ];
-    factory.create_vertex_buffer_with_slice(&quad, &[0u16, 1, 2, 0, 2, 3] as &[u16])
 }
 
 fn generate_ui(
@@ -603,7 +610,8 @@ fn update_texture(
     factory: &mut gfx_device_gl::Factory,
     film_texture: &mut gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>,
     film: &Mutex<Film>,
-) {
+) -> Option<gfx::handle::ShaderResourceView<gfx_device_gl::Resources, [f32; 3]>> {
+    let mut ret = None;
     let mut film = film.lock().unwrap();
     let film_res = film.res();
     if film.dirty() {
@@ -613,6 +621,15 @@ fn update_texture(
         let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
         if film_res.x != tex_width || film_res.y != tex_height {
             *film_texture = allocate_film_texture(factory, film_res);
+
+            ret = Some(expect!(
+                factory.view_texture_as_shader_resource::<FilmFormat>(
+                    &film_texture,
+                    (0, 0),
+                    gfx::format::Swizzle::new(),
+                ),
+                "Failed to create film shader resource view"
+            ));
         }
 
         // Update texture
@@ -626,49 +643,64 @@ fn update_texture(
 
         film.clear_dirty();
     }
+    ret
 }
 
-fn create_film_draw_parameters<F, R>(
+fn create_film_vbo<F, R>(
     factory: &mut F,
     window: &glutin::window::Window,
-    main_color: &RenderTargetView<R, OutputColorFormat>,
-    film_texture: &gfx::handle::Texture<R, gfx::format::R32_G32_B32>,
     film: &Mutex<Film>,
-) -> (gfx::Slice<R>, pipe::Data<R>)
+) -> gfx::handle::Buffer<R, Vertex>
 where
     R: gfx::Resources,
     F: gfx::Factory<R>,
 {
-    let film = film.lock().unwrap();
-    let film_view = expect!(
-        factory.view_texture_as_shader_resource::<FilmFormat>(
-            film_texture,
-            (0, 0),
-            gfx::format::Swizzle::new(),
-        ),
-        "Failed to create film shader resource view"
-    );
-    let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-        gfx::texture::FilterMethod::Scale,
-        gfx::texture::WrapMode::Clamp,
-    ));
+    let film_res = {
+        let film = film.lock().unwrap();
+        film.res()
+    };
 
     let glutin::dpi::PhysicalSize {
         width: window_width,
         height: window_height,
     } = window.inner_size();
 
-    let (film_vertices, film_indices) = create_film_quad(
-        factory,
-        Vec2::new(window_width as u16, window_height as u16),
-        film.res(),
-    );
-
-    let film_params = pipe::Data {
-        vbuf: film_vertices.clone(),
-        film_color: (film_view, film_sampler),
-        out_color: main_color.clone(),
+    // Retain film aspect ratio by scaling quad vertices directly
+    let window_aspect = (window_width as f32) / (window_height as f32);
+    let film_aspect = (film_res.x as f32) / (film_res.y as f32);
+    let (left, right, top, bottom) = if window_aspect < film_aspect {
+        let left = -1.0;
+        let right = 1.0;
+        let scale_y = window_aspect / film_aspect;
+        let top = scale_y;
+        let bottom = -scale_y;
+        (left, right, top, bottom)
+    } else {
+        let top = 1.0;
+        let bottom = -1.0;
+        let scale_x = film_aspect / window_aspect;
+        let left = -scale_x;
+        let right = scale_x;
+        (left, right, top, bottom)
     };
 
-    (film_indices, film_params)
+    let quad = [
+        Vertex {
+            pos: [left, bottom],
+            uv: [0.0, 1.0],
+        },
+        Vertex {
+            pos: [right, bottom],
+            uv: [1.0, 1.0],
+        },
+        Vertex {
+            pos: [right, top],
+            uv: [1.0, 0.0],
+        },
+        Vertex {
+            pos: [left, top],
+            uv: [0.0, 0.0],
+        },
+    ];
+    factory.create_vertex_buffer(&quad)
 }
