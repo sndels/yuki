@@ -465,7 +465,6 @@ fn generate_ui(
 
 fn launch_render(film: &mut Film, film_settings: &FilmSettings, clear_color: Vec3<f32>) {
     let mut tiles = film.tiles(&film_settings);
-    film.clear(Vec3::new(0.0, 0.0, 0.0));
 
     let film_res = film.res();
     for tile in &mut tiles {
@@ -508,27 +507,26 @@ fn update_texture(
     film_texture: &mut gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>,
     film: &mut Film,
 ) {
-    // Scope lock on pixels
-    // Acquire pixels already so that dirty is up to date
     let film_res = film.res();
-    let film_pixels = film.pixels();
-    if film_pixels.dirty {
-        // Resize if needed
+    if film.dirty() {
+        let film_pixels = film.pixels();
+
+        // Resize texture if needed
         let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
         if film_res.x != tex_width || film_res.y != tex_height {
             *film_texture = allocate_film_texture(factory, film_res);
         }
 
-        // We want to update the whole thing
+        // Update texture
         // TODO: Benefit from updating partially?
         let new_info = film_texture.get_info().to_image_info(0);
-        let data = gfx::memory::cast_slice(&film_pixels.pixels);
+        let data = gfx::memory::cast_slice(&film_pixels);
         expect!(
             encoder.update_texture::<_, FilmFormat>(&film_texture, None, new_info, data,),
             "Error updating film texture"
         );
 
-        film_pixels.dirty = false;
+        film.clear_dirty();
     }
 }
 

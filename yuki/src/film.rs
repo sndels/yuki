@@ -50,21 +50,14 @@ impl FilmTile {
     }
 }
 
-/// Pixel data of a [Film].
-pub struct FilmPixels {
-    // Raw pixels values.
-    pub pixels: Vec<Vec3<f32>>,
-    // TODO: Accumulation store sample counts per pixel
-    // Set to `true` when the [Film] updates the pixels.
-    pub dirty: bool,
-}
-
 /// Pixel wrapper for rendering through [FilmTile]s.
 pub struct Film {
     // Resolution of the stored pixel buffer.
     res: Vec2<u16>,
-    // The films pixel values.
-    pixels: FilmPixels,
+    // Pixel values.
+    pixels: Vec<Vec3<f32>>,
+    // Indicator for changed pixel values.
+    dirty: bool,
     // Generation of the storedpixels. Used to verify inputs in update_tile.
     generation: u64,
 }
@@ -74,36 +67,47 @@ impl Film {
     pub fn default() -> Self {
         Self {
             res: Vec2::new(4, 4),
-            pixels: FilmPixels {
-                pixels: vec![Vec3::zeros(); 4 * 4],
-                dirty: true,
-            },
+            pixels: vec![Vec3::zeros(); 4 * 4],
+            dirty: true,
             generation: 0,
         }
     }
 
-    /// Clears this `Film` with `col`.
-    pub fn clear(&mut self, col: Vec3<f32>) {
-        self.pixels.pixels.iter_mut().for_each(|v| *v = col);
+    /// Returns the resolution of the currently stored pixels of this `Film`.
+    pub fn res(&self) -> Vec2<u16> {
+        self.res
+    }
 
-        self.pixels.dirty = true;
+    /// Returns a reference to the the pixels of this `Film`.
+    pub fn pixels(&self) -> &Vec<Vec3<f32>> {
+        &self.pixels
+    }
+
+    /// Clears the indicator for changed pixel values in this `Film`.
+    pub fn clear_dirty(&mut self) {
+        self.dirty = false;
+    }
+
+    /// Returns `true` if this `Film`s pixels have been written to since the last
+    /// call to its [clear_dirty].
+    pub fn dirty(&self) -> bool {
+        self.dirty
     }
 
     /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
+    /// Pixel values are zeroed.
     /// [FilmTile]s from previous calls should no longer be used.
     pub fn tiles(&mut self, settings: &FilmSettings) -> Vec<FilmTile> {
         // Bump generation for tile verification.
         self.generation += 1;
 
-        // Resize pixel storage
-        if settings.res != self.res {
-            let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
+        // Let's just reallocate each time for brevity
+        // TODO: Is there a faster way to pixeldata to 0s?
+        self.res = settings.res;
+        let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
 
-            self.pixels.pixels = vec![Vec3::zeros(); pixel_count];
-            self.pixels.dirty = true;
-
-            self.res = settings.res;
-        }
+        self.pixels = vec![Vec3::zeros(); pixel_count];
+        self.dirty = true;
 
         // Collect tiles spanning the whole image
         let mut tiles = vec![];
@@ -155,21 +159,11 @@ impl Film {
             let film_slice_start = film_row_offset + (tile_min.x as usize);
             let film_slice_end = film_row_offset + (tile_max.x as usize);
 
-            let film_slice = &mut self.pixels.pixels[film_slice_start..film_slice_end];
+            let film_slice = &mut self.pixels[film_slice_start..film_slice_end];
             let tile_slice = &tile.pixels[tile_row as usize][..];
 
             film_slice.copy_from_slice(tile_slice);
         }
-        self.pixels.dirty = true;
-    }
-
-    /// Returns the resolution of the currently stored pixels of this `Film`.
-    pub fn res(&self) -> Vec2<u16> {
-        self.res
-    }
-
-    /// Returns a mutable reference to the the pixels of this `Film`.
-    pub fn pixels(&mut self) -> &mut FilmPixels {
-        &mut self.pixels
+        self.dirty = true;
     }
 }
