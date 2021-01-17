@@ -131,7 +131,7 @@ impl Film {
     }
 
     /// Updates this `Film` with the pixel values in a [FilmTile].
-    pub fn update_tile(&mut self, tile: &FilmTile) {
+    pub fn update_tile(&mut self, tile: FilmTile) {
         if tile.generation != self.generation {
             error!(format!(
                 "Tile generation {} doesn't match film generation {}",

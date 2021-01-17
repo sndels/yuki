@@ -588,7 +588,7 @@ fn render(
         debug!("Thread {}: Update tile {:?}", thread_id, tile.bb);
         {
             let mut film = film.lock().unwrap();
-            film.update_tile(&tile);
+            film.update_tile(tile);
         }
     }
     debug!("Thread {}: Signal end", thread_id);
