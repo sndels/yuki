@@ -11,10 +11,19 @@ macro_rules! expect {
 }
 
 #[macro_export]
-macro_rules! error {
-    ($msg:expr) => {
-        let debug_msg = format!("{}\n", $msg);
-        win_dbg_logger::output_debug_string(&debug_msg);
-        log::error!("{}", $msg);
+/// Takes in a format string
+macro_rules! yuki_error {
+    ( $( $arg:expr ),+ ) => {
+        let msg = format!( $( $arg ),+ );
+        win_dbg_logger::output_debug_string(&msg);
+        log::error!("{}", &msg);
+    };
+}
+
+#[macro_export]
+/// Takes in a format string
+macro_rules! yuki_debug {
+    ( $( $arg:expr ),+ ) => {
+        log::debug!( $( $arg ),+ );
     };
 }

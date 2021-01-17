@@ -17,7 +17,6 @@ use glutin::{
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use log::debug;
 use old_school_gfx_glutin_ext::*;
 use std::{
     collections::HashMap,
@@ -33,12 +32,13 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    error, expect,
+    expect,
     film::{Film, FilmSettings, FilmTile},
     math::{
         point::Point2,
         vector::{Vec2, Vec3},
     },
+    yuki_debug, yuki_error,
 };
 
 // We need to convert our Vec3<f32> pixel buffer to &[f32]
@@ -489,7 +489,7 @@ fn launch_render(
     clear_color: Vec3<f32>,
 ) -> JoinHandle<()> {
     std::thread::spawn(move || {
-        debug!("Render manager: Start");
+        yuki_debug!("Render manager: Start");
         // We maybe could get by with
         let tiles = {
             let mut film = film.lock().unwrap();
@@ -515,15 +515,15 @@ fn launch_render(
 
         while !children.is_empty() {
             if let Ok(thread_id) = rx.try_recv() {
-                debug!("Render manager: Join {}", thread_id);
+                yuki_debug!("Render manager: Join {}", thread_id);
                 let child = children.remove(&thread_id).unwrap();
                 child.join().unwrap();
-                debug!("Render manager: {} terminated", thread_id);
+                yuki_debug!("Render manager: {} terminated", thread_id);
             } else {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
         }
-        debug!("Render manager: End");
+        yuki_debug!("Render manager: End");
     })
 }
 
@@ -535,7 +535,7 @@ fn render(
     clear_color: Vec3<f32>,
     film: Arc<Mutex<Film>>,
 ) {
-    debug!("Thread {}: Start", thread_id);
+    yuki_debug!("Thread {}: Start", thread_id);
     loop {
         let tile = {
             let mut tiles = tiles.lock().unwrap();
@@ -555,7 +555,7 @@ fn render(
             film.res()
         };
 
-        debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
+        yuki_debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
             let Point2 {
                 x: film_x,
@@ -585,17 +585,17 @@ fn render(
             tile.pixels[tile_y as usize][tile_x as usize] = color;
         }
 
-        debug!("Thread {}: Update tile {:?}", thread_id, tile.bb);
+        yuki_debug!("Thread {}: Update tile {:?}", thread_id, tile.bb);
         {
             let mut film = film.lock().unwrap();
             film.update_tile(tile);
         }
     }
-    debug!("Thread {}: Signal end", thread_id);
+    yuki_debug!("Thread {}: Signal end", thread_id);
     if let Err(why) = tx.send(thread_id) {
-        error!(format!("Thread {} error: {}", thread_id, why));
+        yuki_error!("Thread {} error: {}", thread_id, why);
     };
-    debug!("Thread {}: End", thread_id);
+    yuki_debug!("Thread {}: End", thread_id);
 }
 
 fn update_texture(

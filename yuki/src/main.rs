@@ -42,7 +42,7 @@ fn main() {
         };
         let msg = format!("{} {}", loc, info);
 
-        log::error!("{}", msg);
+        yuki_error!("{}", msg);
         eprintln!("{}", msg);
         win_dbg_logger::output_debug_string(&msg);
     }));

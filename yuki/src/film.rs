@@ -1,10 +1,10 @@
 use crate::{
-    error,
     math::{
         bounds::Bounds2,
         point::point2,
         vector::{Vec2, Vec3},
     },
+    yuki_error,
 };
 
 /// The settings for a `Film`.
@@ -133,10 +133,11 @@ impl Film {
     /// Updates this `Film` with the pixel values in a [FilmTile].
     pub fn update_tile(&mut self, tile: FilmTile) {
         if tile.generation != self.generation {
-            error!(format!(
+            yuki_error!(
                 "Tile generation {} doesn't match film generation {}",
-                tile.generation, self.generation
-            ));
+                tile.generation,
+                self.generation
+            );
             return;
         }
 
@@ -144,10 +145,7 @@ impl Film {
         let tile_max = tile.bb.p_max;
 
         if tile_max.x > self.res.x || tile_max.y > self.res.y {
-            error!(format!(
-                "Tile doesn't fit film ({:?} {:?})",
-                self.res, tile.bb
-            ));
+            yuki_error!("Tile doesn't fit film ({:?} {:?})", self.res, tile.bb);
             return;
         }
 
