@@ -1,5 +1,7 @@
-use num::cast::{FromPrimitive, ToPrimitive};
-use num::{Bounded, Float, Num};
+use num::{
+    cast::{FromPrimitive, ToPrimitive},
+    Bounded, Float, Num,
+};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Generic types that can be stored in the lib containers

@@ -3,9 +3,9 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use super::common::FloatValueType;
-use super::vector::Vec3;
 use yuki_derive::*;
+
+use super::{common::FloatValueType, vector::Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Normals.html

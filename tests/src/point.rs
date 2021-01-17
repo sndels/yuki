@@ -3,8 +3,10 @@ mod tests {
     use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
     use std::panic;
 
-    use yuki::math::point::{point2, point3, Point2, Point3};
-    use yuki::math::vector::{vec2, vec3};
+    use yuki::math::{
+        point::{point2, point3, Point2, Point3},
+        vector::{vec2, vec3},
+    };
 
     // Test the Point* specific methods and merely the existence of methods shared
     // with Vec* since vector tests already validate permutations for those

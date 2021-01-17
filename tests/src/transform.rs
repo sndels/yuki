@@ -1,13 +1,11 @@
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
-    use yuki::math::bounds::Bounds3;
-    use yuki::math::matrix::Matrix4x4;
-    use yuki::math::normal::Normal;
-    use yuki::math::point::point3;
-    use yuki::math::ray::Ray;
-    use yuki::math::transform::Transform;
-    use yuki::math::vector::vec3;
+
+    use yuki::math::{
+        bounds::Bounds3, matrix::Matrix4x4, normal::Normal, point::point3, ray::Ray,
+        transform::Transform, vector::vec3,
+    };
 
     // These are by no means exhaustive. We throw some simple cases at the implementation
     // to catch obvious typos

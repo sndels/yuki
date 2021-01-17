@@ -1,11 +1,16 @@
 use num::Integer;
-use std::iter::{IntoIterator, Iterator};
-use std::ops::{Index, IndexMut};
+use std::{
+    iter::{IntoIterator, Iterator},
+    ops::{Index, IndexMut},
+};
 
-use super::common::ValueType;
-use super::point::{Point2, Point3};
-use super::vector::{Vec2, Vec3};
 use yuki_derive::*;
+
+use super::{
+    common::ValueType,
+    point::{Point2, Point3},
+    vector::{Vec2, Vec3},
+};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Bounding_Boxes.html

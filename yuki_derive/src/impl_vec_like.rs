@@ -1,7 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{Data, Field, Ident, ImplGenerics, TypeGenerics, WhereClause};
+use syn::{spanned::Spanned, Data, Field, Ident, ImplGenerics, TypeGenerics, WhereClause};
 
 use crate::common::per_component_tokens;
 

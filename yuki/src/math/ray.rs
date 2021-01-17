@@ -1,8 +1,6 @@
 use approx::{AbsDiffEq, RelativeEq};
 
-use super::common::FloatValueType;
-use super::point::Point3;
-use super::vector::Vec3;
+use super::{common::FloatValueType, point::Point3, vector::Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Rays.html

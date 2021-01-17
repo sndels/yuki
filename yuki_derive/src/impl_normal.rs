@@ -1,8 +1,10 @@
 use proc_macro2::TokenStream;
 use syn::DeriveInput;
 
-use crate::common::{combined_error, parse_generics};
-use crate::impl_vec_like::{vec_like_impl, vec_normal_members_impl};
+use crate::{
+    common::{combined_error, parse_generics},
+    impl_vec_like::{vec_like_impl, vec_normal_members_impl},
+};
 
 pub fn normal_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;

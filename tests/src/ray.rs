@@ -3,9 +3,11 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
-    use yuki::math::point::{point3, Point3};
-    use yuki::math::ray::Ray;
-    use yuki::math::vector::vec3;
+    use yuki::math::{
+        point::{point3, Point3},
+        ray::Ray,
+        vector::vec3,
+    };
 
     #[test]
     fn new() {

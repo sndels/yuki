@@ -2,8 +2,11 @@
 mod tests {
     use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
     use std::panic;
-    use yuki::math::normal::{normal, Normal};
-    use yuki::math::vector::Vec3;
+
+    use yuki::math::{
+        normal::{normal, Normal},
+        vector::Vec3,
+    };
 
     // Test the Normal specific methods and merely the existence of methods shared
     // with Vec* since vector tests already validate permutations for those

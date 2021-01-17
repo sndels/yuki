@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{DeriveInput, Field, Ident};
+use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
-use crate::common::{combined_error, parse_generics, per_component_tokens};
-use crate::impl_vec_like::{vec_like_impl, vec_normal_members_impl};
+use crate::{
+    common::{combined_error, parse_generics, per_component_tokens},
+    impl_vec_like::{vec_like_impl, vec_normal_members_impl},
+};
 
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;

@@ -1,10 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use std::vec::IntoIter;
-use syn::spanned::Spanned;
 use syn::{
-    parse_quote, Data, Field, Fields, GenericParam, Generics, Ident, ImplGenerics, TypeGenerics,
-    WhereClause,
+    parse_quote, spanned::Spanned, Data, Field, Fields, GenericParam, Generics, Ident,
+    ImplGenerics, TypeGenerics, WhereClause,
 };
 
 pub struct TraitInfo {

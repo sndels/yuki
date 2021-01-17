@@ -1,6 +1,7 @@
-use super::common::FloatValueType;
 use approx::{AbsDiffEq, RelativeEq};
 use std::ops::Mul;
+
+use super::common::FloatValueType;
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Utilities/Mathematical_Routines.html#Matrix4x4

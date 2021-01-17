@@ -1,7 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Ident, ImplGenerics, TypeGenerics, WhereClause};
+use syn::{
+    spanned::Spanned, Data, DeriveInput, Field, Fields, Ident, ImplGenerics, TypeGenerics,
+    WhereClause,
+};
 
 use crate::common::{
     add_trait_bound, combined_error, parse_generics, per_component_tokens, TraitInfo,

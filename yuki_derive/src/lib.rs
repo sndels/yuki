@@ -2,8 +2,10 @@
 
 use proc_macro;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::{parse_macro_input, DeriveInput, Ident};
+use syn::{
+    parse::{Parse, ParseStream},
+    {parse_macro_input, DeriveInput, Ident},
+};
 
 mod common;
 mod derive_math_op;

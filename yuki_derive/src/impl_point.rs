@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{DeriveInput, Field, Ident};
+use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
-use crate::common::{add_trait_bound, combined_error, parse_generics, per_component_tokens};
-use crate::impl_vec_like::vec_like_impl;
+use crate::{
+    common::{add_trait_bound, combined_error, parse_generics, per_component_tokens},
+    impl_vec_like::vec_like_impl,
+};
 
 pub fn point_impl(item: &DeriveInput) -> TokenStream {
     let point_type = &item.ident;
