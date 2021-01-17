@@ -265,142 +265,28 @@ impl Window {
 
                     // Run frame logic
 
-                    imgui::Window::new(im_str!("Settings"))
-                        .size([325.0, 370.0], imgui::Condition::FirstUseEver)
-                        .build(&ui, || {
-                            vec2_u16_picker(
-                                &ui,
-                                im_str!("Resolution"),
-                                &mut film_settings.res,
-                                MIN_RES,
-                                MAX_RES,
-                                RES_STEP as f32,
-                            );
-                            u16_picker(
-                                &ui,
-                                im_str!("Tile size"),
-                                &mut film_settings.tile_dim,
-                                MIN_TILE,
-                                MIN_RES,
-                                TILE_STEP as f32,
-                            );
-                            imgui::ColorPicker::new(
-                                im_str!("Clear color"),
-                                imgui::EditableColor::Float3(clear_color.array_mut()),
-                            )
-                            .flags(imgui::ColorEditFlags::PICKER_HUE_WHEEL)
-                            .build(&ui);
-                            render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
-                        });
+                    generate_ui(
+                        &ui,
+                        &mut film_settings,
+                        &mut clear_color,
+                        &mut render_triggered,
+                    );
 
                     if render_triggered {
-                        let mut tiles = film.tiles(&film_settings);
-                        film.clear(Vec3::new(0.0, 0.0, 0.0));
-
-                        let film_res = film.res();
-                        for tile in &mut tiles {
-                            for p in tile.bb {
-                                let Point2 {
-                                    x: film_x,
-                                    y: film_y,
-                                } = p;
-
-                                // Checker board pattern alternating between thread groups
-                                let checker_size = film_settings.tile_dim;
-                                let checker_quad_size = checker_size * 2;
-                                let mut color = if ((film_x % checker_quad_size) <= checker_size)
-                                    ^ ((film_y % checker_quad_size) <= checker_size)
-                                {
-                                    Vec3::ones()
-                                } else {
-                                    clear_color
-                                };
-                                if film_y < film_res.y / 2 {
-                                    color.y = 1.0 - color.y;
-                                }
-                                if film_x < film_res.x / 2 {
-                                    color.x = 1.0 - color.x;
-                                }
-
-                                let Vec2 {
-                                    x: tile_x,
-                                    y: tile_y,
-                                } = p - tile.bb.p_min;
-                                tile.pixels[tile_y as usize][tile_x as usize] = color;
-                            }
-                            film.update_tile(&tile);
-                        }
-
+                        launch_render(&mut film, &film_settings, clear_color);
                         render_triggered = false;
                     }
 
-                    // Update texture if film has changed
-                    let film_res = film.res();
-                    let pixels = film.pixels();
-                    {
-                        // Scope lock on pixels
-                        // Acquire pixels already so that dirty is up to date
-                        let mut pixels_lock =
-                            expect!(pixels.lock(), "Failed to acquire lock on film pixels");
-                        let FilmPixels {
-                            ref pixels,
-                            ref mut dirty,
-                        } = pixels_lock.deref_mut();
-                        if *dirty {
-                            // Resize if needed
-                            let (tex_width, tex_height, _, _) =
-                                film_texture.get_info().kind.get_dimensions();
-                            if film_res.x != tex_width || film_res.y != tex_height {
-                                film_texture = allocate_film_texture(&mut factory, film_res);
-                            }
+                    update_texture(&mut encoder, &mut factory, &mut film_texture, &mut film);
 
-                            // We want to update the whole thing
-                            // TODO: Benefit from updating partially?
-                            let new_info = film_texture.get_info().to_image_info(0);
-                            let data = gfx::memory::cast_slice(&pixels);
-                            expect!(
-                                encoder.update_texture::<_, FilmFormat>(
-                                    &film_texture,
-                                    None,
-                                    new_info,
-                                    data,
-                                ),
-                                "Error updating film texture"
-                            );
-
-                            *dirty = false;
-                        }
-                    }
-
-                    let film_view = expect!(
-                        factory.view_texture_as_shader_resource::<FilmFormat>(
-                            &film_texture,
-                            (0, 0),
-                            gfx::format::Swizzle::new(),
-                        ),
-                        "Failed to create film shader resource view"
-                    );
-                    let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-                        gfx::texture::FilterMethod::Scale,
-                        gfx::texture::WrapMode::Clamp,
-                    ));
-
-                    let glutin::dpi::PhysicalSize {
-                        width: window_width,
-                        height: window_height,
-                    } = window.inner_size();
-
-                    let (film_vertices, film_indices) = create_film_quad(
+                    let (film_indices, film_params) = create_film_draw_parameters(
                         &mut factory,
-                        Vec2::new(window_width as u16, window_height as u16),
-                        film_res,
+                        &window,
+                        &main_color,
+                        &film_texture,
+                        &film,
                     );
 
-                    let film_params = pipe::Data {
-                        vbuf: film_vertices.clone(),
-                        film_color: (film_view, film_sampler),
-                        out_color: main_color.clone(),
-                    };
                     // Draw frame
                     encoder.clear(&mut main_color, [0.0, 0.0, 0.0, 0.0]);
 
@@ -540,4 +426,157 @@ where
         },
     ];
     factory.create_vertex_buffer_with_slice(&quad, &[0u16, 1, 2, 0, 2, 3] as &[u16])
+}
+
+fn generate_ui(
+    ui: &imgui::Ui,
+    film_settings: &mut FilmSettings,
+    clear_color: &mut Vec3<f32>,
+    render_triggered: &mut bool,
+) {
+    imgui::Window::new(im_str!("Settings"))
+        .size([325.0, 370.0], imgui::Condition::FirstUseEver)
+        .build(ui, || {
+            vec2_u16_picker(
+                ui,
+                im_str!("Resolution"),
+                &mut film_settings.res,
+                MIN_RES,
+                MAX_RES,
+                RES_STEP as f32,
+            );
+            u16_picker(
+                ui,
+                im_str!("Tile size"),
+                &mut film_settings.tile_dim,
+                MIN_TILE,
+                MIN_RES,
+                TILE_STEP as f32,
+            );
+            imgui::ColorPicker::new(
+                im_str!("Clear color"),
+                imgui::EditableColor::Float3(clear_color.array_mut()),
+            )
+            .flags(imgui::ColorEditFlags::PICKER_HUE_WHEEL)
+            .build(ui);
+            *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+        });
+}
+
+fn launch_render(film: &mut Film, film_settings: &FilmSettings, clear_color: Vec3<f32>) {
+    let mut tiles = film.tiles(&film_settings);
+    film.clear(Vec3::new(0.0, 0.0, 0.0));
+
+    let film_res = film.res();
+    for tile in &mut tiles {
+        for p in tile.bb {
+            let Point2 {
+                x: film_x,
+                y: film_y,
+            } = p;
+
+            // Checker board pattern alternating between thread groups
+            let checker_size = film_settings.tile_dim;
+            let checker_quad_size = checker_size * 2;
+            let mut color = if ((film_x % checker_quad_size) <= checker_size)
+                ^ ((film_y % checker_quad_size) <= checker_size)
+            {
+                Vec3::ones()
+            } else {
+                clear_color
+            };
+            if film_y < film_res.y / 2 {
+                color.y = 1.0 - color.y;
+            }
+            if film_x < film_res.x / 2 {
+                color.x = 1.0 - color.x;
+            }
+
+            let Vec2 {
+                x: tile_x,
+                y: tile_y,
+            } = p - tile.bb.p_min;
+            tile.pixels[tile_y as usize][tile_x as usize] = color;
+        }
+        film.update_tile(&tile);
+    }
+}
+
+fn update_texture(
+    encoder: &mut gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
+    factory: &mut gfx_device_gl::Factory,
+    film_texture: &mut gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>,
+    film: &mut Film,
+) {
+    // Scope lock on pixels
+    // Acquire pixels already so that dirty is up to date
+    let film_res = film.res();
+    let film_pixels = film.pixels();
+    let mut pixels_lock = expect!(film_pixels.lock(), "Failed to acquire lock on film pixels");
+    let FilmPixels {
+        ref pixels,
+        ref mut dirty,
+    } = pixels_lock.deref_mut();
+    if *dirty {
+        // Resize if needed
+        let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
+        if film_res.x != tex_width || film_res.y != tex_height {
+            *film_texture = allocate_film_texture(factory, film_res);
+        }
+
+        // We want to update the whole thing
+        // TODO: Benefit from updating partially?
+        let new_info = film_texture.get_info().to_image_info(0);
+        let data = gfx::memory::cast_slice(&pixels);
+        expect!(
+            encoder.update_texture::<_, FilmFormat>(&film_texture, None, new_info, data,),
+            "Error updating film texture"
+        );
+
+        *dirty = false;
+    }
+}
+
+fn create_film_draw_parameters<F, R>(
+    factory: &mut F,
+    window: &glutin::window::Window,
+    main_color: &RenderTargetView<R, OutputColorFormat>,
+    film_texture: &gfx::handle::Texture<R, gfx::format::R32_G32_B32>,
+    film: &Film,
+) -> (gfx::Slice<R>, pipe::Data<R>)
+where
+    R: gfx::Resources,
+    F: gfx::Factory<R>,
+{
+    let film_view = expect!(
+        factory.view_texture_as_shader_resource::<FilmFormat>(
+            film_texture,
+            (0, 0),
+            gfx::format::Swizzle::new(),
+        ),
+        "Failed to create film shader resource view"
+    );
+    let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+        gfx::texture::FilterMethod::Scale,
+        gfx::texture::WrapMode::Clamp,
+    ));
+
+    let glutin::dpi::PhysicalSize {
+        width: window_width,
+        height: window_height,
+    } = window.inner_size();
+
+    let (film_vertices, film_indices) = create_film_quad(
+        factory,
+        Vec2::new(window_width as u16, window_height as u16),
+        film.res(),
+    );
+
+    let film_params = pipe::Data {
+        vbuf: film_vertices.clone(),
+        film_color: (film_view, film_sampler),
+        out_color: main_color.clone(),
+    };
+
+    (film_indices, film_params)
 }
