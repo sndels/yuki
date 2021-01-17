@@ -39,6 +39,23 @@
             ]
         },
         {
+            "label": "Check yuki",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "+nightly",
+                "check",
+                "--bin",
+                "yuki"
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}/yuki"
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "Build bench",
             "group": "build",
             "command": "cargo",
