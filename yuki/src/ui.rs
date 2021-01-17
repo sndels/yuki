@@ -17,8 +17,14 @@ use glutin::{
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use log::debug;
 use old_school_gfx_glutin_ext::*;
-use std::time::Instant;
+use std::{
+    collections::HashMap,
+    sync::{mpsc::channel, Arc, Mutex},
+    thread::JoinHandle,
+    time::Instant,
+};
 
 type FilmSurface = gfx::format::R32_G32_B32;
 type FilmFormat = (FilmSurface, gfx::format::Float);
@@ -27,8 +33,8 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    expect,
-    film::{Film, FilmSettings},
+    error, expect,
+    film::{Film, FilmSettings, FilmTile},
     math::{
         point::Point2,
         vector::{Vec2, Vec3},
@@ -103,7 +109,7 @@ pub struct Window {
 
     // Rendering
     film_settings: FilmSettings,
-    film: Film,
+    film: Arc<Mutex<Film>>,
     clear_color: Vec3<f32>,
 
     // Film draw
@@ -212,7 +218,7 @@ impl Window {
             imgui_platform,
             imgui_renderer,
             film_settings,
-            film: Film::default(),
+            film: Arc::new(Mutex::new(Film::default())),
             clear_color: Vec3::zeros(),
             film_texture,
             film_pso,
@@ -231,7 +237,7 @@ impl Window {
             mut imgui_platform,
             mut imgui_renderer,
             mut film_settings,
-            mut film,
+            film,
             mut clear_color,
             film_pso,
             mut film_texture,
@@ -242,6 +248,7 @@ impl Window {
         let mut last_frame = Instant::now();
         let mut render_triggered = false;
         let mut any_item_active = false;
+        let mut render_manager: Option<JoinHandle<_>> = None;
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
@@ -275,11 +282,16 @@ impl Window {
                     any_item_active = ui.is_any_item_active();
 
                     if render_triggered {
-                        launch_render(&mut film, &film_settings, clear_color);
+                        let rm = std::mem::replace(&mut render_manager, None);
+                        if let Some(thread) = rm {
+                            thread.join().unwrap();
+                        }
+                        render_manager =
+                            Some(launch_render(film.clone(), film_settings, clear_color));
                         render_triggered = false;
                     }
 
-                    update_texture(&mut encoder, &mut factory, &mut film_texture, &mut film);
+                    update_texture(&mut encoder, &mut factory, &mut film_texture, &film);
 
                     let (film_indices, film_params) = create_film_draw_parameters(
                         &mut factory,
@@ -471,11 +483,79 @@ fn generate_ui(
         });
 }
 
-fn launch_render(film: &mut Film, film_settings: &FilmSettings, clear_color: Vec3<f32>) {
-    let mut tiles = film.tiles(&film_settings);
+fn launch_render(
+    film: Arc<Mutex<Film>>,
+    film_settings: FilmSettings,
+    clear_color: Vec3<f32>,
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        debug!("Render manager: Start");
+        // We maybe could get by with
+        let tiles = {
+            let mut film = film.lock().unwrap();
+            Arc::new(Mutex::new(film.tiles(&film_settings)))
+        };
 
-    let film_res = film.res();
-    for tile in &mut tiles {
+        let checker_size = film_settings.tile_dim;
+        let (tx, rx) = channel();
+        // TODO: Proper num based on hw?
+        let mut children: HashMap<usize, JoinHandle<_>> = (0..4)
+            .map(|i| {
+                let tx = tx.clone();
+                let tiles = tiles.clone();
+                let film = film.clone();
+                (
+                    i,
+                    std::thread::spawn(move || {
+                        render(i, tx, tiles, checker_size, clear_color, film);
+                    }),
+                )
+            })
+            .collect();
+
+        while !children.is_empty() {
+            if let Ok(thread_id) = rx.try_recv() {
+                debug!("Render manager: Join {}", thread_id);
+                let child = children.remove(&thread_id).unwrap();
+                child.join().unwrap();
+                debug!("Render manager: {} terminated", thread_id);
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+        debug!("Render manager: End");
+    })
+}
+
+fn render(
+    thread_id: usize,
+    tx: std::sync::mpsc::Sender<usize>,
+    tiles: Arc<Mutex<Vec<FilmTile>>>,
+    checker_size: u16,
+    clear_color: Vec3<f32>,
+    film: Arc<Mutex<Film>>,
+) {
+    debug!("Thread {}: Start", thread_id);
+    loop {
+        let tile = {
+            let mut tiles = tiles.lock().unwrap();
+            if !tiles.is_empty() {
+                Some(tiles.pop().unwrap())
+            } else {
+                None
+            }
+        };
+        if tile.is_none() {
+            break;
+        }
+        let mut tile = tile.unwrap();
+
+        let film_res = {
+            let film = film.lock().unwrap();
+            film.res()
+        };
+
+        debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
             let Point2 {
                 x: film_x,
@@ -483,7 +563,6 @@ fn launch_render(film: &mut Film, film_settings: &FilmSettings, clear_color: Vec
             } = p;
 
             // Checker board pattern alternating between thread groups
-            let checker_size = film_settings.tile_dim;
             let checker_quad_size = checker_size * 2;
             let mut color = if ((film_x % checker_quad_size) <= checker_size)
                 ^ ((film_y % checker_quad_size) <= checker_size)
@@ -505,16 +584,27 @@ fn launch_render(film: &mut Film, film_settings: &FilmSettings, clear_color: Vec
             } = p - tile.bb.p_min;
             tile.pixels[tile_y as usize][tile_x as usize] = color;
         }
-        film.update_tile(&tile);
+
+        debug!("Thread {}: Update tile {:?}", thread_id, tile.bb);
+        {
+            let mut film = film.lock().unwrap();
+            film.update_tile(&tile);
+        }
     }
+    debug!("Thread {}: Signal end", thread_id);
+    if let Err(why) = tx.send(thread_id) {
+        error!(format!("Thread {} error: {}", thread_id, why));
+    };
+    debug!("Thread {}: End", thread_id);
 }
 
 fn update_texture(
     encoder: &mut gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
     factory: &mut gfx_device_gl::Factory,
     film_texture: &mut gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>,
-    film: &mut Film,
+    film: &Mutex<Film>,
 ) {
+    let mut film = film.lock().unwrap();
     let film_res = film.res();
     if film.dirty() {
         let film_pixels = film.pixels();
@@ -543,12 +633,13 @@ fn create_film_draw_parameters<F, R>(
     window: &glutin::window::Window,
     main_color: &RenderTargetView<R, OutputColorFormat>,
     film_texture: &gfx::handle::Texture<R, gfx::format::R32_G32_B32>,
-    film: &Film,
+    film: &Mutex<Film>,
 ) -> (gfx::Slice<R>, pipe::Data<R>)
 where
     R: gfx::Resources,
     F: gfx::Factory<R>,
 {
+    let film = film.lock().unwrap();
     let film_view = expect!(
         factory.view_texture_as_shader_resource::<FilmFormat>(
             film_texture,
