@@ -18,7 +18,7 @@ use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
-use std::{ops::DerefMut, time::Instant};
+use std::time::Instant;
 
 type FilmSurface = gfx::format::R32_G32_B32;
 type FilmFormat = (FilmSurface, gfx::format::Float);
@@ -28,7 +28,7 @@ type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurf
 
 use crate::{
     expect,
-    film::{Film, FilmPixels, FilmSettings},
+    film::{Film, FilmSettings},
     math::{
         point::Point2,
         vector::{Vec2, Vec3},
@@ -512,12 +512,7 @@ fn update_texture(
     // Acquire pixels already so that dirty is up to date
     let film_res = film.res();
     let film_pixels = film.pixels();
-    let mut pixels_lock = expect!(film_pixels.lock(), "Failed to acquire lock on film pixels");
-    let FilmPixels {
-        ref pixels,
-        ref mut dirty,
-    } = pixels_lock.deref_mut();
-    if *dirty {
+    if film_pixels.dirty {
         // Resize if needed
         let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
         if film_res.x != tex_width || film_res.y != tex_height {
@@ -527,13 +522,13 @@ fn update_texture(
         // We want to update the whole thing
         // TODO: Benefit from updating partially?
         let new_info = film_texture.get_info().to_image_info(0);
-        let data = gfx::memory::cast_slice(&pixels);
+        let data = gfx::memory::cast_slice(&film_pixels.pixels);
         expect!(
             encoder.update_texture::<_, FilmFormat>(&film_texture, None, new_info, data,),
             "Error updating film texture"
         );
 
-        *dirty = false;
+        film_pixels.dirty = false;
     }
 }
 

@@ -1,7 +1,5 @@
-use std::{ops::DerefMut, sync::Mutex};
-
 use crate::{
-    error, expect,
+    error,
     math::{
         bounds::Bounds2,
         point::point2,
@@ -28,7 +26,7 @@ impl FilmSettings {
     }
 }
 
-/// A film tile used for asynchronous rendering.
+/// A film tile used for rendering.
 pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
@@ -61,13 +59,13 @@ pub struct FilmPixels {
     pub dirty: bool,
 }
 
-/// Pixel wrapper for asynchronous rendering through [FilmTile]s.
+/// Pixel wrapper for rendering through [FilmTile]s.
 pub struct Film {
     // Resolution of the stored pixel buffer.
     res: Vec2<u16>,
-    // Pixels wrapped in a mutex for parallel tile rendering.
-    pixels: Mutex<FilmPixels>,
-    // Generation of the stored pixels. Used to verify inputs in update_tile.
+    // The films pixel values.
+    pixels: FilmPixels,
+    // Generation of the storedpixels. Used to verify inputs in update_tile.
     generation: u64,
 }
 
@@ -76,26 +74,19 @@ impl Film {
     pub fn default() -> Self {
         Self {
             res: Vec2::new(4, 4),
-            pixels: Mutex::new(FilmPixels {
+            pixels: FilmPixels {
                 pixels: vec![Vec3::zeros(); 4 * 4],
                 dirty: true,
-            }),
+            },
             generation: 0,
         }
     }
 
     /// Clears this `Film` with `col`.
     pub fn clear(&mut self, col: Vec3<f32>) {
-        let mut pixel_lock = expect!(self.pixels.lock(), "Failed to acquire lock on film pixels");
+        self.pixels.pixels.iter_mut().for_each(|v| *v = col);
 
-        let FilmPixels {
-            ref mut pixels,
-            ref mut dirty,
-        } = pixel_lock.deref_mut();
-
-        pixels.iter_mut().for_each(|v| *v = col);
-
-        *dirty = true;
+        self.pixels.dirty = true;
     }
 
     /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
@@ -107,17 +98,11 @@ impl Film {
         // Resize pixel storage
         if settings.res != self.res {
             let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
-            let mut pixel_lock =
-                expect!(self.pixels.lock(), "Failed to acquire lock on film pixels");
-            let FilmPixels {
-                ref mut pixels,
-                ref mut dirty,
-            } = pixel_lock.deref_mut();
 
-            *pixels = vec![Vec3::zeros(); pixel_count];
+            self.pixels.pixels = vec![Vec3::zeros(); pixel_count];
+            self.pixels.dirty = true;
 
             self.res = settings.res;
-            *dirty = true;
         }
 
         // Collect tiles spanning the whole image
@@ -164,23 +149,18 @@ impl Film {
 
         // Copy pixels over to the film
         // TODO: Accumulation, store counts per pixel
-        let mut pixel_lock = expect!(self.pixels.lock(), "Failed to acquire lock on film pixels");
-        let FilmPixels {
-            ref mut pixels,
-            ref mut dirty,
-        } = pixel_lock.deref_mut();
         for (tile_row, film_row) in ((tile_min.y as usize)..(tile_max.y as usize)).enumerate() {
             let film_row_offset = film_row * (self.res.x as usize);
 
             let film_slice_start = film_row_offset + (tile_min.x as usize);
             let film_slice_end = film_row_offset + (tile_max.x as usize);
 
-            let film_slice = &mut pixels[film_slice_start..film_slice_end];
+            let film_slice = &mut self.pixels.pixels[film_slice_start..film_slice_end];
             let tile_slice = &tile.pixels[tile_row as usize][..];
 
             film_slice.copy_from_slice(tile_slice);
         }
-        *dirty = true;
+        self.pixels.dirty = true;
     }
 
     /// Returns the resolution of the currently stored pixels of this `Film`.
@@ -189,7 +169,7 @@ impl Film {
     }
 
     /// Returns a mutable reference to the the pixels of this `Film`.
-    pub fn pixels(&mut self) -> &mut Mutex<FilmPixels> {
+    pub fn pixels(&mut self) -> &mut FilmPixels {
         &mut self.pixels
     }
 }
