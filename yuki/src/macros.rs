@@ -9,3 +9,12 @@ macro_rules! expect {
         }
     };
 }
+
+#[macro_export]
+macro_rules! error {
+    ($msg:expr) => {
+        let debug_msg = format!("{}\n", $msg);
+        win_dbg_logger::output_debug_string(&debug_msg);
+        log::error!("{}", $msg);
+    };
+}
