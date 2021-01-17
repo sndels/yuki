@@ -9,7 +9,7 @@ use gfx::{
 };
 use glutin::{
     dpi::LogicalSize,
-    event::{Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
     PossiblyCurrent, WindowedContext,
@@ -241,6 +241,7 @@ impl Window {
 
         let mut last_frame = Instant::now();
         let mut render_triggered = false;
+        let mut any_item_active = false;
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
@@ -271,6 +272,7 @@ impl Window {
                         &mut clear_color,
                         &mut render_triggered,
                     );
+                    any_item_active = ui.is_any_item_active();
 
                     if render_triggered {
                         launch_render(&mut film, &film_settings, clear_color);
@@ -318,14 +320,20 @@ impl Window {
                         input:
                             KeyboardInput {
                                 virtual_keycode: Some(key),
+                                state: ElementState::Pressed,
                                 ..
                             },
                         ..
-                    } => match key {
-                        VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                        VirtualKeyCode::Return => render_triggered = true,
-                        _ => {}
-                    },
+                    } => {
+                        if !any_item_active {
+                            // We only want to handle keypresses if we're not interacting with imgui
+                            match key {
+                                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                                VirtualKeyCode::Return => render_triggered = true,
+                                _ => {}
+                            }
+                        }
+                    }
                     _ => {}
                 },
                 _ => {}
