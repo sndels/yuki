@@ -8,7 +8,7 @@ use super::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transforms/Transforms.html
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Transform<T>
 where
     T: FloatValueType,
