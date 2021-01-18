@@ -228,6 +228,10 @@ mod tests {
             Vec3::from(Normal::new(1.0, 2.0, 3.0)),
             Vec3::new(1.0, 2.0, 3.0)
         );
+        assert_eq!(
+            Vec3::from(Point3::new(1.0, 2.0, 3.0)),
+            Vec3::new(1.0, 2.0, 3.0)
+        );
     }
 
     #[test]

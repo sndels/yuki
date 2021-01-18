@@ -8,6 +8,7 @@ use yuki_derive::*;
 use super::{
     common::{FloatValueType, ValueType},
     normal::Normal,
+    point::Point3,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -204,6 +205,15 @@ where
 {
     fn from(n: Normal<T>) -> Self {
         Self::new(n.x, n.y, n.z)
+    }
+}
+
+impl<T> From<Point3<T>> for Vec3<T>
+where
+    T: FloatValueType,
+{
+    fn from(p: Point3<T>) -> Self {
+        Self::new(p.x, p.y, p.z)
     }
 }
 
