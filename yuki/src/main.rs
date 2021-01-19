@@ -36,16 +36,7 @@ fn main() {
 
     // Let's catch panic messages ourselves and output everywhere
     std::panic::set_hook(Box::new(|info| {
-        let loc = if let Some(loc) = info.location() {
-            format!("Panic at {}:{}!", loc.file(), loc.line())
-        } else {
-            String::from("Panic!")
-        };
-        let msg = format!("{} {}", loc, info);
-
-        yuki_error!("{}", msg);
-        eprintln!("{}", msg);
-        win_dbg_logger::output_debug_string(&msg);
+        yuki_error!("{}\n", info);
     }));
 
     let window = Window::new("yuki", (1920, 1080));
