@@ -571,8 +571,8 @@ fn render(
 
             // Checker board pattern alternating between thread groups
             let checker_quad_size = checker_size * 2;
-            let mut color = if ((film_x % checker_quad_size) <= checker_size)
-                ^ ((film_y % checker_quad_size) <= checker_size)
+            let mut color = if ((film_x % checker_quad_size) < checker_size)
+                ^ ((film_y % checker_quad_size) < checker_size)
             {
                 Vec3::ones()
             } else {
