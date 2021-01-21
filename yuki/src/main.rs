@@ -1,3 +1,4 @@
+mod camera;
 mod film;
 mod macros;
 mod math;
