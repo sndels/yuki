@@ -334,7 +334,7 @@ where
     Transform::new_full(m, m.transposed())
 }
 
-/// Creates a new camera `Transform` with the camera at `pos` looking at `target` with `up` as the up vector.
+/// Creates a world_to_camera `Transform` with the camera at `pos` looking at `target` with `up` as the up vector.
 pub fn look_at<T>(pos: Point3<T>, target: Point3<T>, up: Vec3<T>) -> Transform<T>
 where
     T: FloatValueType,
@@ -343,11 +343,11 @@ where
     let right = up.normalized().cross(dir).normalized();
     let new_up = dir.cross(right);
     let camera_to_world = Matrix4x4::new([
-        [right.x, new_up.x, dir.x, T::zero()],
-        [right.y, new_up.y, dir.y, T::zero()],
-        [right.z, new_up.z, dir.z, T::zero()],
+        [right.x, new_up.x, dir.x, pos.x],
+        [right.y, new_up.y, dir.y, pos.y],
+        [right.z, new_up.z, dir.z, pos.z],
         [T::zero(), T::zero(), T::zero(), T::one()],
     ]);
 
-    Transform::new_full(camera_to_world.transposed(), camera_to_world)
+    Transform::new_full(camera_to_world.inverted(), camera_to_world)
 }
