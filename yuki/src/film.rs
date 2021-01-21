@@ -30,8 +30,8 @@ impl FilmSettings {
 pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
-    /// Pixel values in this tile, stored in RGB order.
-    pub pixels: Vec<Vec<Vec3<f32>>>,
+    /// Pixel values in this tile stored in row-major RGB order.
+    pub pixels: Vec<Vec3<f32>>,
     // Generation of this tile. Used to verify inputs in update_tile.
     generation: u64,
 }
@@ -44,7 +44,7 @@ impl FilmTile {
 
         FilmTile {
             bb,
-            pixels: vec![vec![Vec3::zeros(); width]; height],
+            pixels: vec![Vec3::zeros(); width * height],
             generation,
         }
     }
@@ -149,6 +149,8 @@ impl Film {
             return;
         }
 
+        let tile_width = tile_max.x - tile_min.x;
+
         // Copy pixels over to the film
         // TODO: Accumulation, store counts per pixel
         for (tile_row, film_row) in ((tile_min.y as usize)..(tile_max.y as usize)).enumerate() {
@@ -157,8 +159,11 @@ impl Film {
             let film_slice_start = film_row_offset + (tile_min.x as usize);
             let film_slice_end = film_row_offset + (tile_max.x as usize);
 
+            let tile_slice_start = tile_row * (tile_width as usize);
+            let tile_slice_end = (tile_row + 1) * (tile_width as usize);
+
             let film_slice = &mut self.pixels[film_slice_start..film_slice_end];
-            let tile_slice = &tile.pixels[tile_row as usize][..];
+            let tile_slice = &tile.pixels[tile_slice_start..tile_slice_end];
 
             film_slice.copy_from_slice(tile_slice);
         }

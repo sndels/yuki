@@ -627,6 +627,7 @@ fn render(
             break;
         }
         let mut tile = tile.unwrap();
+        let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
 
         yuki_debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
@@ -663,7 +664,8 @@ fn render(
                 x: tile_x,
                 y: tile_y,
             } = p - tile.bb.p_min;
-            tile.pixels[tile_y as usize][tile_x as usize] = color;
+            let pixel_offset = (tile_y * tile_width + tile_x) as usize;
+            tile.pixels[pixel_offset] = color;
         }
 
         yuki_debug!("Thread {}: Update tile {:?}", thread_id, tile.bb);
