@@ -2,6 +2,7 @@ mod camera;
 mod film;
 mod macros;
 mod math;
+mod sphere;
 mod ui;
 
 use ui::Window;
