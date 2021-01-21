@@ -341,7 +341,7 @@ impl Window {
 
                     // Run frame logic
 
-                    generate_ui(
+                    render_triggered |= generate_ui(
                         &ui,
                         &mut film_settings,
                         &mut clear_color,
@@ -485,14 +485,18 @@ fn allocate_film_texture(
     )
 }
 
-fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, speed: f32) {
+fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, speed: f32) -> bool {
     let mut vi = *v as i32;
-    imgui::Drag::new(label)
+
+    let value_changed = imgui::Drag::new(label)
         .range((min as i32)..=(max as i32))
         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
         .speed(speed)
         .build(ui, &mut vi);
+
     *v = vi as u16;
+
+    value_changed
 }
 
 fn vec2_u16_picker(
@@ -502,15 +506,19 @@ fn vec2_u16_picker(
     min: u16,
     max: u16,
     speed: f32,
-) {
+) -> bool {
     let mut vi = [v.x as i32, v.y as i32];
-    imgui::Drag::new(label)
+
+    let value_changed = imgui::Drag::new(label)
         .range((min as i32)..=(max as i32))
         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
         .speed(speed)
         .build_array(ui, &mut vi);
+
     v.x = vi[0] as u16;
     v.y = vi[1] as u16;
+
+    value_changed
 }
 
 fn generate_ui(
@@ -522,11 +530,12 @@ fn generate_ui(
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
-) {
+) -> bool {
+    let mut values_changed = false;
     imgui::Window::new(im_str!("Settings"))
         .size([325.0, 370.0], imgui::Condition::FirstUseEver)
         .build(ui, || {
-            vec2_u16_picker(
+            values_changed |= vec2_u16_picker(
                 ui,
                 im_str!("Resolution"),
                 &mut film_settings.res,
@@ -534,7 +543,7 @@ fn generate_ui(
                 MAX_RES,
                 RES_STEP as f32,
             );
-            u16_picker(
+            values_changed |= u16_picker(
                 ui,
                 im_str!("Tile size"),
                 &mut film_settings.tile_dim,
@@ -542,8 +551,8 @@ fn generate_ui(
                 MIN_RES,
                 TILE_STEP as f32,
             );
-            ui.checkbox(im_str!("Clear buffer"), clear_on_render);
-            imgui::ColorPicker::new(
+            values_changed |= ui.checkbox(im_str!("Clear buffer"), clear_on_render);
+            values_changed |= imgui::ColorPicker::new(
                 im_str!("Clear color"),
                 imgui::EditableColor::Float3(clear_color.array_mut()),
             )
@@ -552,17 +561,17 @@ fn generate_ui(
 
             ui.text(im_str!("Camera"));
 
-            imgui::Drag::new(im_str!("Position"))
+            values_changed |= imgui::Drag::new(im_str!("Position"))
                 .speed(0.1)
                 .display_format(im_str!("%.1f"))
                 .build_array(ui, cam_pos.array_mut());
 
-            imgui::Drag::new(im_str!("Target"))
+            values_changed |= imgui::Drag::new(im_str!("Target"))
                 .speed(0.1)
                 .display_format(im_str!("%.1f"))
                 .build_array(ui, cam_target.array_mut());
 
-            imgui::Drag::new(im_str!("Field of View"))
+            values_changed |= imgui::Drag::new(im_str!("Field of View"))
                 .range(0.1..=359.9)
                 .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                 .speed(0.5)
@@ -571,6 +580,7 @@ fn generate_ui(
 
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
         });
+    values_changed
 }
 
 fn launch_render(
