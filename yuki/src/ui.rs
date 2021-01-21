@@ -32,12 +32,15 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
+    camera::{Camera, CameraSample},
     expect,
     film::{Film, FilmSettings, FilmTile},
     math::{
-        point::Point2,
+        point::{Point2, Point3},
+        transform::{look_at, translation},
         vector::{Vec2, Vec3},
     },
+    sphere::Sphere,
     yuki_debug, yuki_error,
 };
 
@@ -118,6 +121,9 @@ pub struct Window {
     // vbo is owned by params
     film_ibo: gfx::Slice<gfx_device_gl::Resources>,
     film_texture: FilmTextureHandle,
+
+    // Scene
+    scene: Arc<Sphere>,
 }
 
 const MIN_TILE: u16 = 2;
@@ -254,6 +260,8 @@ impl Window {
             out_color: main_color,
         };
 
+        let scene = Arc::new(Sphere::new(&translation(Vec3::new(0.0, 0.0, 0.0)), 1.0));
+
         Window {
             event_loop,
             windowed_context,
@@ -270,6 +278,7 @@ impl Window {
             draw_params,
             film_ibo,
             film_texture,
+            scene,
         }
     }
 
@@ -290,15 +299,22 @@ impl Window {
             mut film_texture,
             mut draw_params,
             film_ibo,
+            scene,
             ..
         } = self;
         let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
         let mut last_frame = Instant::now();
+
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut render_manager: Option<JoinHandle<_>> = None;
         let mut update_film_vbo = true;
+
+        let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
+        let mut cam_target = Point3::new(0.0, 0.0, 0.0);
+        let mut cam_fov = 60.0;
+
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
@@ -328,6 +344,9 @@ impl Window {
                         &mut film_settings,
                         &mut clear_color,
                         &mut render_triggered,
+                        &mut cam_pos,
+                        &mut cam_target,
+                        &mut cam_fov,
                     );
                     any_item_active = ui.is_any_item_active();
 
@@ -336,8 +355,27 @@ impl Window {
                         if let Some(thread) = rm {
                             thread.join().unwrap();
                         }
-                        render_manager =
-                            Some(launch_render(film.clone(), film_settings, clear_color));
+
+                        // Get tiles, resizes film if necessary
+                        let tiles = {
+                            let mut film = film.lock().unwrap();
+                            Arc::new(Mutex::new(film.tiles(&film_settings)))
+                        };
+
+                        let camera = Arc::new(Camera::new(
+                            &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
+                            cam_fov,
+                            &film,
+                        ));
+
+                        render_manager = Some(launch_render(
+                            &camera,
+                            &scene,
+                            film.clone(),
+                            tiles,
+                            film_settings,
+                            clear_color,
+                        ));
                         render_triggered = false;
                     }
 
@@ -460,6 +498,9 @@ fn generate_ui(
     film_settings: &mut FilmSettings,
     clear_color: &mut Vec3<f32>,
     render_triggered: &mut bool,
+    cam_pos: &mut Point3<f32>,
+    cam_target: &mut Point3<f32>,
+    cam_fov: &mut f32,
 ) {
     imgui::Window::new(im_str!("Settings"))
         .size([325.0, 370.0], imgui::Condition::FirstUseEver)
@@ -486,23 +527,43 @@ fn generate_ui(
             )
             .flags(imgui::ColorEditFlags::PICKER_HUE_WHEEL)
             .build(ui);
+
+            ui.text(im_str!("Camera"));
+
+            imgui::Drag::new(im_str!("Position"))
+                .speed(0.1)
+                .display_format(im_str!("%.1f"))
+                .build_array(ui, cam_pos.array_mut());
+
+            imgui::Drag::new(im_str!("Target"))
+                .speed(0.1)
+                .display_format(im_str!("%.1f"))
+                .build_array(ui, cam_target.array_mut());
+
+            imgui::Drag::new(im_str!("Field of View"))
+                .range(0.1..=359.9)
+                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                .speed(0.5)
+                .display_format(im_str!("%.1f"))
+                .build(ui, cam_fov);
+
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
         });
 }
 
 fn launch_render(
+    camera: &Arc<Camera>,
+    scene: &Arc<Sphere>,
     film: Arc<Mutex<Film>>,
+    tiles: Arc<Mutex<Vec<FilmTile>>>,
     film_settings: FilmSettings,
     clear_color: Vec3<f32>,
 ) -> JoinHandle<()> {
+    let camera = camera.clone();
+    let scene = scene.clone();
+
     std::thread::spawn(move || {
         yuki_debug!("Render manager: Start");
-        // We maybe could get by with
-        let tiles = {
-            let mut film = film.lock().unwrap();
-            Arc::new(Mutex::new(film.tiles(&film_settings)))
-        };
-
         let checker_size = film_settings.tile_dim;
         let (tx, rx) = channel();
         // TODO: Proper num based on hw?
@@ -510,11 +571,13 @@ fn launch_render(
             .map(|i| {
                 let tx = tx.clone();
                 let tiles = tiles.clone();
+                let camera = camera.clone();
+                let scene = scene.clone();
                 let film = film.clone();
                 (
                     i,
                     std::thread::spawn(move || {
-                        render(i, tx, tiles, checker_size, clear_color, film);
+                        render(i, tx, tiles, checker_size, clear_color, camera, scene, film);
                     }),
                 )
             })
@@ -527,7 +590,7 @@ fn launch_render(
                 child.join().unwrap();
                 yuki_debug!("Render manager: {} terminated", thread_id);
             } else {
-                std::thread::sleep(std::time::Duration::from_millis(1));
+                std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
         yuki_debug!("Render manager: End");
@@ -540,9 +603,17 @@ fn render(
     tiles: Arc<Mutex<Vec<FilmTile>>>,
     checker_size: u16,
     clear_color: Vec3<f32>,
+    camera: Arc<Camera>,
+    scene: Arc<Sphere>,
     film: Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Thread {}: Start", thread_id);
+
+    let film_res = {
+        let film = film.lock().unwrap();
+        film.res()
+    };
+
     loop {
         let tile = {
             let mut tiles = tiles.lock().unwrap();
@@ -557,33 +628,36 @@ fn render(
         }
         let mut tile = tile.unwrap();
 
-        let film_res = {
-            let film = film.lock().unwrap();
-            film.res()
-        };
-
         yuki_debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
-            let Point2 {
-                x: film_x,
-                y: film_y,
-            } = p;
+            let ray = camera.ray(CameraSample {
+                p_film: Point2::new(p.x as f32, p.y as f32),
+            });
 
-            // Checker board pattern alternating between thread groups
-            let checker_quad_size = checker_size * 2;
-            let mut color = if ((film_x % checker_quad_size) < checker_size)
-                ^ ((film_y % checker_quad_size) < checker_size)
-            {
-                Vec3::ones()
+            let color = if let Some(t) = scene.intersect(ray) {
+                Vec3::from(ray.point(t))
             } else {
-                clear_color
+                let Point2 {
+                    x: film_x,
+                    y: film_y,
+                } = p;
+                // Checker board pattern alternating between thread groups
+                let checker_quad_size = checker_size * 2;
+                let mut color = if ((film_x % checker_quad_size) < checker_size)
+                    ^ ((film_y % checker_quad_size) < checker_size)
+                {
+                    Vec3::ones()
+                } else {
+                    clear_color
+                };
+                if film_y < film_res.y / 2 {
+                    color.y = 1.0 - color.y;
+                }
+                if film_x < film_res.x / 2 {
+                    color.x = 1.0 - color.x;
+                }
+                color
             };
-            if film_y < film_res.y / 2 {
-                color.y = 1.0 - color.y;
-            }
-            if film_x < film_res.x / 2 {
-                color.x = 1.0 - color.x;
-            }
 
             let Vec2 {
                 x: tile_x,
