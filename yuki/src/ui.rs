@@ -113,7 +113,6 @@ pub struct Window {
     // Rendering
     film_settings: FilmSettings,
     film: Arc<Mutex<Film>>,
-    clear_color: Vec3<f32>,
 
     // Film draw
     film_pso: gfx::PipelineState<gfx_device_gl::Resources, pipe::Meta>,
@@ -273,7 +272,6 @@ impl Window {
             imgui_renderer,
             film_settings,
             film,
-            clear_color: Vec3::zeros(),
             film_pso,
             draw_params,
             film_ibo,
@@ -294,7 +292,6 @@ impl Window {
             mut imgui_renderer,
             mut film_settings,
             film,
-            mut clear_color,
             film_pso,
             mut film_texture,
             mut draw_params,
@@ -310,6 +307,8 @@ impl Window {
         let mut any_item_active = false;
         let mut render_manager: Option<JoinHandle<_>> = None;
         let mut update_film_vbo = true;
+        let mut clear_color = Vec3::zeros();
+        let mut clear_on_render = true;
 
         let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
         let mut cam_target = Point3::new(0.0, 0.0, 0.0);
@@ -343,6 +342,7 @@ impl Window {
                         &ui,
                         &mut film_settings,
                         &mut clear_color,
+                        &mut clear_on_render,
                         &mut render_triggered,
                         &mut cam_pos,
                         &mut cam_target,
@@ -359,7 +359,14 @@ impl Window {
                         // Get tiles, resizes film if necessary
                         let tiles = {
                             let mut film = film.lock().unwrap();
-                            Arc::new(Mutex::new(film.tiles(&film_settings)))
+                            Arc::new(Mutex::new(film.tiles(
+                                &film_settings,
+                                if clear_on_render {
+                                    Some(clear_color)
+                                } else {
+                                    None
+                                },
+                            )))
                         };
 
                         let camera = Arc::new(Camera::new(
@@ -497,6 +504,7 @@ fn generate_ui(
     ui: &imgui::Ui,
     film_settings: &mut FilmSettings,
     clear_color: &mut Vec3<f32>,
+    clear_on_render: &mut bool,
     render_triggered: &mut bool,
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
@@ -521,6 +529,7 @@ fn generate_ui(
                 MIN_RES,
                 TILE_STEP as f32,
             );
+            ui.checkbox(im_str!("Clear buffer"), clear_on_render);
             imgui::ColorPicker::new(
                 im_str!("Clear color"),
                 imgui::EditableColor::Float3(clear_color.array_mut()),

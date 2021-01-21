@@ -95,19 +95,31 @@ impl Film {
     }
 
     /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
-    /// Pixel values are zeroed.
+    /// Uses `clear_color` to initialize the pixels. If no color is supplied and the pixel buffer
+    /// needs resizing, black is used.
     /// [FilmTile]s from previous calls should no longer be used.
-    pub fn tiles(&mut self, settings: &FilmSettings) -> Vec<FilmTile> {
+    pub fn tiles(
+        &mut self,
+        settings: &FilmSettings,
+        clear_color: Option<Vec3<f32>>,
+    ) -> Vec<FilmTile> {
         // Bump generation for tile verification.
         self.generation += 1;
 
-        // Let's just reallocate each time for brevity
-        // TODO: Is there a faster way to pixeldata to 0s?
         self.res = settings.res;
         let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
 
-        self.pixels = vec![Vec3::zeros(); pixel_count];
-        self.dirty = true;
+        if self.pixels.len() != pixel_count {
+            if let Some(color) = clear_color {
+                self.pixels = vec![color; pixel_count];
+            } else {
+                self.pixels = vec![Vec3::zeros(); pixel_count];
+            }
+            self.dirty = true;
+        } else if let Some(color) = clear_color {
+            self.pixels = vec![color; pixel_count];
+            self.dirty = true;
+        }
 
         // Collect tiles spanning the whole image
         let mut tiles = vec![];
