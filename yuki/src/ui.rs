@@ -20,7 +20,10 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
 use std::{
     collections::HashMap,
-    sync::{mpsc::channel, Arc, Mutex},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
     thread::JoinHandle,
     time::Instant,
 };
@@ -305,7 +308,7 @@ impl Window {
 
         let mut render_triggered = false;
         let mut any_item_active = false;
-        let mut render_manager: Option<JoinHandle<_>> = None;
+        let mut render_handle: Option<(Sender<usize>, Receiver<usize>, JoinHandle<_>)> = None;
         let mut update_film_vbo = true;
         let mut clear_color = Vec3::zeros();
         let mut clear_on_render = true;
@@ -351,9 +354,13 @@ impl Window {
                     any_item_active = ui.is_any_item_active();
 
                     if render_triggered {
-                        let rm = std::mem::replace(&mut render_manager, None);
-                        if let Some(thread) = rm {
-                            thread.join().unwrap();
+                        let rm = std::mem::replace(&mut render_handle, None);
+                        if let Some((to_render, from_render, render_thread)) = rm {
+                            if let Err(why) = to_render.send(0) {
+                                yuki_error!("Error killing render: {}", why);
+                            };
+                            from_render.recv().unwrap();
+                            render_thread.join().unwrap();
                         }
 
                         // Get tiles, resizes film if necessary
@@ -375,14 +382,20 @@ impl Window {
                             &film,
                         ));
 
-                        render_manager = Some(launch_render(
+                        let (to_render, render_rx) = channel();
+                        let (render_tx, from_render) = channel();
+                        let render_thread = launch_render(
+                            render_tx,
+                            render_rx,
                             &camera,
                             &scene,
                             film.clone(),
                             tiles,
                             film_settings,
                             clear_color,
-                        ));
+                        );
+
+                        render_handle = Some((to_render, from_render, render_thread));
                         render_triggered = false;
                     }
 
@@ -561,6 +574,8 @@ fn generate_ui(
 }
 
 fn launch_render(
+    to_parent: Sender<usize>,
+    from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
     scene: &Arc<Sphere>,
     film: Arc<Mutex<Film>>,
@@ -572,43 +587,81 @@ fn launch_render(
     let scene = scene.clone();
 
     std::thread::spawn(move || {
-        yuki_debug!("Render manager: Start");
+        yuki_debug!("Render: Start");
         let checker_size = film_settings.tile_dim;
-        let (tx, rx) = channel();
+        let (child_send, from_children) = channel();
         // TODO: Proper num based on hw?
-        let mut children: HashMap<usize, JoinHandle<_>> = (0..4)
+        let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..4)
             .map(|i| {
-                let tx = tx.clone();
+                let (from_child, child_rx) = channel();
+                let child_tx = child_send.clone();
                 let tiles = tiles.clone();
                 let camera = camera.clone();
                 let scene = scene.clone();
                 let film = film.clone();
                 (
                     i,
-                    std::thread::spawn(move || {
-                        render(i, tx, tiles, checker_size, clear_color, camera, scene, film);
-                    }),
+                    (
+                        from_child,
+                        std::thread::spawn(move || {
+                            render(
+                                i,
+                                child_tx,
+                                child_rx,
+                                tiles,
+                                checker_size,
+                                clear_color,
+                                camera,
+                                scene,
+                                film,
+                            );
+                        }),
+                    ),
                 )
             })
             .collect();
 
+        // Wait for children to finish
         while !children.is_empty() {
-            if let Ok(thread_id) = rx.try_recv() {
-                yuki_debug!("Render manager: Join {}", thread_id);
-                let child = children.remove(&thread_id).unwrap();
+            if let Ok(_) = from_parent.try_recv() {
+                yuki_debug!("Render: Killed by parent");
+                break;
+            }
+
+            if let Ok(thread_id) = from_children.try_recv() {
+                yuki_debug!("Render: Join {}", thread_id);
+                let (_, child) = children.remove(&thread_id).unwrap();
                 child.join().unwrap();
-                yuki_debug!("Render manager: {} terminated", thread_id);
+                yuki_debug!("Render: {} terminated", thread_id);
             } else {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
-        yuki_debug!("Render manager: End");
+
+        // Kill children after being killed
+        if !children.is_empty() {
+            for (thread_id, (tx, child)) in children {
+                if let Err(why) = tx.send(0) {
+                    yuki_error!("Render: Error killing {}: {}", thread_id, why);
+                };
+                from_children.recv().unwrap();
+                child.join().unwrap();
+                yuki_debug!("Render: {} terminated", thread_id);
+            }
+        }
+
+        yuki_debug!("Render: Signal end");
+        if let Err(why) = to_parent.send(0) {
+            yuki_error!("Render: Error notifying parent: {}", why);
+        };
+        yuki_debug!("Render: End");
     })
 }
 
 fn render(
     thread_id: usize,
-    tx: std::sync::mpsc::Sender<usize>,
+    to_parent: Sender<usize>,
+    from_parent: Receiver<usize>,
     tiles: Arc<Mutex<Vec<FilmTile>>>,
     checker_size: u16,
     clear_color: Vec3<f32>,
@@ -623,7 +676,12 @@ fn render(
         film.res()
     };
 
-    loop {
+    'work: loop {
+        if let Ok(_) = from_parent.try_recv() {
+            yuki_debug!("Thread {}: Killed by parent", thread_id);
+            break 'work;
+        }
+
         let tile = {
             let mut tiles = tiles.lock().unwrap();
             if !tiles.is_empty() {
@@ -640,6 +698,12 @@ fn render(
 
         yuki_debug!("Thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
+            // Let's have low latency kills for more interactive view
+            if let Ok(_) = from_parent.try_recv() {
+                yuki_debug!("Thread {}: Killed by parent", thread_id);
+                break 'work;
+            }
+
             let ray = camera.ray(CameraSample {
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
@@ -683,8 +747,9 @@ fn render(
             film.update_tile(tile);
         }
     }
+
     yuki_debug!("Thread {}: Signal end", thread_id);
-    if let Err(why) = tx.send(thread_id) {
+    if let Err(why) = to_parent.send(thread_id) {
         yuki_error!("Thread {} error: {}", thread_id, why);
     };
     yuki_debug!("Thread {}: End", thread_id);
