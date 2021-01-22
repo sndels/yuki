@@ -21,7 +21,7 @@ use old_school_gfx_glutin_ext::*;
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{channel, Receiver, Sender},
+        mpsc::{channel, Receiver, SendError, Sender, TryRecvError},
         Arc, Mutex,
     },
     thread::JoinHandle,
@@ -308,7 +308,9 @@ impl Window {
 
         let mut render_triggered = false;
         let mut any_item_active = false;
-        let mut render_handle: Option<(Sender<usize>, Receiver<usize>, JoinHandle<_>)> = None;
+        let mut render_handle: Option<(Option<Sender<usize>>, Receiver<usize>, JoinHandle<_>)> =
+            None;
+        let mut render_ending = false;
         let mut update_film_vbo = true;
         let mut clear_color = Vec3::zeros();
         let mut clear_on_render = true;
@@ -350,53 +352,82 @@ impl Window {
                         &mut cam_pos,
                         &mut cam_target,
                         &mut cam_fov,
+                        render_ending,
+                        Arc::strong_count(&film),
                     );
                     any_item_active = ui.is_any_item_active();
 
                     if render_triggered {
+                        // Make sure there is no render task running on when a new one is launched
+                        // Need replace since the thread handle needs to be moved out
                         let rm = std::mem::replace(&mut render_handle, None);
                         if let Some((to_render, from_render, render_thread)) = rm {
-                            if let Err(why) = to_render.send(0) {
-                                yuki_error!("Error killing render: {}", why);
-                            };
-                            from_render.recv().unwrap();
-                            render_thread.join().unwrap();
+                            // See if the task has completed
+                            match from_render.try_recv() {
+                                Ok(_) => {
+                                    render_thread.join().unwrap();
+                                    render_ending = false;
+                                }
+                                Err(why) => {
+                                    // Task is either still running or has disconnected without notifying us
+                                    match why {
+                                        TryRecvError::Empty => {
+                                            if let Some(tx) = to_render {
+                                                // Kill thread on first time here
+                                                let _ = tx.send(0);
+                                            }
+                                            // Keep handles to continue polling until the thread has stopped
+                                            // We won't be sending anything after the kill command
+                                            render_handle =
+                                                Some((None, from_render, render_thread));
+                                            render_ending = true;
+                                        }
+                                        TryRecvError::Disconnected => {
+                                            yuki_error!("Render disconnected without notifying");
+                                            render_thread.join().unwrap();
+                                            render_ending = false;
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        // Get tiles, resizes film if necessary
-                        let tiles = {
-                            let mut film = film.lock().unwrap();
-                            Arc::new(Mutex::new(film.tiles(
-                                &film_settings,
-                                if clear_on_render {
-                                    Some(clear_color)
-                                } else {
-                                    None
-                                },
-                            )))
-                        };
+                        if render_handle.is_none() {
+                            // Get tiles, resizes film if necessary
+                            let tiles = {
+                                let mut film = film.lock().unwrap();
+                                Arc::new(Mutex::new(film.tiles(
+                                    &film_settings,
+                                    if clear_on_render {
+                                        Some(clear_color)
+                                    } else {
+                                        None
+                                    },
+                                )))
+                            };
 
-                        let camera = Arc::new(Camera::new(
-                            &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
-                            cam_fov,
-                            &film,
-                        ));
+                            let camera = Arc::new(Camera::new(
+                                &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
+                                cam_fov,
+                                &film,
+                            ));
 
-                        let (to_render, render_rx) = channel();
-                        let (render_tx, from_render) = channel();
-                        let render_thread = launch_render(
-                            render_tx,
-                            render_rx,
-                            &camera,
-                            &scene,
-                            film.clone(),
-                            tiles,
-                            film_settings,
-                            clear_color,
-                        );
+                            let (to_render, render_rx) = channel();
+                            let (render_tx, from_render) = channel();
+                            let render_thread = launch_render(
+                                render_tx,
+                                render_rx,
+                                &camera,
+                                &scene,
+                                film.clone(),
+                                tiles,
+                                film_settings,
+                                clear_color,
+                            );
 
-                        render_handle = Some((to_render, from_render, render_thread));
-                        render_triggered = false;
+                            render_handle = Some((Some(to_render), from_render, render_thread));
+                            render_triggered = false;
+                        }
                     }
 
                     if let Some(film_view) =
@@ -530,6 +561,8 @@ fn generate_ui(
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
+    render_ending: bool,
+    film_ref_count: usize,
 ) -> bool {
     let mut values_changed = false;
     imgui::Window::new(im_str!("Settings"))
@@ -579,6 +612,17 @@ fn generate_ui(
                 .build(ui, cam_fov);
 
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+
+            if film_ref_count > 1 {
+                ui.text(im_str!("Render manager running"));
+            }
+            if film_ref_count > 2 {
+                ui.text(im_str!("Render threads running: {}", film_ref_count - 2));
+            }
+
+            if render_ending {
+                ui.text(im_str!("Render winding down!"))
+            }
         });
     values_changed
 }
@@ -651,9 +695,10 @@ fn launch_render(
         // Kill children after being killed
         if !children.is_empty() {
             for (thread_id, (tx, child)) in children {
-                if let Err(why) = tx.send(0) {
-                    yuki_error!("Render: Error killing {}: {}", thread_id, why);
-                };
+                // No need to check for error, child having disconnected, since that's our goal
+                let _ = tx.send(0);
+                // This message might not be from the same child, but we don't really care as long as
+                // every child notifies us
                 from_children.recv().unwrap();
                 child.join().unwrap();
                 yuki_debug!("Render: {} terminated", thread_id);
