@@ -554,7 +554,7 @@ fn generate_ui(
 ) -> bool {
     let mut values_changed = false;
     imgui::Window::new(im_str!("Settings"))
-        .size([325.0, 500.0], imgui::Condition::FirstUseEver)
+        .size([325.0, 525.0], imgui::Condition::FirstUseEver)
         .build(ui, || {
             values_changed |= vec2_u16_picker(
                 ui,
