@@ -37,7 +37,7 @@ type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurf
 use crate::{
     camera::{Camera, CameraSample},
     expect,
-    film::{Film, FilmSettings, FilmTile},
+    film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
         point::{Point2, Point3},
         transform::{look_at, translation},
@@ -611,7 +611,7 @@ fn launch_render(
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
     scene: &Arc<Sphere>,
-    film: Arc<Mutex<Film>>,
+    mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
@@ -620,10 +620,7 @@ fn launch_render(
     std::thread::spawn(move || {
         yuki_debug!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
-        let tiles = {
-            let mut film = film.lock().unwrap();
-            Arc::new(Mutex::new(film.tiles(&film_settings)))
-        };
+        let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
 
         yuki_debug!("Render: Start");
         let checker_size = film_settings.tile_dim;

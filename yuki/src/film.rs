@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{
     math::{
         bounds::Bounds2,
@@ -64,7 +66,7 @@ pub struct Film {
     pixels: Vec<Vec3<f32>>,
     // Indicator for changed pixel values.
     dirty: bool,
-    // Generation of the storedpixels. Used to verify inputs in update_tile.
+    // Generation of the pixel buffer and tiles in flight. Used to verify inputs in update_tile.
     generation: u64,
 }
 
@@ -84,6 +86,11 @@ impl Film {
         self.res
     }
 
+    /// Returns the generation of the current pixel buffer and corresponding tiles.
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// Returns a reference to the the pixels of this `Film`.
     pub fn pixels(&self) -> &Vec<Vec3<f32>> {
         &self.pixels
@@ -100,9 +107,9 @@ impl Film {
         self.dirty
     }
 
-    /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
-    /// [FilmTile]s from previous calls should no longer be used.
-    pub fn tiles(&mut self, settings: &FilmSettings) -> Vec<FilmTile> {
+    /// Resizes this `Film` according to `settings`.
+    /// Note that this invalidates any tiles still held to the `Film`.
+    fn resize(&mut self, settings: &FilmSettings) {
         // Bump generation for tile verification.
         self.generation += 1;
 
@@ -113,26 +120,6 @@ impl Film {
             self.pixels = vec![settings.clear_color; pixel_count];
             self.dirty = true;
         }
-
-        // Collect tiles spanning the whole image
-        let mut tiles = vec![];
-        let dim = settings.tile_dim;
-        for j in (0..settings.res.y).step_by(dim as usize) {
-            for i in (0..settings.res.x).step_by(dim as usize) {
-                // Limit tiles to film dimensions
-                let max_x = (i + dim).min(settings.res.x);
-                let max_y = (j + dim).min(settings.res.y);
-
-                tiles.push(FilmTile::new(
-                    Bounds2::new(point2(i, j), point2(max_x, max_y)),
-                    self.generation,
-                ))
-            }
-        }
-
-        // TODO: Order tiles in a spiral from middle for more snappy feel when tweaking view
-
-        tiles
     }
 
     /// Updates this `Film` with the pixel values in a [FilmTile].
@@ -174,4 +161,35 @@ impl Film {
         }
         self.dirty = true;
     }
+}
+
+/// Resizes the `Film` according to current `settings` if necessary and returns [FilmTile]s for rendering.
+/// [FilmTile]s from previous calls should no longer be used.
+pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: &FilmSettings) -> Vec<FilmTile> {
+    // Only lock the film for the duration of resizing
+    let film_gen = {
+        let mut film = film.lock().unwrap();
+        film.resize(settings);
+        film.generation()
+    };
+
+    // Collect tiles spanning the whole image
+    let mut tiles = vec![];
+    let dim = settings.tile_dim;
+    for j in (0..settings.res.y).step_by(dim as usize) {
+        for i in (0..settings.res.x).step_by(dim as usize) {
+            // Limit tiles to film dimensions
+            let max_x = (i + dim).min(settings.res.x);
+            let max_y = (j + dim).min(settings.res.y);
+
+            tiles.push(FilmTile::new(
+                Bounds2::new(point2(i, j), point2(max_x, max_y)),
+                film_gen,
+            ))
+        }
+    }
+
+    // TODO: Order tiles in a spiral from middle for more snappy feel when tweaking view
+
+    tiles
 }
