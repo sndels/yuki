@@ -14,14 +14,20 @@ pub struct FilmSettings {
     pub res: Vec2<u16>,
     /// The tile size to be used.
     pub tile_dim: u16,
+    /// `true` if pixels need to be cleared even if the buffer is not resized
+    pub clear: bool,
+    /// Value to clear the buffer with
+    pub clear_color: Vec3<f32>,
 }
 
 impl FilmSettings {
-    /// Creates a new `FilmSettings` with `res` [640, 480] and `tile_dim` [8,8].
+    /// Creates a new `FilmSettings` with `res` [640, 480], `tile_dim` [8,8] and clearing on with black color.
     pub fn default() -> Self {
         Self {
             res: Vec2::new(640, 480),
             tile_dim: 16,
+            clear: true,
+            clear_color: Vec3::zeros(),
         }
     }
 }
@@ -95,29 +101,16 @@ impl Film {
     }
 
     /// Resizes this `Film` according to current `settings` and returns [FilmTile]s for rendering.
-    /// Uses `clear_color` to initialize the pixels. If no color is supplied and the pixel buffer
-    /// needs resizing, black is used.
     /// [FilmTile]s from previous calls should no longer be used.
-    pub fn tiles(
-        &mut self,
-        settings: &FilmSettings,
-        clear_color: Option<Vec3<f32>>,
-    ) -> Vec<FilmTile> {
+    pub fn tiles(&mut self, settings: &FilmSettings) -> Vec<FilmTile> {
         // Bump generation for tile verification.
         self.generation += 1;
 
         self.res = settings.res;
         let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
 
-        if self.pixels.len() != pixel_count {
-            if let Some(color) = clear_color {
-                self.pixels = vec![color; pixel_count];
-            } else {
-                self.pixels = vec![Vec3::zeros(); pixel_count];
-            }
-            self.dirty = true;
-        } else if let Some(color) = clear_color {
-            self.pixels = vec![color; pixel_count];
+        if self.pixels.len() != pixel_count || settings.clear {
+            self.pixels = vec![settings.clear_color; pixel_count];
             self.dirty = true;
         }
 

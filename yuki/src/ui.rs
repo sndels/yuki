@@ -21,7 +21,7 @@ use old_school_gfx_glutin_ext::*;
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{channel, Receiver, SendError, Sender, TryRecvError},
+        mpsc::{channel, Receiver, Sender, TryRecvError},
         Arc, Mutex,
     },
     thread::JoinHandle,
@@ -312,8 +312,6 @@ impl Window {
             None;
         let mut render_ending = false;
         let mut update_film_vbo = true;
-        let mut clear_color = Vec3::zeros();
-        let mut clear_on_render = true;
 
         let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
         let mut cam_target = Point3::new(0.0, 0.0, 0.0);
@@ -346,8 +344,6 @@ impl Window {
                     render_triggered |= generate_ui(
                         &ui,
                         &mut film_settings,
-                        &mut clear_color,
-                        &mut clear_on_render,
                         &mut render_triggered,
                         &mut cam_pos,
                         &mut cam_target,
@@ -396,14 +392,7 @@ impl Window {
                             // Get tiles, resizes film if necessary
                             let tiles = {
                                 let mut film = film.lock().unwrap();
-                                Arc::new(Mutex::new(film.tiles(
-                                    &film_settings,
-                                    if clear_on_render {
-                                        Some(clear_color)
-                                    } else {
-                                        None
-                                    },
-                                )))
+                                Arc::new(Mutex::new(film.tiles(&film_settings)))
                             };
 
                             let camera = Arc::new(Camera::new(
@@ -422,7 +411,6 @@ impl Window {
                                 film.clone(),
                                 tiles,
                                 film_settings,
-                                clear_color,
                             );
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
@@ -555,8 +543,6 @@ fn vec2_u16_picker(
 fn generate_ui(
     ui: &imgui::Ui,
     film_settings: &mut FilmSettings,
-    clear_color: &mut Vec3<f32>,
-    clear_on_render: &mut bool,
     render_triggered: &mut bool,
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
@@ -584,10 +570,10 @@ fn generate_ui(
                 MIN_RES,
                 TILE_STEP as f32,
             );
-            values_changed |= ui.checkbox(im_str!("Clear buffer"), clear_on_render);
+            values_changed |= ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
             values_changed |= imgui::ColorPicker::new(
                 im_str!("Clear color"),
-                imgui::EditableColor::Float3(clear_color.array_mut()),
+                imgui::EditableColor::Float3(film_settings.clear_color.array_mut()),
             )
             .flags(imgui::ColorEditFlags::PICKER_HUE_WHEEL)
             .build(ui);
@@ -635,7 +621,6 @@ fn launch_render(
     film: Arc<Mutex<Film>>,
     tiles: Arc<Mutex<Vec<FilmTile>>>,
     film_settings: FilmSettings,
-    clear_color: Vec3<f32>,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
     let scene = scene.clone();
@@ -664,7 +649,7 @@ fn launch_render(
                                 child_rx,
                                 tiles,
                                 checker_size,
-                                clear_color,
+                                film_settings.clear_color,
                                 camera,
                                 scene,
                                 film,
