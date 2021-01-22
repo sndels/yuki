@@ -389,12 +389,6 @@ impl Window {
                         }
 
                         if render_handle.is_none() {
-                            // Get tiles, resizes film if necessary
-                            let tiles = {
-                                let mut film = film.lock().unwrap();
-                                Arc::new(Mutex::new(film.tiles(&film_settings)))
-                            };
-
                             let camera = Arc::new(Camera::new(
                                 &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
                                 cam_fov,
@@ -409,7 +403,6 @@ impl Window {
                                 &camera,
                                 &scene,
                                 film.clone(),
-                                tiles,
                                 film_settings,
                             );
 
@@ -619,13 +612,19 @@ fn launch_render(
     camera: &Arc<Camera>,
     scene: &Arc<Sphere>,
     film: Arc<Mutex<Film>>,
-    tiles: Arc<Mutex<Vec<FilmTile>>>,
     film_settings: FilmSettings,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
     let scene = scene.clone();
 
     std::thread::spawn(move || {
+        yuki_debug!("Render: Getting tiles");
+        // Get tiles, resizes film if necessary
+        let tiles = {
+            let mut film = film.lock().unwrap();
+            Arc::new(Mutex::new(film.tiles(&film_settings)))
+        };
+
         yuki_debug!("Render: Start");
         let checker_size = film_settings.tile_dim;
         let (child_send, from_children) = channel();
