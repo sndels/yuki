@@ -38,6 +38,7 @@ impl FilmSettings {
 }
 
 /// A film tile used for rendering.
+#[derive(Debug, Clone)]
 pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
@@ -71,6 +72,9 @@ pub struct Film {
     dirty: bool,
     // Generation of the pixel buffer and tiles in flight. Used to verify inputs in update_tile.
     generation: u64,
+    // Cached tiles for the current pixel buffer, in correct order for rendering
+    // Also store the dimension of the cached tiles
+    cached_tiles: Option<(u16, Vec<FilmTile>)>,
 }
 
 impl Film {
@@ -81,6 +85,7 @@ impl Film {
             pixels: vec![Vec3::zeros(); 4 * 4],
             dirty: true,
             generation: 0,
+            cached_tiles: None,
         }
     }
 
@@ -110,9 +115,36 @@ impl Film {
         self.dirty
     }
 
+    /// Returns blank `FilmTile`s for the buffer pixel with if they have been cached in the correct dimension.
+    /// The returned tiles will be in the current generation.
+    fn cached_tiles(&self, dim: u16) -> Option<Vec<FilmTile>> {
+        if let Some((cached_dim, tiles)) = &self.cached_tiles {
+            if *cached_dim == dim {
+                let mut tiles = tiles.clone();
+                for tile in &mut tiles {
+                    tile.generation = self.generation;
+                }
+                Some(tiles)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn cache_tiles(&mut self, tiles: &Vec<FilmTile>) {
+        assert!(tiles.len() > 0);
+        // Tile size is always at most the full resolution
+        let dim = tiles[0].bb.diagonal().x;
+        self.cached_tiles = Some((dim, tiles.clone()));
+    }
+
     /// Resizes this `Film` according to `settings`.
     /// Note that this invalidates any tiles still held to the `Film`.
     fn resize(&mut self, settings: &FilmSettings) {
+        assert!(settings.res.x >= settings.tile_dim && settings.res.y >= settings.tile_dim);
+
         // Bump generation for tile verification.
         self.generation += 1;
 
@@ -121,6 +153,7 @@ impl Film {
 
         if self.pixels.len() != pixel_count || settings.clear {
             self.pixels = vec![settings.clear_color; pixel_count];
+            self.cached_tiles = None;
             self.dirty = true;
         }
     }
@@ -177,64 +210,79 @@ pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: &FilmSettings) -> Vec<F
         film.generation()
     };
 
-    yuki_debug!("Generating tiles");
-    // Collect tiles spanning the whole image hashed by their tile coordinates
-    let mut tiles = HashMap::new();
-    let dim = settings.tile_dim;
-    for j in (0..settings.res.y).step_by(dim as usize) {
-        for i in (0..settings.res.x).step_by(dim as usize) {
-            // Limit tiles to film dimensions
-            let max_x = (i + dim).min(settings.res.x);
-            let max_y = (j + dim).min(settings.res.y);
+    let tiles = {
+        yuki_debug!("Checking for cached tiles");
+        let film = film.lock().unwrap();
+        film.cached_tiles(settings.tile_dim)
+    };
+    if let Some(tiles) = tiles {
+        tiles
+    } else {
+        yuki_debug!("Generating tiles");
+        // Collect tiles spanning the whole image hashed by their tile coordinates
+        let mut tiles = HashMap::new();
+        let dim = settings.tile_dim;
+        for j in (0..settings.res.y).step_by(dim as usize) {
+            for i in (0..settings.res.x).step_by(dim as usize) {
+                // Limit tiles to film dimensions
+                let max_x = (i + dim).min(settings.res.x);
+                let max_y = (j + dim).min(settings.res.y);
 
-            tiles.insert(
-                (i / dim, j / dim),
-                FilmTile::new(Bounds2::new(point2(i, j), point2(max_x, max_y)), film_gen),
-            );
+                tiles.insert(
+                    (i / dim, j / dim),
+                    FilmTile::new(Bounds2::new(point2(i, j), point2(max_x, max_y)), film_gen),
+                );
+            }
         }
+
+        yuki_debug!("Ordering tiles");
+        // Order tiles in a spiral from middle since that makes the visualisation more snappy:
+        // Most things of interest are likely towards the center of the frame
+        let mut tile_queue = Vec::new();
+        let tiles_x = ((settings.res.x as f32) / (dim as f32)).ceil() as i32;
+        let tiles_y = ((settings.res.y as f32) / (dim as f32)).ceil() as i32;
+        let max_dim = tiles_x.max(tiles_y);
+        let center_x = tiles_x / 2;
+        let center_y = tiles_y / 2;
+        let mut x = 0;
+        let mut y = 0;
+        let mut dx = 0;
+        let mut dy = -1;
+        while !tiles.is_empty() {
+            let tile_x = center_x + x;
+            let tile_y = center_y + y;
+
+            if (tile_x.abs() > max_dim) || (tile_y.abs() > max_dim) {
+                yuki_error!(
+                    "Tile spiral overflow at tile {}, {}!\nDangling tiles: {:?}",
+                    tile_x,
+                    tile_y,
+                    tiles.keys()
+                );
+                break;
+            }
+
+            if tile_x >= 0 && tile_x < tiles_x && tile_y >= 0 && tile_y < tiles_y {
+                tile_queue.push(tiles.remove(&(tile_x as u16, tile_y as u16)).unwrap());
+            }
+
+            if x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y) {
+                std::mem::swap(&mut dx, &mut dy);
+                dx *= -1;
+            }
+
+            x += dx;
+            y += dy;
+        }
+        // Center tiles were pushed first
+        tile_queue.reverse();
+
+        {
+            yuki_debug!("Caching tiles");
+            let mut film = film.lock().unwrap();
+            film.cache_tiles(&tile_queue);
+        }
+
+        tile_queue
     }
-
-    yuki_debug!("Ordering tiles");
-    // Order tiles in a spiral from middle since that makes the visualisation more snappy:
-    // Most things of interest are likely towards the center of the frame
-    let mut tile_queue = Vec::new();
-    let tiles_x = ((settings.res.x as f32) / (dim as f32)).ceil() as i32;
-    let tiles_y = ((settings.res.y as f32) / (dim as f32)).ceil() as i32;
-    let max_dim = tiles_x.max(tiles_y);
-    let center_x = tiles_x / 2;
-    let center_y = tiles_y / 2;
-    let mut x = 0;
-    let mut y = 0;
-    let mut dx = 0;
-    let mut dy = -1;
-    while !tiles.is_empty() {
-        let tile_x = center_x + x;
-        let tile_y = center_y + y;
-
-        if (tile_x.abs() > max_dim) || (tile_y.abs() > max_dim) {
-            yuki_error!(
-                "Tile spiral overflow at tile {}, {}!\nDangling tiles: {:?}",
-                tile_x,
-                tile_y,
-                tiles.keys()
-            );
-            break;
-        }
-
-        if tile_x >= 0 && tile_x < tiles_x && tile_y >= 0 && tile_y < tiles_y {
-            tile_queue.push(tiles.remove(&(tile_x as u16, tile_y as u16)).unwrap());
-        }
-
-        if x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y) {
-            std::mem::swap(&mut dx, &mut dy);
-            dx *= -1;
-        }
-
-        x += dx;
-        y += dy;
-    }
-    // Center tiles were pushed first
-    tile_queue.reverse();
-
-    tile_queue
 }
