@@ -678,7 +678,7 @@ fn launch_render(
                 child.join().unwrap();
                 yuki_debug!("Render: {} terminated", thread_id);
             } else {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                std::thread::sleep(std::time::Duration::from_millis(5));
             }
         }
 
