@@ -447,7 +447,16 @@ impl Window {
                     expect!(windowed_context.swap_buffers(), "Swap buffers failed");
                 }
                 Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
+                        let rm = std::mem::replace(&mut render_handle, None);
+                        if let Some((to_render, _, render_thread)) = rm {
+                            if let Some(tx) = to_render {
+                                let _ = tx.send(0);
+                            }
+                            render_thread.join().unwrap();
+                        }
+                    }
                     WindowEvent::Resized(size) => {
                         windowed_context.resize(size);
                         windowed_context.update_gfx(&mut draw_params.out_color, &mut main_depth);
