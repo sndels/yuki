@@ -128,7 +128,7 @@ pub struct Window {
     scene: Arc<Sphere>,
 }
 
-const MIN_TILE: u16 = 2;
+const MIN_TILE: u16 = 8;
 const MIN_RES: u16 = 64;
 const MAX_RES: u16 = 4096;
 const RES_STEP: u16 = 2;
