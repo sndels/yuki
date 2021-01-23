@@ -308,10 +308,10 @@ impl Window {
 
         let mut render_triggered = false;
         let mut any_item_active = false;
-        let mut render_handle: Option<(Option<Sender<usize>>, Receiver<usize>, JoinHandle<_>)> =
-            None;
+        let mut render_handle: Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<_>)> = None;
         let mut render_ending = false;
         let mut update_film_vbo = true;
+        let mut last_render_ms: Option<f32> = None;
 
         let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
         let mut cam_target = Point3::new(0.0, 0.0, 0.0);
@@ -366,6 +366,7 @@ impl Window {
                         &mut cam_target,
                         &mut cam_fov,
                         render_ending,
+                        last_render_ms,
                         Arc::strong_count(&film),
                     );
                     any_item_active = ui.is_any_item_active();
@@ -441,7 +442,37 @@ impl Window {
                             yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
+                            last_render_ms= None;
                             render_triggered = false;
+                        }
+                    } else {
+                        yuki_trace!("main_loop: Render job tracked");
+                        let rm = std::mem::replace(&mut render_handle, None);
+                        if let Some((to_render, from_render, render_thread)) = rm {
+                            match from_render.try_recv() {
+                                Ok(render_ms) => {
+                                    yuki_trace!(
+                                        "main_loop: Waiting for the finished render job to exit"
+                                    );
+                                    render_thread.join().unwrap();
+                                    yuki_debug!("main_loop: Render job has finished");
+                                    last_render_ms = Some(render_ms);
+                                },
+                                Err(why) => {
+                                    match why {
+                                        TryRecvError::Empty => {
+                                            yuki_debug!("main_loop: Render job still running");
+                                            render_handle = Some((to_render, from_render, render_thread));
+                                        }
+                                        TryRecvError::Disconnected => {
+                                            yuki_warn!(
+                                                "main_loop: Render disconnected without notifying"
+                                            );
+                                            render_thread.join().unwrap();
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -590,6 +621,7 @@ fn generate_ui(
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
     render_ending: bool,
+    last_render_ms: Option<f32>,
     film_ref_count: usize,
 ) -> bool {
     let mut values_changed = false;
@@ -651,12 +683,16 @@ fn generate_ui(
             if render_ending {
                 ui.text(im_str!("Render winding down!"))
             }
+
+            if let Some(ms) = last_render_ms {
+                ui.text(im_str!("Render finished in {:.3}ms", ms));
+            }
         });
     values_changed
 }
 
 fn launch_render(
-    to_parent: Sender<usize>,
+    to_parent: Sender<f32>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
     scene: &Arc<Sphere>,
@@ -667,6 +703,7 @@ fn launch_render(
     let scene = scene.clone();
 
     std::thread::spawn(move || {
+        let render_start = Instant::now();
         yuki_debug!("Render: Begin");
         yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
@@ -740,8 +777,9 @@ fn launch_render(
             }
         }
 
-        yuki_trace!("Render: Signal end");
-        if let Err(why) = to_parent.send(0) {
+        yuki_trace!("Render: Report back");
+        let render_millis = (render_start.elapsed().as_micros() as f32) * 1e-3;
+        if let Err(why) = to_parent.send(render_millis) {
             yuki_error!("Render: Error notifying parent: {}", why);
         };
         yuki_debug!("Render: End");
