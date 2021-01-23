@@ -162,7 +162,7 @@ impl Film {
     pub fn update_tile(&mut self, tile: FilmTile) {
         if tile.generation != self.generation {
             yuki_error!(
-                "Tile generation {} doesn't match film generation {}",
+                "update_tile: Tile generation {} doesn't match film generation {}",
                 tile.generation,
                 self.generation
             );
@@ -173,7 +173,11 @@ impl Film {
         let tile_max = tile.bb.p_max;
 
         if tile_max.x > self.res.x || tile_max.y > self.res.y {
-            yuki_error!("Tile doesn't fit film ({:?} {:?})", self.res, tile.bb);
+            yuki_error!(
+                "update_tile: Tile doesn't fit film ({:?} {:?})",
+                self.res,
+                tile.bb
+            );
             return;
         }
 
@@ -203,6 +207,7 @@ fn generate_tiles(res: Vec2<u16>, tile_dim: u16, film_gen: u64) -> HashMap<(u16,
     // Collect tiles spanning the whole image hashed by their tile coordinates
     let mut tiles = HashMap::new();
     let dim = tile_dim;
+    yuki_debug!("generate_tiles: Generating tiles");
     for j in (0..res.y).step_by(dim as usize) {
         for i in (0..res.x).step_by(dim as usize) {
             // Limit tiles to film dimensions
@@ -215,6 +220,8 @@ fn generate_tiles(res: Vec2<u16>, tile_dim: u16, film_gen: u64) -> HashMap<(u16,
             );
         }
     }
+    yuki_debug!("generate_tiles: Tiles generated");
+
     tiles
 }
 
@@ -236,6 +243,7 @@ fn outward_spiral(
     let mut dx = 0;
     let mut dy = -1;
     let mut tile_queue = VecDeque::new();
+    yuki_debug!("outward_spiral: Collecting queue");
     for _ in 0..(max_dim * max_dim) {
         let tile_x = center_x + x;
         let tile_y = center_y + y;
@@ -252,9 +260,10 @@ fn outward_spiral(
         x += dx;
         y += dy;
     }
+    yuki_debug!("outward_spiral: Queue collected");
 
     if !tiles.is_empty() {
-        yuki_error!("Dangling tiles: {:?}", tiles.keys());
+        yuki_error!("outward_spiral: Dangling tiles: {:?}", tiles.keys());
     }
 
     tile_queue
@@ -263,36 +272,57 @@ fn outward_spiral(
 /// Resizes the `Film` according to current `settings` if necessary and returns [FilmTile]s for rendering.
 /// [FilmTile]s from previous calls should no longer be used.
 pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: &FilmSettings) -> VecDeque<FilmTile> {
+    yuki_debug!("film_tiles: Begin");
     // Only lock the film for the duration of resizing
     let film_gen = {
-        yuki_debug!("Resizing film");
+        yuki_debug!("film_tiles: Waiting for lock on film");
         let mut film = film.lock().unwrap();
+        yuki_debug!("film_tiles: Acquired film");
+
+        yuki_debug!("film_tiles: Resizing film");
         film.resize(settings);
-        film.generation()
+        let gen = film.generation();
+
+        yuki_debug!("film_tiles: Releasing film");
+        gen
     };
 
     let tiles = {
-        yuki_debug!("Checking for cached tiles");
+        yuki_debug!("film_tiles: Waiting for lock on film");
         let film = film.lock().unwrap();
-        film.cached_tiles(settings.tile_dim)
+        yuki_debug!("film_tiles: Acquired film");
+
+        yuki_debug!("film_tiles: Checking for cached tiles");
+        let tiles = film.cached_tiles(settings.tile_dim);
+
+        yuki_debug!("film_tiles: Releasing film");
+        tiles
     };
-    if let Some(tiles) = tiles {
+    let ret = if let Some(tiles) = tiles {
         tiles
     } else {
-        yuki_debug!("Generating tiles");
+        yuki_debug!("film_tiles: Generating tiles");
         let tiles = generate_tiles(settings.res, settings.tile_dim, film_gen);
 
-        yuki_debug!("Ordering tiles");
+        yuki_debug!("film_tiles: Ordering tiles");
         // Order tiles in a spiral from middle since that makes the visualisation more snappy:
         // Most things of interest are likely towards the center of the frame
         let tile_queue = outward_spiral(tiles, settings.res, settings.tile_dim);
 
         {
-            yuki_debug!("Caching tiles");
+            yuki_debug!("film_tiles: Waiting for lock on film");
             let mut film = film.lock().unwrap();
+            yuki_debug!("film_tiles: Acquired film");
+
+            yuki_debug!("film_tiles: Caching tiles");
             film.cache_tiles(&tile_queue);
+
+            yuki_debug!("film_tiles: Releasing film");
         }
 
         tile_queue
-    }
+    };
+
+    yuki_debug!("film_tiles: End");
+    ret
 }
