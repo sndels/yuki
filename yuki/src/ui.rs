@@ -19,7 +19,7 @@ use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{
         mpsc::{channel, Receiver, Sender, TryRecvError},
         Arc, Mutex,
@@ -707,7 +707,7 @@ fn render(
     thread_id: usize,
     to_parent: Sender<usize>,
     from_parent: Receiver<usize>,
-    tiles: Arc<Mutex<Vec<FilmTile>>>,
+    tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     checker_size: u16,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
@@ -729,11 +729,7 @@ fn render(
 
         let tile = {
             let mut tiles = tiles.lock().unwrap();
-            if !tiles.is_empty() {
-                Some(tiles.pop().unwrap())
-            } else {
-                None
-            }
+            tiles.pop_front()
         };
         if tile.is_none() {
             break;
