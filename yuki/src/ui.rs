@@ -44,7 +44,7 @@ use crate::{
         vector::{Vec2, Vec3},
     },
     sphere::Sphere,
-    yuki_debug, yuki_error,
+    yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
 // We need to convert our Vec3<f32> pixel buffer to &[f32]
@@ -336,13 +336,13 @@ impl Window {
             imgui_platform.handle_event(imgui_context.io_mut(), window, &event);
             match event {
                 Event::NewEvents(_) => {
-                    yuki_debug!("main_loop: NewEvents");
+                    yuki_trace!("main_loop: NewEvents");
                     let now = Instant::now();
                     imgui_context.io_mut().update_delta_time(now - last_frame);
                     last_frame = now;
                 }
                 Event::MainEventsCleared => {
-                    yuki_debug!("main_loop: MainEventsCleared");
+                    yuki_trace!("main_loop: MainEventsCleared");
                     // Ran out of events so let's prepare to draw
                     expect!(
                         imgui_platform.prepare_frame(imgui_context.io_mut(), window),
@@ -352,7 +352,7 @@ impl Window {
                 }
                 Event::RedrawRequested(_) => {
                     let redraw_start = Instant::now();
-                    yuki_debug!("main_loop: RedrawRequested");
+                    yuki_trace!("main_loop: RedrawRequested");
                     // Init imgui for frame UI
                     let ui = imgui_context.frame();
 
@@ -371,21 +371,21 @@ impl Window {
                     any_item_active = ui.is_any_item_active();
 
                     if render_triggered {
-                        yuki_debug!("main_loop: Render triggered");
+                        yuki_info!("main_loop: Render triggered");
                         // Make sure there is no render task running on when a new one is launched
                         // Need replace since the thread handle needs to be moved out
-                        yuki_debug!("main_loop: Checking for an existing render job");
+                        yuki_trace!("main_loop: Checking for an existing render job");
                         let rm = std::mem::replace(&mut render_handle, None);
                         if let Some((to_render, from_render, render_thread)) = rm {
-                            yuki_debug!("main_loop: Checking if the render job has finished");
+                            yuki_trace!("main_loop: Checking if the render job has finished");
                             // See if the task has completed
                             match from_render.try_recv() {
                                 Ok(_) => {
-                                    yuki_debug!(
+                                    yuki_trace!(
                                         "main_loop: Waiting for the finished render job to exit"
                                     );
                                     render_thread.join().unwrap();
-                                    yuki_debug!("main_loop: Render job exited");
+                                    yuki_debug!("main_loop: Render job has finished");
                                     render_ending = false;
                                 }
                                 Err(why) => {
@@ -395,7 +395,7 @@ impl Window {
                                             yuki_debug!("main_loop: Render job still running");
                                             if let Some(tx) = to_render {
                                                 // Kill thread on first time here
-                                                yuki_debug!(
+                                                yuki_trace!(
                                                     "main_loop: Sending kill command to the render job"
                                                 );
                                                 let _ = tx.send(0);
@@ -407,7 +407,7 @@ impl Window {
                                             render_ending = true;
                                         }
                                         TryRecvError::Disconnected => {
-                                            yuki_error!(
+                                            yuki_warn!(
                                                 "main_loop: Render disconnected without notifying"
                                             );
                                             render_thread.join().unwrap();
@@ -417,18 +417,17 @@ impl Window {
                                 }
                             }
                         } else {
-                            yuki_debug!("main_loop: No existing render job found");
+                            yuki_debug!("main_loop: No existing render job");
                         }
 
                         if render_handle.is_none() {
-                            yuki_debug!("main_loop: Launching render job");
+                            yuki_info!("main_loop: Launching render job");
                             let camera = Arc::new(Camera::new(
                                 &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
                                 cam_fov,
                                 &film_settings,
                             ));
 
-                            yuki_debug!("main_loop: Launching render job");
                             let (to_render, render_rx) = channel();
                             let (render_tx, from_render) = channel();
                             let render_thread = launch_render(
@@ -439,14 +438,14 @@ impl Window {
                                 film.clone(),
                                 film_settings,
                             );
-                            yuki_debug!("main_loop: Render job launched");
+                            yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
                             render_triggered = false;
                         }
                     }
 
-                    yuki_debug!("main_loop: Checking for texture update");
+                    yuki_trace!("main_loop: Checking for texture update");
                     if let Some(film_view) =
                         update_texture(&mut encoder, &mut factory, &mut film_texture, &film)
                     {
@@ -457,7 +456,7 @@ impl Window {
                     }
 
                     if update_film_vbo {
-                    yuki_debug!("main_loop: VBO update required");
+                        yuki_debug!("main_loop: VBO update required");
                         draw_params.vbuf = create_film_vbo(&mut factory, &window, &film);
 
                         update_film_vbo = false;
@@ -485,19 +484,16 @@ impl Window {
                     expect!(windowed_context.swap_buffers(), "Swap buffers failed");
 
                     let spent_millis = (redraw_start.elapsed().as_micros() as f32) * 1e-3;
-                    if spent_millis > 17.0 {
-                        yuki_debug!("main_loop: Slow frame!");
-                    }
                     yuki_debug!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
                 }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
-                        yuki_debug!("main_loop: CloseRequsted");
+                        yuki_trace!("main_loop: CloseRequsted");
                         cleanup!();
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(size) => {
-                        yuki_debug!("main_loop: Resized");
+                        yuki_trace!("main_loop: Resized");
                         windowed_context.resize(size);
                         windowed_context.update_gfx(&mut draw_params.out_color, &mut main_depth);
 
@@ -512,7 +508,7 @@ impl Window {
                             },
                         ..
                     } => {
-                        yuki_debug!("main_loop: KeyboardInput");
+                        yuki_trace!("main_loop: KeyboardInput");
                         if !any_item_active {
                             // We only want to handle keypresses if we're not interacting with imgui
                             match key {
@@ -671,11 +667,12 @@ fn launch_render(
     let scene = scene.clone();
 
     std::thread::spawn(move || {
-        yuki_debug!("Render: Getting tiles");
+        yuki_debug!("Render: Begin");
+        yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
         let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
 
-        yuki_debug!("Render: Start");
+        yuki_trace!("Render: Launch threads");
         let checker_size = film_settings.tile_dim;
         let (child_send, from_children) = channel();
         // TODO: Proper num based on hw?
@@ -717,10 +714,10 @@ fn launch_render(
             }
 
             if let Ok(thread_id) = from_children.try_recv() {
-                yuki_debug!("Render: Join {}", thread_id);
+                yuki_trace!("Render: Join {}", thread_id);
                 let (_, child) = children.remove(&thread_id).unwrap();
                 child.join().unwrap();
-                yuki_debug!("Render: {} terminated", thread_id);
+                yuki_trace!("Render: {} terminated", thread_id);
             } else {
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
@@ -743,7 +740,7 @@ fn launch_render(
             }
         }
 
-        yuki_debug!("Render: Signal end");
+        yuki_trace!("Render: Signal end");
         if let Err(why) = to_parent.send(0) {
             yuki_error!("Render: Error notifying parent: {}", why);
         };
@@ -762,16 +759,16 @@ fn render(
     scene: Arc<Sphere>,
     film: Arc<Mutex<Film>>,
 ) {
-    yuki_debug!("Render thread {}: Start", thread_id);
+    yuki_debug!("Render thread {}: Begin", thread_id);
 
     let film_res = {
-        yuki_debug!("Render thread {}: Waiting for lock on film", thread_id);
+        yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
         let film = film.lock().unwrap();
-        yuki_debug!("Render thread {}: Acquired film", thread_id);
+        yuki_trace!("Render thread {}: Acquired film", thread_id);
 
         let res = film.res();
 
-        yuki_debug!("Render thread {}: Releasing film", thread_id);
+        yuki_trace!("Render thread {}: Releasing film", thread_id);
         res
     };
 
@@ -791,7 +788,7 @@ fn render(
         let mut tile = tile.unwrap();
         let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
 
-        yuki_debug!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
+        yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
             // Let's have low latency kills for more interactive view
             if let Ok(_) = from_parent.try_recv() {
@@ -836,19 +833,19 @@ fn render(
             tile.pixels[pixel_offset] = color;
         }
 
-        yuki_debug!("Render thread {}: Update tile {:?}", thread_id, tile.bb);
+        yuki_trace!("Render thread {}: Update tile {:?}", thread_id, tile.bb);
         {
-            yuki_debug!("Render thread {}: Waiting for lock on film", thread_id);
+            yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
             let mut film = film.lock().unwrap();
-            yuki_debug!("Render thread {}: Acquired film", thread_id);
+            yuki_trace!("Render thread {}: Acquired film", thread_id);
 
             film.update_tile(tile);
 
-            yuki_debug!("Render thread {}: Releasing film", thread_id);
+            yuki_trace!("Render thread {}: Releasing film", thread_id);
         }
     }
 
-    yuki_debug!("Render thread {}: Signal end", thread_id);
+    yuki_trace!("Render thread {}: Signal end", thread_id);
     if let Err(why) = to_parent.send(thread_id) {
         yuki_error!("Render thread {}: Error: {}", thread_id, why);
     };
@@ -863,17 +860,20 @@ fn update_texture(
 ) -> Option<gfx::handle::ShaderResourceView<gfx_device_gl::Resources, [f32; 3]>> {
     let mut ret = None;
 
-    yuki_debug!("update_texture: Waiting for lock on film");
+    yuki_trace!("update_texture: Begin");
+    yuki_trace!("update_texture: Waiting for lock on film");
     let mut film = film.lock().unwrap();
-    yuki_debug!("update_texture: Acquired film");
+    yuki_trace!("update_texture: Acquired film");
 
     let film_res = film.res();
     if film.dirty() {
+        yuki_debug!("update_texture: Film is dirty");
         let film_pixels = film.pixels();
 
         // Resize texture if needed
         let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
         if film_res.x != tex_width || film_res.y != tex_height {
+            yuki_trace!("update_texture: Resizing texture");
             *film_texture = allocate_film_texture(factory, film_res);
 
             ret = Some(expect!(
@@ -884,6 +884,7 @@ fn update_texture(
                 ),
                 "Failed to create film shader resource view"
             ));
+            yuki_trace!("update_texture: Resized");
         }
 
         // Update texture
@@ -896,9 +897,10 @@ fn update_texture(
         );
 
         film.clear_dirty();
+        yuki_trace!("update_texture: Texture updated");
     }
 
-    yuki_debug!("update_texture: Releasing film");
+    yuki_trace!("update_texture: Releasing film");
     ret
 }
 
@@ -912,10 +914,10 @@ where
     F: gfx::Factory<R>,
 {
     let film_res = {
-        yuki_debug!("create_film_vbo: Locking film");
+        yuki_trace!("create_film_vbo: Locking film");
         let film = film.lock().unwrap();
         let res = film.res();
-        yuki_debug!("create_film_vbo: Releasing film");
+        yuki_trace!("create_film_vbo: Releasing film");
         res
     };
 

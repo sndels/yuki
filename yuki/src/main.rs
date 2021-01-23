@@ -19,8 +19,9 @@ fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        // .level(log::LevelFilter::Info)
+        // .level(log::LevelFilter::Trace)
         // .level(log::LevelFilter::Debug)
+        // .level(log::LevelFilter::Info)
         .level(log::LevelFilter::Warn)
         // .level(log::LevelFilter::Error)
         .level_for("gfx_device_gl", log::LevelFilter::Warn)
