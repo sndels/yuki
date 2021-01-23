@@ -376,50 +376,7 @@ impl Window {
                         // Make sure there is no render task running on when a new one is launched
                         // Need replace since the thread handle needs to be moved out
                         yuki_trace!("main_loop: Checking for an existing render job");
-                        let rm = std::mem::replace(&mut render_handle, None);
-                        if let Some((to_render, from_render, render_thread)) = rm {
-                            yuki_trace!("main_loop: Checking if the render job has finished");
-                            // See if the task has completed
-                            match from_render.try_recv() {
-                                Ok(_) => {
-                                    yuki_trace!(
-                                        "main_loop: Waiting for the finished render job to exit"
-                                    );
-                                    render_thread.join().unwrap();
-                                    yuki_debug!("main_loop: Render job has finished");
-                                    render_ending = false;
-                                }
-                                Err(why) => {
-                                    // Task is either still running or has disconnected without notifying us
-                                    match why {
-                                        TryRecvError::Empty => {
-                                            yuki_debug!("main_loop: Render job still running");
-                                            if let Some(tx) = to_render {
-                                                // Kill thread on first time here
-                                                yuki_trace!(
-                                                    "main_loop: Sending kill command to the render job"
-                                                );
-                                                let _ = tx.send(0);
-                                            }
-                                            // Keep handles to continue polling until the thread has stopped
-                                            // We won't be sending anything after the kill command
-                                            render_handle =
-                                                Some((None, from_render, render_thread));
-                                            render_ending = true;
-                                        }
-                                        TryRecvError::Disconnected => {
-                                            yuki_warn!(
-                                                "main_loop: Render disconnected without notifying"
-                                            );
-                                            render_thread.join().unwrap();
-                                            render_ending = false;
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            yuki_debug!("main_loop: No existing render job");
-                        }
+                        render_ending = check_and_kill_running_render(&mut render_handle);
 
                         if render_handle.is_none() {
                             yuki_info!("main_loop: Launching render job");
@@ -442,37 +399,13 @@ impl Window {
                             yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
-                            last_render_ms= None;
+                            last_render_ms = None;
                             render_triggered = false;
                         }
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
-                        let rm = std::mem::replace(&mut render_handle, None);
-                        if let Some((to_render, from_render, render_thread)) = rm {
-                            match from_render.try_recv() {
-                                Ok(render_ms) => {
-                                    yuki_trace!(
-                                        "main_loop: Waiting for the finished render job to exit"
-                                    );
-                                    render_thread.join().unwrap();
-                                    yuki_debug!("main_loop: Render job has finished");
-                                    last_render_ms = Some(render_ms);
-                                },
-                                Err(why) => {
-                                    match why {
-                                        TryRecvError::Empty => {
-                                            yuki_debug!("main_loop: Render job still running");
-                                            render_handle = Some((to_render, from_render, render_thread));
-                                        }
-                                        TryRecvError::Disconnected => {
-                                            yuki_warn!(
-                                                "main_loop: Render disconnected without notifying"
-                                            );
-                                            render_thread.join().unwrap();
-                                        }
-                                    }
-                                }
-                            }
+                        if let Some(finish_ms) = check_running_render(&mut render_handle) {
+                            last_render_ms = Some(finish_ms);
                         }
                     }
 
@@ -1002,4 +935,78 @@ where
         },
     ];
     factory.create_vertex_buffer(&quad)
+}
+
+fn check_and_kill_running_render(
+    render_handle: &mut Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<()>)>,
+) -> bool {
+    let mut render_ending = false;
+    let rm = std::mem::replace(render_handle, None);
+    if let Some((to_render, from_render, render_thread)) = rm {
+        yuki_trace!("check_and_kill_running_render: Checking if the render job has finished");
+        // See if the task has completed
+        match from_render.try_recv() {
+            Ok(_) => {
+                yuki_trace!(
+                    "check_and_kill_running_render: Waiting for the finished render job to exit"
+                );
+                render_thread.join().unwrap();
+                yuki_debug!("check_and_kill_running_render: Render job has finished");
+            }
+            Err(why) => {
+                // Task is either still running or has disconnected without notifying us
+                match why {
+                    TryRecvError::Empty => {
+                        yuki_debug!("check_and_kill_running_render: Render job still running");
+                        if let Some(tx) = to_render {
+                            // Kill thread on first time here
+                            yuki_trace!("check_and_kill_running_render: Sending kill command to the render job");
+                            let _ = tx.send(0);
+                        }
+                        // Keep handles to continue polling until the thread has stopped
+                        // We won't be sending anything after the kill command
+                        *render_handle = Some((None, from_render, render_thread));
+                        render_ending = true;
+                    }
+                    TryRecvError::Disconnected => {
+                        yuki_warn!(
+                            "check_and_kill_running_render: Render disconnected without notifying"
+                        );
+                        render_thread.join().unwrap();
+                    }
+                }
+            }
+        }
+    } else {
+        yuki_debug!("check_and_kill_running_render: No existing render job");
+    }
+    render_ending
+}
+
+fn check_running_render(
+    render_handle: &mut Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<()>)>,
+) -> Option<f32> {
+    let mut finished_ms = None;
+    let rm = std::mem::replace(render_handle, None);
+    if let Some((to_render, from_render, render_thread)) = rm {
+        match from_render.try_recv() {
+            Ok(render_ms) => {
+                yuki_trace!("check_running_render: Waiting for the finished render job to exit");
+                render_thread.join().unwrap();
+                yuki_debug!("check_running_render: Render job has finished");
+                finished_ms = Some(render_ms);
+            }
+            Err(why) => match why {
+                TryRecvError::Empty => {
+                    yuki_debug!("check_running_render: Render job still running");
+                    *render_handle = Some((to_render, from_render, render_thread));
+                }
+                TryRecvError::Disconnected => {
+                    yuki_warn!("check_running_render: Render disconnected without notifying");
+                    render_thread.join().unwrap();
+                }
+            },
+        }
+    }
+    finished_ms
 }
