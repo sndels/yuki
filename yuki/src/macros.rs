@@ -12,11 +12,9 @@ macro_rules! expect {
 
 #[macro_export]
 /// Takes in a format string
-macro_rules! yuki_error {
+macro_rules! yuki_trace {
     ( $( $arg:expr ),+ ) => {
-        let msg = format!( $( $arg ),+ );
-        win_dbg_logger::output_debug_string(&msg);
-        log::error!("{}", &msg);
+        log::trace!( $( $arg ),+ );
     };
 }
 
@@ -25,5 +23,31 @@ macro_rules! yuki_error {
 macro_rules! yuki_debug {
     ( $( $arg:expr ),+ ) => {
         log::debug!( $( $arg ),+ );
+    };
+}
+
+#[macro_export]
+/// Takes in a format string
+macro_rules! yuki_info {
+    ( $( $arg:expr ),+ ) => {
+        log::info!( $( $arg ),+ );
+    };
+}
+
+#[macro_export]
+/// Takes in a format string
+macro_rules! yuki_warn {
+    ( $( $arg:expr ),+ ) => {
+        log::warn!( $( $arg ),+ );
+    };
+}
+
+#[macro_export]
+/// Takes in a format string
+macro_rules! yuki_error {
+    ( $( $arg:expr ),+ ) => {
+        let msg = format!( $( $arg ),+ );
+        win_dbg_logger::output_debug_string(&msg);
+        log::error!("{}", &msg);
     };
 }
