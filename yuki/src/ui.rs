@@ -392,7 +392,7 @@ impl Window {
                             let camera = Arc::new(Camera::new(
                                 &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
                                 cam_fov,
-                                &film,
+                                &film_settings,
                             ));
 
                             let (to_render, render_rx) = channel();

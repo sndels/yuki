@@ -1,7 +1,5 @@
-use std::sync::{Arc, Mutex};
-
 use crate::{
-    film::Film,
+    film::FilmSettings,
     math::{
         point::{Point2, Point3},
         ray::Ray,
@@ -26,13 +24,7 @@ pub struct Camera {
 
 impl Camera {
     /// Creates a new `Camera`. `fov` is horizontal and in degrees.
-    pub fn new(camera_to_world: &Transform<f32>, fov: f32, film: &Arc<Mutex<Film>>) -> Self {
-        let (film_x, film_y) = {
-            let film = film.lock().unwrap();
-            let film_res = film.res();
-            (film_res.x as f32, film_res.y as f32)
-        };
-
+    pub fn new(camera_to_world: &Transform<f32>, fov: f32, film_settings: &FilmSettings) -> Self {
         // Standard perspective projection with aspect ratio
         // Screen is
         // NOTE: pbrt uses a 1:1 image plane with a cutout region
@@ -51,6 +43,8 @@ impl Camera {
 
         // Screen window, pbrt default is [-1,1] along the shorter axis and
         // proportionally scaled on the other
+        let film_x = film_settings.res.x as f32;
+        let film_y = film_settings.res.y as f32;
         let (screen_min, screen_max) = if film_x > film_y {
             let ar = film_x / film_y;
             (Vec2::new(-ar, -1.0), Vec2::new(ar, 1.0))
