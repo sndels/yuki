@@ -5,6 +5,7 @@ mod tests {
 
     use yuki::math::{
         normal::Normal,
+        point::Point3,
         vector::{vec2, vec3, vec4, Vec2, Vec3, Vec4},
     };
 
