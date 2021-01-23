@@ -317,6 +317,19 @@ impl Window {
         let mut cam_target = Point3::new(0.0, 0.0, 0.0);
         let mut cam_fov = 60.0;
 
+        macro_rules! cleanup {
+            () => {
+                if let Some((to_render, _, render_thread)) =
+                    std::mem::replace(&mut render_handle, None)
+                {
+                    if let Some(tx) = to_render {
+                        let _ = tx.send(0);
+                    }
+                    render_thread.join().unwrap();
+                }
+            };
+        }
+
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
@@ -448,14 +461,8 @@ impl Window {
                 }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
+                        cleanup!();
                         *control_flow = ControlFlow::Exit;
-                        let rm = std::mem::replace(&mut render_handle, None);
-                        if let Some((to_render, _, render_thread)) = rm {
-                            if let Some(tx) = to_render {
-                                let _ = tx.send(0);
-                            }
-                            render_thread.join().unwrap();
-                        }
                     }
                     WindowEvent::Resized(size) => {
                         windowed_context.resize(size);
@@ -475,7 +482,10 @@ impl Window {
                         if !any_item_active {
                             // We only want to handle keypresses if we're not interacting with imgui
                             match key {
-                                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                                VirtualKeyCode::Escape => {
+                                    cleanup!();
+                                    *control_flow = ControlFlow::Exit;
+                                }
                                 VirtualKeyCode::Return => render_triggered = true,
                                 _ => {}
                             }
