@@ -728,9 +728,13 @@ fn launch_render(
 
         // Kill children after being killed
         if !children.is_empty() {
-            for (thread_id, (tx, child)) in children {
+            // Kill everyone first
+            for (_, (tx, _)) in &children {
                 // No need to check for error, child having disconnected, since that's our goal
                 let _ = tx.send(0);
+            }
+            // Wait for everyone to end
+            for (thread_id, (_, child)) in children {
                 // This message might not be from the same child, but we don't really care as long as
                 // every child notifies us
                 from_children.recv().unwrap();
