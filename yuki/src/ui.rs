@@ -316,6 +316,7 @@ impl Window {
         let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
         let mut cam_target = Point3::new(0.0, 0.0, 0.0);
         let mut cam_fov = 60.0;
+        let mut match_logical_cores = true;
 
         macro_rules! cleanup {
             () => {
@@ -365,6 +366,7 @@ impl Window {
                         &mut cam_pos,
                         &mut cam_target,
                         &mut cam_fov,
+                        &mut match_logical_cores,
                         render_ending,
                         last_render_ms,
                         Arc::strong_count(&film),
@@ -395,6 +397,7 @@ impl Window {
                                 &scene,
                                 film.clone(),
                                 film_settings,
+                                match_logical_cores,
                             );
                             yuki_trace!("main_loop: Render job launched");
 
@@ -553,6 +556,7 @@ fn generate_ui(
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
+    match_logical_cores: &mut bool,
     render_ending: bool,
     last_render_ms: Option<f32>,
     film_ref_count: usize,
@@ -604,6 +608,8 @@ fn generate_ui(
                 .display_format(im_str!("%.1f"))
                 .build(ui, cam_fov);
 
+            ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
+
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
 
             if film_ref_count > 1 {
@@ -631,6 +637,7 @@ fn launch_render(
     scene: &Arc<Sphere>,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
+    match_logical_cores: bool,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
     let scene = scene.clone();
@@ -643,10 +650,14 @@ fn launch_render(
         let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
 
         yuki_trace!("Render: Launch threads");
+        let thread_count = if match_logical_cores {
+            num_cpus::get()
+        } else {
+            num_cpus::get_physical()
+        };
         let checker_size = film_settings.tile_dim;
         let (child_send, from_children) = channel();
-        // TODO: Proper num based on hw?
-        let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..4)
+        let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
             .map(|i| {
                 let (from_child, child_rx) = channel();
                 let child_tx = child_send.clone();
