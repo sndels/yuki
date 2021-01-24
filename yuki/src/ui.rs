@@ -173,7 +173,6 @@ impl Window {
         imgui_context.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
         {
-            // Fix incorrect colors with sRGB framebuffer
             fn imgui_gamma_to_linear(col: [f32; 4]) -> [f32; 4] {
                 let x = col[0].powf(2.2);
                 let y = col[1].powf(2.2);
@@ -183,6 +182,17 @@ impl Window {
             }
 
             let style = imgui_context.style_mut();
+            // Do rectangular elements
+            style.window_rounding = 0.0;
+            style.child_rounding = 0.0;
+            style.popup_rounding = 0.0;
+            style.grab_rounding = 0.0;
+            style.tab_rounding = 0.0;
+            style.frame_rounding = 0.0;
+            style.scrollbar_rounding = 0.0;
+            // No border line
+            style.window_border_size = 0.0;
+            // Fix incorrect colors with sRGB framebuffer
             for col in 0..style.colors.len() {
                 style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
             }
