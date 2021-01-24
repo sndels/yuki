@@ -581,52 +581,64 @@ fn generate_ui(
     let mut values_changed = false;
     imgui::Window::new(im_str!("Settings"))
         .position([0.0, 0.0], imgui::Condition::Always)
-        .size([320.0, window_height as f32], imgui::Condition::Always)
+        .size([370.0, window_height as f32], imgui::Condition::Always)
         .resizable(false)
         .movable(false)
         .build(ui, || {
-            values_changed |= vec2_u16_picker(
-                ui,
-                im_str!("Resolution"),
-                &mut film_settings.res,
-                MIN_RES,
-                MAX_RES,
-                RES_STEP as f32,
-            );
-            values_changed |= u16_picker(
-                ui,
-                im_str!("Tile size"),
-                &mut film_settings.tile_dim,
-                MIN_TILE,
-                MIN_RES,
-                TILE_STEP as f32,
-            );
-            values_changed |= ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
-            values_changed |= imgui::ColorPicker::new(
-                im_str!("Clear color"),
-                imgui::EditableColor::Float3(film_settings.clear_color.array_mut()),
-            )
-            .flags(imgui::ColorEditFlags::PICKER_HUE_WHEEL)
-            .build(ui);
+            imgui::TreeNode::new(im_str!("Film"))
+                .default_open(true)
+                .build(ui, || {
+                    values_changed |= vec2_u16_picker(
+                        ui,
+                        im_str!("Resolution"),
+                        &mut film_settings.res,
+                        MIN_RES,
+                        MAX_RES,
+                        RES_STEP as f32,
+                    );
+                    values_changed |= u16_picker(
+                        ui,
+                        im_str!("Tile size"),
+                        &mut film_settings.tile_dim,
+                        MIN_TILE,
+                        MIN_RES,
+                        TILE_STEP as f32,
+                    );
+                    values_changed |=
+                        ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
+                    imgui::TreeNode::new(im_str!("Clear color")).build(ui, || {
+                        values_changed |= imgui::ColorPicker::new(
+                            im_str!("Clear color picker"),
+                            imgui::EditableColor::Float3(film_settings.clear_color.array_mut()),
+                        )
+                        .flags(
+                            imgui::ColorEditFlags::NO_LABEL
+                                | imgui::ColorEditFlags::PICKER_HUE_WHEEL,
+                        )
+                        .build(ui);
+                    });
+                });
 
-            ui.text(im_str!("Camera"));
+            imgui::TreeNode::new(im_str!("Camera"))
+                .default_open(true)
+                .build(ui, || {
+                    values_changed |= imgui::Drag::new(im_str!("Position"))
+                        .speed(0.1)
+                        .display_format(im_str!("%.1f"))
+                        .build_array(ui, cam_pos.array_mut());
 
-            values_changed |= imgui::Drag::new(im_str!("Position"))
-                .speed(0.1)
-                .display_format(im_str!("%.1f"))
-                .build_array(ui, cam_pos.array_mut());
+                    values_changed |= imgui::Drag::new(im_str!("Target"))
+                        .speed(0.1)
+                        .display_format(im_str!("%.1f"))
+                        .build_array(ui, cam_target.array_mut());
 
-            values_changed |= imgui::Drag::new(im_str!("Target"))
-                .speed(0.1)
-                .display_format(im_str!("%.1f"))
-                .build_array(ui, cam_target.array_mut());
-
-            values_changed |= imgui::Drag::new(im_str!("Field of View"))
-                .range(0.1..=359.9)
-                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                .speed(0.5)
-                .display_format(im_str!("%.1f"))
-                .build(ui, cam_fov);
+                    values_changed |= imgui::Drag::new(im_str!("Field of View"))
+                        .range(0.1..=359.9)
+                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                        .speed(0.5)
+                        .display_format(im_str!("%.1f"))
+                        .build(ui, cam_fov);
+                });
 
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
 
