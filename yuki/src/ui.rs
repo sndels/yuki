@@ -361,6 +361,7 @@ impl Window {
 
                     render_triggered |= generate_ui(
                         &ui,
+                        &window,
                         &mut film_settings,
                         &mut render_triggered,
                         &mut cam_pos,
@@ -551,6 +552,7 @@ fn vec2_u16_picker(
 
 fn generate_ui(
     ui: &imgui::Ui,
+    window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
     render_triggered: &mut bool,
     cam_pos: &mut Point3<f32>,
@@ -561,9 +563,17 @@ fn generate_ui(
     last_render_ms: Option<f32>,
     film_ref_count: usize,
 ) -> bool {
+    let glutin::dpi::PhysicalSize {
+        width: _,
+        height: window_height,
+    } = window.inner_size();
+
     let mut values_changed = false;
     imgui::Window::new(im_str!("Settings"))
-        .size([325.0, 525.0], imgui::Condition::FirstUseEver)
+        .position([0.0, 0.0], imgui::Condition::Always)
+        .size([320.0, window_height as f32], imgui::Condition::Always)
+        .resizable(false)
+        .movable(false)
         .build(ui, || {
             values_changed |= vec2_u16_picker(
                 ui,
