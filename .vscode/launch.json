@@ -15,6 +15,24 @@
             "environment": [],
             "externalConsole": true,
             "preLaunchTask": "Build bench"
+        },
+        {
+            "name": "(LLDB) yuki release",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/release/yuki",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": ""
+        },
+        {
+            "name": "(LLDB) yuki debug",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/yuki",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": ""
         }
     ]
 }
