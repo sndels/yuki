@@ -1,6 +1,5 @@
 #![feature(iterator_fold_self)]
 
-use proc_macro;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},

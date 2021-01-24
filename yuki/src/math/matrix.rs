@@ -150,12 +150,10 @@ where
             for row in 0..4 {
                 if ipiv[row] != 1 {
                     for rcol in 0..4 {
-                        if ipiv[rcol] == 0 {
-                            if mi[row][rcol].abs() > big {
-                                big = mi[row][rcol].abs();
-                                irow = row;
-                                icol = rcol;
-                            }
+                        if (ipiv[rcol] == 0) && (mi[row][rcol].abs() > big) {
+                            big = mi[row][rcol].abs();
+                            irow = row;
+                            icol = rcol;
                         }
                     }
                 }

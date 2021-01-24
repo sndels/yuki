@@ -189,12 +189,10 @@ where
             } else {
                 2
             }
+        } else if self.y > self.z {
+            1
         } else {
-            if self.y > self.z {
-                1
-            } else {
-                2
-            }
+            2
         }
     }
 }
@@ -286,27 +284,21 @@ where
                 } else {
                     3
                 }
+            } else if self.z > self.w {
+                2
             } else {
-                if self.z > self.w {
-                    2
-                } else {
-                    3
-                }
+                3
             }
+        } else if self.y > self.z {
+            if self.y > self.w {
+                1
+            } else {
+                3
+            }
+        } else if self.z > self.w {
+            2
         } else {
-            if self.y > self.z {
-                if self.y > self.w {
-                    1
-                } else {
-                    3
-                }
-            } else {
-                if self.z > self.w {
-                    2
-                } else {
-                    3
-                }
-            }
+            3
         }
     }
 }
