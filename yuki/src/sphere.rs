@@ -1,6 +1,6 @@
 use crate::{
     hit::Hit,
-    math::{normal::Normal, point::Point3, ray::Ray, transform::Transform},
+    math::{normal::Normal, point::Point3, ray::Ray, transform::Transform, vector::Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -11,15 +11,17 @@ pub struct Sphere {
     object_to_world: Transform<f32>,
     world_to_object: Transform<f32>,
     radius: f32,
+    albedo: Vec3<f32>,
 }
 
 impl Sphere {
     /// Creates a new `Sphere`.
-    pub fn new(object_to_world: &Transform<f32>, radius: f32) -> Self {
+    pub fn new(object_to_world: &Transform<f32>, radius: f32, albedo: Vec3<f32>) -> Self {
         Self {
             object_to_world: object_to_world.clone(),
             world_to_object: object_to_world.inverted(),
             radius,
+            albedo,
         }
     }
 
@@ -66,6 +68,10 @@ impl Sphere {
         // TODO: This can be computed the same way for all surfaces from the partial derivatives dp/du, dp/dv
         let n = Normal::from((ray.point(t) - &self.object_to_world * Point3::zeros()).normalized());
 
-        Some(Hit { t, n })
+        Some(Hit {
+            t,
+            n,
+            albedo: self.albedo,
+        })
     }
 }

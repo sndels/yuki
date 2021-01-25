@@ -272,7 +272,11 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene = Arc::new(Sphere::new(&translation(Vec3::new(1.0, 1.0, 1.0)), 1.0));
+        let scene = Arc::new(Sphere::new(
+            &translation(Vec3::new(1.0, 1.0, 1.0)),
+            1.0,
+            Vec3::from(0.8),
+        ));
 
         Window {
             event_loop,
@@ -815,28 +819,9 @@ fn render(
             });
 
             let color = if let Some(hit) = scene.intersect(ray) {
-                Vec3::from(hit.n)
+                hit.albedo
             } else {
-                let Point2 {
-                    x: film_x,
-                    y: film_y,
-                } = p;
-                // Checker board pattern alternating between thread groups
-                let checker_quad_size = checker_size * 2;
-                let mut color = if ((film_x % checker_quad_size) < checker_size)
-                    ^ ((film_y % checker_quad_size) < checker_size)
-                {
-                    Vec3::ones()
-                } else {
-                    clear_color
-                };
-                if film_y < film_res.y / 2 {
-                    color.y = 1.0 - color.y;
-                }
-                if film_x < film_res.x / 2 {
-                    color.x = 1.0 - color.x;
-                }
-                color
+                clear_color
             };
 
             let Vec2 {
