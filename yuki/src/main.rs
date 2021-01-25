@@ -1,5 +1,6 @@
 mod camera;
 mod film;
+mod hit;
 mod macros;
 mod math;
 mod sphere;
