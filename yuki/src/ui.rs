@@ -272,7 +272,7 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene = Arc::new(Sphere::new(&translation(Vec3::new(0.0, 0.0, 0.0)), 1.0));
+        let scene = Arc::new(Sphere::new(&translation(Vec3::new(1.0, 1.0, 1.0)), 1.0));
 
         Window {
             event_loop,
@@ -324,7 +324,7 @@ impl Window {
         let mut last_render_ms: Option<f32> = None;
 
         let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
-        let mut cam_target = Point3::new(0.0, 0.0, 0.0);
+        let mut cam_target = Point3::new(1.0, 1.0, 1.0);
         let mut cam_fov = 60.0;
         let mut match_logical_cores = true;
 
@@ -814,8 +814,8 @@ fn render(
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
 
-            let color = if let Some(t) = scene.intersect(ray) {
-                Vec3::from(ray.point(t))
+            let color = if let Some(hit) = scene.intersect(ray) {
+                Vec3::from(hit.n)
             } else {
                 let Point2 {
                     x: film_x,

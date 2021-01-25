@@ -1,10 +1,14 @@
-use crate::math::{ray::Ray, transform::Transform};
+use crate::{
+    hit::Hit,
+    math::{normal::Normal, point::Point3, ray::Ray, transform::Transform},
+};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Shapes/Spheres.htmll
 
 /// A sphere object.
 pub struct Sphere {
+    object_to_world: Transform<f32>,
     world_to_object: Transform<f32>,
     radius: f32,
 }
@@ -13,13 +17,14 @@ impl Sphere {
     /// Creates a new `Sphere`.
     pub fn new(object_to_world: &Transform<f32>, radius: f32) -> Self {
         Self {
+            object_to_world: object_to_world.clone(),
             world_to_object: object_to_world.inverted(),
             radius,
         }
     }
 
     /// Checks for [Ray] intersection with this `Sphere`.
-    pub fn intersect(&self, ray: Ray<f32>) -> Option<f32> {
+    pub fn intersect(&self, ray: Ray<f32>) -> Option<Hit> {
         let Ray { o, d, t_max } = &self.world_to_object * ray;
 
         // Quadratic coefficients
@@ -58,6 +63,9 @@ impl Sphere {
             }
         };
 
-        Some(t)
+        // TODO: This can be computed the same way for all surfaces from the partial derivatives dp/du, dp/dv
+        let n = Normal::from((ray.point(t) - &self.object_to_world * Point3::zeros()).normalized());
+
+        Some(Hit { t, n })
     }
 }
