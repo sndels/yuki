@@ -3,6 +3,7 @@ mod film;
 mod hit;
 mod macros;
 mod math;
+mod point_light;
 mod sphere;
 mod ui;
 
