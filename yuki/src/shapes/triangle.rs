@@ -143,6 +143,7 @@ impl Shape for Triangle {
         // vertex positions.
 
         Some(Hit {
+            t,
             p: ray.point(t),
             v: -ray.d,
             n,

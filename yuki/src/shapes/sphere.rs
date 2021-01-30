@@ -71,6 +71,7 @@ impl Shape for Sphere {
         let n = Normal::from((ray.point(t) - &self.object_to_world * Point3::zeros()).normalized());
 
         Some(Hit {
+            t,
             p: ray.point(t),
             v: -ray.d,
             n,
