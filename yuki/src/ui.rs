@@ -38,13 +38,14 @@ use crate::{
     camera::{Camera, CameraSample},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
+    hit::Hit,
     math::{
         point::{Point2, Point3},
-        transform::{look_at, translation},
+        transform::{look_at, scale, translation},
         vector::{Vec2, Vec3},
     },
     point_light::PointLight,
-    shapes::{shape::Shape, sphere::Sphere},
+    shapes::{shape::Shape, sphere::Sphere, triangle::Triangle},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -126,7 +127,7 @@ pub struct Window {
     film_texture: FilmTextureHandle,
 
     // Scene
-    scene_geometry: Arc<Box<dyn Shape>>,
+    scene_geometry: Arc<Vec<Box<dyn Shape>>>,
     scene_light: Arc<PointLight>,
 }
 
@@ -274,11 +275,22 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene_geometry: Arc<Box<dyn Shape>> = Arc::new(Box::new(Sphere::new(
-            &translation(Vec3::new(1.0, 1.0, 1.0)),
-            1.0,
-            Vec3::from(0.8),
-        )));
+        let scene_geometry: Arc<Vec<Box<dyn Shape>>> = Arc::new(vec![
+            Box::new(Sphere::new(
+                &translation(Vec3::new(1.0, 1.0, 1.0)),
+                1.0,
+                Vec3::from(0.8),
+            )),
+            Box::new(Triangle::new(
+                &(&translation(Vec3::new(1.0, 1.0, 4.0)) * &scale(2.0, 2.0, 2.0)),
+                [
+                    Point3::new(-1.0, -1.0, 0.0),
+                    Point3::new(1.0, -1.0, 0.0),
+                    Point3::new(1.0, 1.0, 0.0),
+                ],
+                Vec3::new(0.8, 0.0, 0.8),
+            )),
+        ]);
 
         let scene_light = Arc::new(PointLight::new(
             &translation(Vec3::new(3.0, 3.0, -3.0)),
@@ -680,7 +692,7 @@ fn launch_render(
     to_parent: Sender<f32>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
-    scene_geometry: &Arc<Box<dyn Shape>>,
+    scene_geometry: &Arc<Vec<Box<dyn Shape>>>,
     scene_light: &Arc<PointLight>,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
@@ -785,7 +797,7 @@ fn render(
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
-    scene_geometry: Arc<Box<dyn Shape>>,
+    scene_geometry: Arc<Vec<Box<dyn Shape>>>,
     scene_light: Arc<PointLight>,
     film: Arc<Mutex<Film>>,
 ) {
@@ -819,7 +831,28 @@ fn render(
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
 
-            let color = if let Some(hit) = scene_geometry.intersect(ray) {
+            let hit = {
+                scene_geometry
+                    .iter()
+                    .fold(None, |old_hit: Option<Hit>, shape| {
+                        let new_hit = shape.intersect(ray);
+                        if let Some(new_hit) = new_hit {
+                            if let Some(old_hit) = old_hit {
+                                if new_hit.t < old_hit.t {
+                                    Some(new_hit)
+                                } else {
+                                    Some(old_hit)
+                                }
+                            } else {
+                                Some(new_hit)
+                            }
+                        } else {
+                            old_hit
+                        }
+                    })
+            };
+
+            let color = if let Some(hit) = hit {
                 // TODO: Do color/spectrum class for this math
                 fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
                     Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
