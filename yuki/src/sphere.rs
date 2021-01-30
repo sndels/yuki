@@ -1,6 +1,7 @@
 use crate::{
     hit::Hit,
     math::{normal::Normal, point::Point3, ray::Ray, transform::Transform, vector::Vec3},
+    shape::Shape,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -24,9 +25,10 @@ impl Sphere {
             albedo,
         }
     }
+}
 
-    /// Checks for [Ray] intersection with this `Sphere`.
-    pub fn intersect(&self, ray: Ray<f32>) -> Option<Hit> {
+impl Shape for Sphere {
+    fn intersect(&self, ray: Ray<f32>) -> Option<Hit> {
         let Ray { o, d, t_max } = &self.world_to_object * ray;
 
         // Quadratic coefficients

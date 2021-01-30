@@ -44,6 +44,7 @@ use crate::{
         vector::{Vec2, Vec3},
     },
     point_light::PointLight,
+    shape::Shape,
     sphere::Sphere,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
@@ -126,7 +127,7 @@ pub struct Window {
     film_texture: FilmTextureHandle,
 
     // Scene
-    scene_geometry: Arc<Sphere>,
+    scene_geometry: Arc<Box<dyn Shape>>,
     scene_light: Arc<PointLight>,
 }
 
@@ -274,11 +275,11 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene_geometry = Arc::new(Sphere::new(
+        let scene_geometry: Arc<Box<dyn Shape>> = Arc::new(Box::new(Sphere::new(
             &translation(Vec3::new(1.0, 1.0, 1.0)),
             1.0,
             Vec3::from(0.8),
-        ));
+        )));
 
         let scene_light = Arc::new(PointLight::new(
             &translation(Vec3::new(3.0, 3.0, -3.0)),
@@ -680,7 +681,7 @@ fn launch_render(
     to_parent: Sender<f32>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
-    scene_geometry: &Arc<Sphere>,
+    scene_geometry: &Arc<Box<dyn Shape>>,
     scene_light: &Arc<PointLight>,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
@@ -788,7 +789,7 @@ fn render(
     checker_size: u16,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
-    scene_geometry: Arc<Sphere>,
+    scene_geometry: Arc<Box<dyn Shape>>,
     scene_light: Arc<PointLight>,
     film: Arc<Mutex<Film>>,
 ) {
