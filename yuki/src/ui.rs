@@ -43,6 +43,7 @@ use crate::{
         transform::{look_at, translation},
         vector::{Vec2, Vec3},
     },
+    point_light::PointLight,
     sphere::Sphere,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
@@ -125,7 +126,8 @@ pub struct Window {
     film_texture: FilmTextureHandle,
 
     // Scene
-    scene: Arc<Sphere>,
+    scene_geometry: Arc<Sphere>,
+    scene_light: Arc<PointLight>,
 }
 
 const MIN_TILE: u16 = 8;
@@ -272,10 +274,15 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene = Arc::new(Sphere::new(
+        let scene_geometry = Arc::new(Sphere::new(
             &translation(Vec3::new(1.0, 1.0, 1.0)),
             1.0,
             Vec3::from(0.8),
+        ));
+
+        let scene_light = Arc::new(PointLight::new(
+            &translation(Vec3::new(3.0, 3.0, -3.0)),
+            Vec3::from(10.0),
         ));
 
         Window {
@@ -293,7 +300,8 @@ impl Window {
             draw_params,
             film_ibo,
             film_texture,
-            scene,
+            scene_geometry,
+            scene_light,
         }
     }
 
@@ -313,7 +321,8 @@ impl Window {
             mut film_texture,
             mut draw_params,
             film_ibo,
-            scene,
+            scene_geometry,
+            scene_light,
             ..
         } = self;
         let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -409,7 +418,8 @@ impl Window {
                                 render_tx,
                                 render_rx,
                                 &camera,
-                                &scene,
+                                &scene_geometry,
+                                &scene_light,
                                 film.clone(),
                                 film_settings,
                                 match_logical_cores,
@@ -670,13 +680,15 @@ fn launch_render(
     to_parent: Sender<f32>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
-    scene: &Arc<Sphere>,
+    scene_geometry: &Arc<Sphere>,
+    scene_light: &Arc<PointLight>,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
-    let scene = scene.clone();
+    let scene_geometry = scene_geometry.clone();
+    let scene_light = scene_light.clone();
 
     std::thread::spawn(move || {
         let render_start = Instant::now();
@@ -699,7 +711,8 @@ fn launch_render(
                 let child_tx = child_send.clone();
                 let tiles = tiles.clone();
                 let camera = camera.clone();
-                let scene = scene.clone();
+                let scene_geometry = scene_geometry.clone();
+                let scene_light = scene_light.clone();
                 let film = film.clone();
                 (
                     i,
@@ -714,7 +727,8 @@ fn launch_render(
                                 checker_size,
                                 film_settings.clear_color,
                                 camera,
-                                scene,
+                                scene_geometry,
+                                scene_light,
                                 film,
                             );
                         }),
@@ -774,7 +788,8 @@ fn render(
     checker_size: u16,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
-    scene: Arc<Sphere>,
+    scene_geometry: Arc<Sphere>,
+    scene_light: Arc<PointLight>,
     film: Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
@@ -818,8 +833,15 @@ fn render(
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
 
-            let color = if let Some(hit) = scene.intersect(ray) {
-                hit.albedo
+            let color = if let Some(hit) = scene_geometry.intersect(ray) {
+                // TODO: Do color/spectrum class for this math
+                fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
+                    Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+                }
+                let light_sample = scene_light.sample_li(&hit);
+                // TODO: Trace light visibility
+                mul(hit.albedo / std::f32::consts::PI, light_sample.li)
+                    * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
             } else {
                 clear_color
             };
