@@ -44,8 +44,7 @@ use crate::{
         vector::{Vec2, Vec3},
     },
     point_light::PointLight,
-    shape::Shape,
-    sphere::Sphere,
+    shapes::{shape::Shape, sphere::Sphere},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
