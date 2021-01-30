@@ -704,7 +704,6 @@ fn launch_render(
         } else {
             num_cpus::get_physical()
         };
-        let checker_size = film_settings.tile_dim;
         let (child_send, from_children) = channel();
         let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
             .map(|i| {
@@ -725,7 +724,6 @@ fn launch_render(
                                 child_tx,
                                 child_rx,
                                 tiles,
-                                checker_size,
                                 film_settings.clear_color,
                                 camera,
                                 scene_geometry,
@@ -786,7 +784,6 @@ fn render(
     to_parent: Sender<usize>,
     from_parent: Receiver<usize>,
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
-    checker_size: u16,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
     scene_geometry: Arc<Box<dyn Shape>>,
@@ -794,17 +791,6 @@ fn render(
     film: Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
-
-    let film_res = {
-        yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
-        let film = film.lock().unwrap();
-        yuki_trace!("Render thread {}: Acquired film", thread_id);
-
-        let res = film.res();
-
-        yuki_trace!("Render thread {}: Releasing film", thread_id);
-        res
-    };
 
     'work: loop {
         if let Ok(_) = from_parent.try_recv() {
