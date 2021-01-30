@@ -3,7 +3,7 @@ use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
 use crate::{
-    common::{combined_error, parse_generics, per_component_tokens},
+    common::{abs_impl, combined_error, parse_generics, per_component_tokens},
     impl_vec_like::{vec_like_impl, vec_normal_members_impl},
 };
 
@@ -26,7 +26,11 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
         &|recurse| quote!(#(#recurse),*),
     );
 
+    let signed_abs_impl = abs_impl(vec_type, item);
+
     let post_impl = quote! {
+        #signed_abs_impl
+
         // I don't really like that this trait gets generated from the impl macro,
         // though deriving From<T> with a derive macro seems as cryptic.
         // Then again, this whole thing is an exercise in rubegoldberging and should

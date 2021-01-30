@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use std::vec::IntoIter;
 use syn::{
-    parse_quote, spanned::Spanned, Data, Field, Fields, GenericParam, Generics, Ident,
+    parse_quote, spanned::Spanned, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident,
     ImplGenerics, TypeGenerics, WhereClause,
 };
 
@@ -206,6 +206,39 @@ pub fn impl_vec_op_tokens(
                     #opped_components
                     debug_assert!(!self.has_nans());
                 }
+            }
+        }
+    }
+}
+
+pub fn abs_impl(vec_type: &Ident, item: &DeriveInput) -> TokenStream {
+    let generics = add_trait_bound(&item.generics, quote! {num::traits::Signed});
+
+    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
+        Ok((g, i, t, w)) => (g, i, t, w),
+        Err(errors) => {
+            return combined_error("Impl Point floor_ceil", item.ident.span(), errors)
+                .to_compile_error();
+        }
+    };
+
+    let abs_ret = per_component_tokens(
+        &item.data,
+        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c.abs()),
+        &|recurse| quote!(Self::new(#(#recurse),*)),
+    );
+
+    let str_type = vec_type.to_string();
+    let abs_doc = format! { "Returns a new `{0}` with the absolute values of the components in this `{0}`.", str_type};
+
+    quote! {
+        impl #impl_generics #vec_type #type_generics
+        #where_clause
+        {
+            #[doc = #abs_doc]
+            #[inline]
+            pub fn abs(&self) -> Self {
+                #abs_ret
             }
         }
     }

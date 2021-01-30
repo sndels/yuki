@@ -3,7 +3,7 @@ use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
 use crate::{
-    common::{add_trait_bound, combined_error, parse_generics, per_component_tokens},
+    common::{abs_impl, add_trait_bound, combined_error, parse_generics, per_component_tokens},
     impl_vec_like::vec_like_impl,
 };
 
@@ -68,7 +68,7 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
     };
 
     let float_floor_ceil_impl = point_floor_ceil_impl(point_type, item);
-    let signed_abs_impl = point_abs_impl(point_type, item);
+    let signed_abs_impl = abs_impl(point_type, item);
 
     let from_args = per_component_tokens(
         &item.data,
@@ -147,39 +147,6 @@ fn point_floor_ceil_impl(point_type: &Ident, item: &DeriveInput) -> TokenStream 
             #[inline]
             pub fn ceil(&self) -> Self {
                 #ceil_ret
-            }
-        }
-    }
-}
-
-fn point_abs_impl(point_type: &Ident, item: &DeriveInput) -> TokenStream {
-    let generics = add_trait_bound(&item.generics, quote! {num::traits::Signed});
-
-    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
-        Ok((g, i, t, w)) => (g, i, t, w),
-        Err(errors) => {
-            return combined_error("Impl Point floor_ceil", item.ident.span(), errors)
-                .to_compile_error();
-        }
-    };
-
-    let abs_ret = per_component_tokens(
-        &item.data,
-        &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c.abs()),
-        &|recurse| quote!(Self::new(#(#recurse),*)),
-    );
-
-    let str_type = point_type.to_string();
-    let abs_doc = format! { "Returns a new `{0}` with the absolute values of the components in this `{0}`.", str_type};
-
-    quote! {
-        impl #impl_generics #point_type #type_generics
-        #where_clause
-        {
-            #[doc = #abs_doc]
-            #[inline]
-            pub fn abs(&self) -> Self {
-                #abs_ret
             }
         }
     }
