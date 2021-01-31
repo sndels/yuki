@@ -41,11 +41,12 @@ use crate::{
     hit::Hit,
     math::{
         point::{Point2, Point3},
-        transform::{look_at, scale, translation},
+        transform::look_at,
         vector::{Vec2, Vec3},
     },
     point_light::PointLight,
-    shapes::{shape::Shape, sphere::Sphere, triangle::Triangle},
+    scene::{cornell, Scene},
+    shapes::shape::Shape,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -126,9 +127,7 @@ pub struct Window {
     film_ibo: gfx::Slice<gfx_device_gl::Resources>,
     film_texture: FilmTextureHandle,
 
-    // Scene
-    scene_geometry: Arc<Vec<Box<dyn Shape>>>,
-    scene_light: Arc<PointLight>,
+    scene: Scene,
 }
 
 const MIN_TILE: u16 = 8;
@@ -275,27 +274,7 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene_geometry: Arc<Vec<Box<dyn Shape>>> = Arc::new(vec![
-            Box::new(Sphere::new(
-                &translation(Vec3::new(1.0, 1.0, 1.0)),
-                1.0,
-                Vec3::from(0.8),
-            )),
-            Box::new(Triangle::new(
-                &(&translation(Vec3::new(1.0, 1.0, 4.0)) * &scale(2.0, 2.0, 2.0)),
-                [
-                    Point3::new(-1.0, -1.0, 0.0),
-                    Point3::new(1.0, -1.0, 0.0),
-                    Point3::new(1.0, 1.0, 0.0),
-                ],
-                Vec3::new(0.8, 0.0, 0.8),
-            )),
-        ]);
-
-        let scene_light = Arc::new(PointLight::new(
-            &translation(Vec3::new(3.0, 3.0, -3.0)),
-            Vec3::from(10.0),
-        ));
+        let scene = cornell();
 
         Window {
             event_loop,
@@ -312,8 +291,7 @@ impl Window {
             draw_params,
             film_ibo,
             film_texture,
-            scene_geometry,
-            scene_light,
+            scene,
         }
     }
 
@@ -333,8 +311,7 @@ impl Window {
             mut film_texture,
             mut draw_params,
             film_ibo,
-            scene_geometry,
-            scene_light,
+            mut scene,
             ..
         } = self;
         let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -348,9 +325,6 @@ impl Window {
         let mut update_film_vbo = true;
         let mut last_render_ms: Option<f32> = None;
 
-        let mut cam_pos = Point3::new(2.0, 2.0, -3.0);
-        let mut cam_target = Point3::new(1.0, 1.0, 1.0);
-        let mut cam_fov = 60.0;
         let mut match_logical_cores = true;
 
         macro_rules! cleanup {
@@ -399,9 +373,9 @@ impl Window {
                         &window,
                         &mut film_settings,
                         &mut render_triggered,
-                        &mut cam_pos,
-                        &mut cam_target,
-                        &mut cam_fov,
+                        &mut scene.cam_pos,
+                        &mut scene.cam_target,
+                        &mut scene.cam_fov,
                         &mut match_logical_cores,
                         render_ending,
                         last_render_ms,
@@ -419,8 +393,9 @@ impl Window {
                         if render_handle.is_none() {
                             yuki_info!("main_loop: Launching render job");
                             let camera = Arc::new(Camera::new(
-                                &look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
-                                cam_fov,
+                                &look_at(scene.cam_pos, scene.cam_target, Vec3::new(0.0, 1.0, 0.0))
+                                    .inverted(),
+                                scene.cam_fov,
                                 &film_settings,
                             ));
 
@@ -430,8 +405,8 @@ impl Window {
                                 render_tx,
                                 render_rx,
                                 &camera,
-                                &scene_geometry,
-                                &scene_light,
+                                &scene.geometry,
+                                &scene.light,
                                 film.clone(),
                                 film_settings,
                                 match_logical_cores,

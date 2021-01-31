@@ -4,6 +4,7 @@ mod hit;
 mod macros;
 mod math;
 mod point_light;
+mod scene;
 mod shapes;
 mod ui;
 
