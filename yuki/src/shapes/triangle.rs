@@ -1,7 +1,9 @@
-use super::shape::Shape;
+use std::sync::Arc;
+
+use super::{mesh::Mesh, shape::Shape};
 use crate::{
     hit::Hit,
-    math::{normal::Normal, point::Point3, ray::Ray, transform::Transform, vector::Vec3},
+    math::{normal::Normal, ray::Ray, vector::Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -9,41 +11,25 @@ use crate::{
 
 /// A triangle object.
 pub struct Triangle {
-    object_to_world: Transform<f32>,
-    // In world-space
-    verts: [Point3<f32>; 3],
-    // In world-space
-    n: Normal<f32>,
+    mesh: Arc<Mesh>,
+    vertices: [usize; 3],
     albedo: Vec3<f32>,
 }
 
 impl Triangle {
     /// Creates a new `Triangle`.
+    /// `first_vertex` is the index of the first vertex index in `mesh`'s index list.
     /// Expects counter clockwise winding
-    pub fn new(
-        object_to_world: &Transform<f32>,
-        verts: [Point3<f32>; 3],
-        albedo: Vec3<f32>,
-    ) -> Self {
-        // Store verts in world space to remove matrix multiplications on every
-        // intersection test
-        let verts = [
-            object_to_world * verts[0],
-            object_to_world * verts[1],
-            object_to_world * verts[2],
+    pub fn new(mesh: Arc<Mesh>, first_vertex: usize, albedo: Vec3<f32>) -> Self {
+        let vertices = [
+            mesh.indices[first_vertex],
+            mesh.indices[first_vertex + 1],
+            mesh.indices[first_vertex + 2],
         ];
-        // Edge cross-product normal instead of gradient cross to be robust to
-        // potentially bad mesh parameterisations
-        // http://www.pbr-book.org/3ed-2018/Shapes/Managing_Rounding_Error.html#RobustTriangleIntersectionsUse
-        let n = Normal::from(
-            (verts[1] - verts[0])
-                .cross(verts[2] - verts[0])
-                .normalized(),
-        );
+
         Self {
-            object_to_world: object_to_world.clone(),
-            verts,
-            n,
+            mesh,
+            vertices,
             albedo,
         }
     }
@@ -55,11 +41,17 @@ impl Shape for Triangle {
         // ray lies on the +z axis. This way we don't get incorrect misses e.g. on rays
         // that intersect directly on an edge.
 
-        let (p0t, p1t, p2t, sz) = {
+        let (mut n, p0t, p1t, p2t, sz) = {
+            let p0 = self.mesh.points[self.vertices[0]];
+            let p1 = self.mesh.points[self.vertices[1]];
+            let p2 = self.mesh.points[self.vertices[2]];
+
+            let n = Normal::from((p1 - p0).cross(p2 - p0).normalized());
+
             // Do things in relation to ray's origin
-            let mut p0t = self.verts[0] - ray.o;
-            let mut p1t = self.verts[1] - ray.o;
-            let mut p2t = self.verts[2] - ray.o;
+            let mut p0t = p0 - ray.o;
+            let mut p1t = p1 - ray.o;
+            let mut p2t = p2 - ray.o;
 
             // Permute direction so that Z is largest
             // This ensures there is a non-zero magnitude on Z
@@ -84,7 +76,7 @@ impl Shape for Triangle {
             p2t.x += sx * p2t.z;
             p2t.y += sy * p2t.z;
 
-            (p0t, p1t, p2t, sz)
+            (n, p0t, p1t, p2t, sz)
         };
 
         // Edge coefficients
@@ -133,11 +125,8 @@ impl Shape for Triangle {
         let t = t_scaled / det;
 
         // Flip normal for backface hits
-        let n = if ray.d.dot_n(self.n) < 0.0 {
-            self.n
-        } else {
-            -self.n
-        };
+        n = if ray.d.dot_n(n) < 0.0 { n } else { -n };
+
         // pbrt swaps normal direction if object_to_world swaps handedness.
         // We won't need to since our normal is already calculated with world space
         // vertex positions.

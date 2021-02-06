@@ -5,11 +5,13 @@ use crate::{
         vector::Vec3,
     },
     point_light::PointLight,
-    shapes::{shape::Shape, sphere::Sphere, triangle::Triangle},
+    shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
 };
+
 use std::sync::Arc;
 
 pub struct Scene {
+    pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Box<dyn Shape>>>,
     pub light: Arc<PointLight>,
     pub cam_pos: Point3<f32>,
@@ -34,132 +36,102 @@ pub fn cornell() -> Scene {
     let red = Vec3::new(180.0, 0.0, 0.0) / 255.0;
     let green = Vec3::new(0.0, 180.0, 0.0) / 255.0;
 
+    let mut meshes: Vec<Arc<Mesh>> = Vec::new();
     let mut geometry: Vec<Box<dyn Shape>> = Vec::new();
 
     // Walls
     {
-        let verts = [
+        let wall_meshes = vec![
             // Floor
-            [
-                Point3::new(0.0, 0.0, 0.0),
-                Point3::new(552.8, 0.0, 0.0),
-                Point3::new(549.6, 0.0, 559.2),
-            ],
-            [
-                Point3::new(0.0, 0.0, 0.0),
-                Point3::new(549.6, 0.0, 559.2),
-                Point3::new(0.0, 0.0, 559.2),
-            ],
+            Arc::new(Mesh::new(
+                &handedness_swap,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(0.0, 0.0, 0.0),
+                    Point3::new(552.8, 0.0, 0.0),
+                    Point3::new(549.6, 0.0, 559.2),
+                    Point3::new(0.0, 0.0, 559.2),
+                ],
+            )),
             // Ceiling
-            [
-                Point3::new(0.0, 548.8, 0.0),
-                Point3::new(556.0, 548.8, 0.0),
-                Point3::new(556.0, 548.8, 559.2),
-            ],
-            [
-                Point3::new(0.0, 548.8, 0.0),
-                Point3::new(556.0, 548.8, 559.2),
-                Point3::new(0.0, 548.8, 559.2),
-            ],
+            Arc::new(Mesh::new(
+                &handedness_swap,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(0.0, 548.8, 0.0),
+                    Point3::new(556.0, 548.8, 0.0),
+                    Point3::new(556.0, 548.8, 559.2),
+                    Point3::new(0.0, 548.8, 559.2),
+                ],
+            )),
             // Back wall
-            [
-                Point3::new(0.0, 0.0, 559.2),
-                Point3::new(549.6, 0.0, 559.2),
-                Point3::new(556.0, 548.8, 559.2),
-            ],
-            [
-                Point3::new(0.0, 0.0, 559.2),
-                Point3::new(556.0, 548.8, 559.2),
-                Point3::new(0.0, 548.8, 559.2),
-            ],
+            Arc::new(Mesh::new(
+                &handedness_swap,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(0.0, 0.0, 559.2),
+                    Point3::new(549.6, 0.0, 559.2),
+                    Point3::new(556.0, 548.8, 559.2),
+                    Point3::new(0.0, 548.8, 559.2),
+                ],
+            )),
             // Right wall
-            [
-                Point3::new(0.0, 0.0, 0.0),
-                Point3::new(0.0, 0.0, 559.2),
-                Point3::new(0.0, 548.8, 559.2),
-            ],
-            [
-                Point3::new(0.0, 0.0, 0.0),
-                Point3::new(0.0, 548.8, 559.2),
-                Point3::new(0.0, 548.8, 0.0),
-            ],
+            Arc::new(Mesh::new(
+                &handedness_swap,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(0.0, 0.0, 0.0),
+                    Point3::new(0.0, 0.0, 559.2),
+                    Point3::new(0.0, 548.8, 559.2),
+                    Point3::new(0.0, 548.8, 0.0),
+                ],
+            )),
             // Left wall
-            [
-                Point3::new(552.8, 0.0, 0.0),
-                Point3::new(549.6, 0.0, 559.2),
-                Point3::new(556.0, 548.8, 559.2),
-            ],
-            [
-                Point3::new(552.8, 0.0, 0.0),
-                Point3::new(556.0, 548.8, 559.2),
-                Point3::new(556.0, 548.8, 0.0),
-            ],
+            Arc::new(Mesh::new(
+                &handedness_swap,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(552.8, 0.0, 0.0),
+                    Point3::new(549.6, 0.0, 559.2),
+                    Point3::new(556.0, 548.8, 559.2),
+                    Point3::new(556.0, 548.8, 0.0),
+                ],
+            )),
         ];
-        let materials = [
-            white, white, white, white, white, white, green, green, red, red,
-        ];
-        for (&v, &m) in verts.iter().zip(materials.iter()) {
-            geometry.push(Box::new(Triangle::new(&handedness_swap, v, m)))
+
+        let materials = [white, white, white, green, red];
+        for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
+            for v0 in (0..mesh.indices.len()).step_by(3) {
+                geometry.push(Box::new(Triangle::new(mesh.clone(), v0, *material)));
+            }
         }
+        meshes.extend(wall_meshes);
     }
 
     // Tall box
     {
-        let verts = [
-            [
+        let mesh = Arc::new(Mesh::new(
+            &handedness_swap,
+            vec![
+                0, 1, 2, 0, 2, 3, 4, 0, 3, 4, 3, 5, 5, 3, 2, 5, 2, 6, 6, 2, 1, 6, 1, 7, 7, 1, 0, 7,
+                0, 4,
+            ],
+            vec![
                 Point3::new(423.0, 330.0, 247.0),
                 Point3::new(265.0, 330.0, 296.0),
                 Point3::new(314.0, 330.0, 456.0),
-            ],
-            [
-                Point3::new(423.0, 330.0, 247.0),
-                Point3::new(314.0, 330.0, 456.0),
                 Point3::new(472.0, 330.0, 406.0),
-            ],
-            [
                 Point3::new(423.0, 0.0, 247.0),
-                Point3::new(423.0, 330.0, 247.0),
-                Point3::new(472.0, 330.0, 406.0),
-            ],
-            [
-                Point3::new(423.0, 0.0, 247.0),
-                Point3::new(472.0, 330.0, 406.0),
                 Point3::new(472.0, 0.0, 406.0),
-            ],
-            [
-                Point3::new(472.0, 0.0, 406.0),
-                Point3::new(472.0, 330.0, 406.0),
-                Point3::new(314.0, 330.0, 456.0),
-            ],
-            [
-                Point3::new(472.0, 0.0, 406.0),
-                Point3::new(314.0, 330.0, 456.0),
                 Point3::new(314.0, 0.0, 456.0),
-            ],
-            [
-                Point3::new(314.0, 0.0, 456.0),
-                Point3::new(314.0, 330.0, 456.0),
-                Point3::new(265.0, 330.0, 296.0),
-            ],
-            [
-                Point3::new(314.0, 0.0, 456.0),
-                Point3::new(265.0, 330.0, 296.0),
                 Point3::new(265.0, 0.0, 296.0),
             ],
-            [
-                Point3::new(265.0, 0.0, 296.0),
-                Point3::new(265.0, 330.0, 296.0),
-                Point3::new(423.0, 330.0, 247.0),
-            ],
-            [
-                Point3::new(265.0, 0.0, 296.0),
-                Point3::new(423.0, 330.0, 247.0),
-                Point3::new(423.0, 0.0, 247.0),
-            ],
-        ];
-        for &v in &verts {
-            geometry.push(Box::new(Triangle::new(&handedness_swap, v, white)))
+        ));
+
+        for v0 in (0..mesh.indices.len()).step_by(3) {
+            geometry.push(Box::new(Triangle::new(mesh.clone(), v0, white)));
         }
+        meshes.push(mesh);
     }
 
     geometry.push(Box::new(Sphere::new(
@@ -178,6 +150,7 @@ pub fn cornell() -> Scene {
     let cam_fov = 40.0;
 
     Scene {
+        meshes,
         geometry: Arc::new(geometry),
         light,
         cam_pos,
