@@ -45,7 +45,7 @@ use crate::{
         vector::{Vec2, Vec3},
     },
     point_light::PointLight,
-    scene::{cornell, Scene},
+    scene::Scene,
     shapes::shape::Shape,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
@@ -274,7 +274,7 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene = cornell();
+        let scene = Scene::cornell();
 
         Window {
             event_loop,
