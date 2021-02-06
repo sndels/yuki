@@ -20,6 +20,7 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
 use std::{
     collections::{HashMap, VecDeque},
+    path::PathBuf,
     sync::{
         mpsc::{channel, Receiver, Sender, TryRecvError},
         Arc, Mutex,
@@ -27,6 +28,7 @@ use std::{
     thread::JoinHandle,
     time::Instant,
 };
+use tinyfiledialogs::open_file_dialog;
 
 type FilmSurface = gfx::format::R32_G32_B32;
 type FilmFormat = (FilmSurface, gfx::format::Float);
@@ -318,6 +320,7 @@ impl Window {
 
         let mut last_frame = Instant::now();
 
+        let mut scene_path: Option<PathBuf> = None;
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut render_handle: Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<_>)> = None;
@@ -367,12 +370,13 @@ impl Window {
                     let ui = imgui_context.frame();
 
                     // Run frame logic
-
+                    let mut new_scene_path = scene_path.clone();
                     render_triggered |= generate_ui(
                         &ui,
                         &window,
                         &mut film_settings,
                         &mut render_triggered,
+                        &mut new_scene_path,
                         &mut scene.cam_pos,
                         &mut scene.cam_target,
                         &mut scene.cam_fov,
@@ -382,6 +386,15 @@ impl Window {
                         Arc::strong_count(&film),
                     );
                     any_item_active = ui.is_any_item_active();
+
+                    if (scene_path.is_some()
+                        && new_scene_path.is_some()
+                        && (new_scene_path != scene_path))
+                        || (scene_path.is_none() && new_scene_path.is_some())
+                    {
+                        // TODO: Load scene, do async?
+                        scene_path = new_scene_path;
+                    }
 
                     if render_triggered {
                         yuki_info!("main_loop: Render triggered");
@@ -566,6 +579,7 @@ fn generate_ui(
     window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
     render_triggered: &mut bool,
+    scene_path: &mut Option<PathBuf>,
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
@@ -620,25 +634,49 @@ fn generate_ui(
                     });
                 });
 
-            imgui::TreeNode::new(im_str!("Camera"))
+            imgui::TreeNode::new(im_str!("Scene"))
                 .default_open(true)
                 .build(ui, || {
-                    values_changed |= imgui::Drag::new(im_str!("Position"))
-                        .speed(0.1)
-                        .display_format(im_str!("%.1f"))
-                        .build_array(ui, cam_pos.array_mut());
+                    let scene_name = if let Some(path) = scene_path {
+                        path.file_stem().unwrap().to_str().unwrap()
+                    } else {
+                        "Cornell Box"
+                    };
+                    ui.text(im_str!("Current scene: {}", scene_name));
 
-                    values_changed |= imgui::Drag::new(im_str!("Target"))
-                        .speed(0.1)
-                        .display_format(im_str!("%.1f"))
-                        .build_array(ui, cam_target.array_mut());
+                    if ui.button(im_str!("Change scene"), [50.0, 20.0]) {
+                        let open_path = if let Some(path) = scene_path {
+                            path.to_str().unwrap()
+                        } else {
+                            ""
+                        };
+                        *scene_path =
+                            if let Some(path) = open_file_dialog("Open scene", open_path, None) {
+                                Some(PathBuf::from(path))
+                            } else {
+                                None
+                            };
+                    }
+                    imgui::TreeNode::new(im_str!("Camera"))
+                        .default_open(true)
+                        .build(ui, || {
+                            values_changed |= imgui::Drag::new(im_str!("Position"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(ui, cam_pos.array_mut());
 
-                    values_changed |= imgui::Drag::new(im_str!("Field of View"))
-                        .range(0.1..=359.9)
-                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                        .speed(0.5)
-                        .display_format(im_str!("%.1f"))
-                        .build(ui, cam_fov);
+                            values_changed |= imgui::Drag::new(im_str!("Target"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(ui, cam_target.array_mut());
+
+                            values_changed |= imgui::Drag::new(im_str!("Field of View"))
+                                .range(0.1..=359.9)
+                                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                                .speed(0.5)
+                                .display_format(im_str!("%.1f"))
+                                .build(ui, cam_fov);
+                        });
                 });
 
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
