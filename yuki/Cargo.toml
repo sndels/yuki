@@ -21,6 +21,7 @@ log = "0.4"
 num = "0.3"
 num_cpus = "1.13"
 old_school_gfx_glutin_ext = "0.26"
+ply-rs = "0.1"
 tinyfiledialogs = "3.3"
 win_dbg_logger = "0.1"
 yuki_derive = { path = "../yuki_derive" }
