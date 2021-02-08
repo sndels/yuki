@@ -1,14 +1,17 @@
 use crate::{
     math::{
+        bounds::Bounds3,
         point::Point3,
-        transform::{translation, Transform},
+        transform::{scale, translation, Transform},
         vector::Vec3,
     },
     point_light::PointLight,
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
+    yuki_info,
 };
 
-use std::sync::Arc;
+use ply_rs;
+use std::{path::PathBuf, sync::Arc};
 
 pub struct Scene {
     pub meshes: Vec<Arc<Mesh>>,
@@ -20,6 +23,129 @@ pub struct Scene {
 }
 
 impl Scene {
+    /// Loads a PLY scaled to 2 units and orients the camera on it at an angle
+    pub fn ply(path: &PathBuf) -> Result<Scene> {
+        let file = std::fs::File::open(path.to_str().unwrap())?;
+        let mut file_buf = std::io::BufReader::new(file);
+
+        let header = ply_rs::parser::Parser::<ply_rs::ply::DefaultElement>::new()
+            .read_header(&mut file_buf)?;
+
+        // Validate the expected content
+        if let Some(vertex_def) = header.elements.get("vertex") {
+            let props = &vertex_def.properties;
+
+            macro_rules! check_prop {
+                ($props:expr, $key:literal, $element_name:literal) => {
+                    if !$props.contains_key($key) {
+                        return Err(MissingProperty {
+                            element: $element_name,
+                            name: $key,
+                        }
+                        .into());
+                    }
+                };
+            }
+            check_prop!(props, "x", "vertex");
+            check_prop!(props, "y", "vertex");
+            check_prop!(props, "z", "vertex");
+            // TODO: Log extra properties
+        } else {
+            return Err(MissingElement { name: "vertex" }.into());
+        }
+
+        // For some reason (Paul Bourke's example?), PLYs come with one of two different names
+        // for face indices
+        if let Some(face_def) = header.elements.get("face") {
+            let props = &face_def.properties;
+            if !props.contains_key("vertex_index") && !props.contains_key("vertex_indices") {
+                return Err(MissingProperty {
+                    element: "face",
+                    name: "vertex_index or vertex_indices",
+                }
+                .into());
+            }
+        } else {
+            return Err(MissingElement { name: "face" }.into());
+        }
+        // TODO: Log extra elements
+
+        let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
+        let vertices = vertex_parser.read_payload_for_element(
+            &mut file_buf,
+            &header.elements["vertex"],
+            &header,
+        )?;
+        yuki_info!("PLY: Parsed {} vertices", vertices.len());
+
+        let face_parser = ply_rs::parser::Parser::<Face>::new();
+        let faces = face_parser.read_payload_for_element(
+            &mut file_buf,
+            &header.elements["face"],
+            &header,
+        )?;
+        yuki_info!("PLY: Parsed {} faces", faces.len());
+
+        let points: Vec<Point3<f32>> = vertices
+            .iter()
+            .map(|&Vertex { x, y, z }| Point3::new(x, y, z))
+            .collect();
+
+        let mut indices = Vec::new();
+        for f in faces {
+            let v0 = f.indices[0];
+            let mut is = f.indices.iter().skip(1).peekable();
+            while let Some(&v1) = is.next() {
+                if let Some(&&v2) = is.peek() {
+                    indices.push(v0);
+                    indices.push(v1);
+                    indices.push(v2);
+                }
+            }
+        }
+
+        // Find bounds and transform to fit in (-1,-1,-1),(1,1,1) in world space
+        let bb = points
+            .iter()
+            .fold(Bounds3::default(), |bb, &p| bb.union_p(p));
+        let mesh_center = bb.p_min + bb.diagonal() / 2.0;
+        let mesh_scale = 1.0 / bb.diagonal().max_comp();
+
+        let mesh = Arc::new(Mesh::new(
+            &(&scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))),
+            indices,
+            points,
+        ));
+
+        let mut geometry: Vec<Box<dyn Shape>> = Vec::new();
+        for v0 in (0..mesh.indices.len()).step_by(3) {
+            geometry.push(Box::new(Triangle::new(
+                mesh.clone(),
+                v0,
+                Vec3::new(1.0, 1.0, 1.0),
+            )));
+        }
+        let meshes = vec![mesh];
+
+        let light = Arc::new(PointLight::new(
+            &translation(Vec3::new(5.0, 5.0, 0.0)),
+            Vec3::from(600.0),
+        ));
+
+        let cam_pos = Point3::new(2.0, 2.0, 2.0);
+        let cam_target = Point3::new(0.0, 0.0, 0.0);
+        let cam_fov = 40.0;
+
+        Ok(Self {
+            meshes,
+            geometry: Arc::new(geometry),
+            light,
+            cam_pos,
+            cam_target,
+            cam_fov,
+        })
+    }
+
     /// The cornell box with a tall box and a sphere
     /// Lifted from http://www.graphics.cornell.edu/online/box/data.html
     pub fn cornell() -> Scene {
@@ -157,6 +283,90 @@ impl Scene {
             cam_pos,
             cam_target,
             cam_fov,
+        }
+    }
+}
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+#[derive(Debug)]
+pub struct MissingElement {
+    name: &'static str,
+}
+#[derive(Debug)]
+pub struct MissingProperty {
+    element: &'static str,
+    name: &'static str,
+}
+
+impl std::fmt::Display for MissingElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "MissingElement '{}'", self.name)
+    }
+}
+impl std::fmt::Display for MissingProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "MissingProperty '{}' in element '{}'",
+            self.name, self.element
+        )
+    }
+}
+
+impl std::error::Error for MissingElement {}
+impl std::error::Error for MissingProperty {}
+
+struct Vertex {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+impl ply_rs::ply::PropertyAccess for Vertex {
+    fn new() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+
+    fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
+        match property {
+            ply_rs::ply::Property::Float(v) => match key.as_str() {
+                "x" => self.x = v,
+                "y" => self.y = v,
+                "z" => self.z = v,
+                _ => (),
+            },
+            _ => (),
+        }
+    }
+}
+
+struct Face {
+    indices: Vec<usize>,
+}
+
+impl ply_rs::ply::PropertyAccess for Face {
+    fn new() -> Self {
+        Self {
+            indices: Vec::new(),
+        }
+    }
+
+    fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
+        match property {
+            ply_rs::ply::Property::ListInt(v) => match key.as_str() {
+                // For some reason (Paul Bourke's example?), PLYs come with one of two different
+                // names for face indices
+                "vertex_index" | "vertex_indices" => {
+                    self.indices = v.iter().map(|&i| i as usize).collect()
+                }
+                _ => (),
+            },
+            _ => (),
         }
     }
 }

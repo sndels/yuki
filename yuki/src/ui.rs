@@ -327,6 +327,7 @@ impl Window {
         let mut render_ending = false;
         let mut update_film_vbo = true;
         let mut last_render_ms: Option<f32> = None;
+        let mut loading_error: Option<String> = None;
 
         let mut match_logical_cores = true;
 
@@ -381,6 +382,7 @@ impl Window {
                         &mut scene.cam_target,
                         &mut scene.cam_fov,
                         &mut match_logical_cores,
+                        &loading_error,
                         render_ending,
                         last_render_ms,
                         Arc::strong_count(&film),
@@ -392,8 +394,23 @@ impl Window {
                         && (new_scene_path != scene_path))
                         || (scene_path.is_none() && new_scene_path.is_some())
                     {
-                        // TODO: Load scene, do async?
-                        scene_path = new_scene_path;
+                        let path = new_scene_path.unwrap();
+                        match Scene::ply(&path) {
+                            Ok(new_scene) => {
+                                yuki_info!(
+                                    "PLY loaded from {}",
+                                    path.file_name().unwrap().to_str().unwrap()
+                                );
+
+                                scene = new_scene;
+                                loading_error = None;
+                                scene_path = Some(path);
+                            }
+                            Err(why) => {
+                                yuki_error!("Loading PLY failed: {}", why);
+                                loading_error = Some(String::from("Loading failed"));
+                            }
+                        }
                     }
 
                     if render_triggered {
@@ -584,6 +601,7 @@ fn generate_ui(
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
     match_logical_cores: &mut bool,
+    loading_error: &Option<String>,
     render_ending: bool,
     last_render_ms: Option<f32>,
     film_ref_count: usize,
@@ -644,18 +662,21 @@ fn generate_ui(
                     };
                     ui.text(im_str!("Current scene: {}", scene_name));
 
-                    if ui.button(im_str!("Change scene"), [50.0, 20.0]) {
+                    if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
                         let open_path = if let Some(path) = scene_path {
                             path.to_str().unwrap()
                         } else {
                             ""
                         };
-                        *scene_path =
-                            if let Some(path) = open_file_dialog("Open scene", open_path, None) {
-                                Some(PathBuf::from(path))
-                            } else {
-                                None
-                            };
+                        *scene_path = if let Some(path) = open_file_dialog(
+                            "Open scene",
+                            open_path,
+                            Some((&["*.ply"], "Supported scene formats")),
+                        ) {
+                            Some(PathBuf::from(path))
+                        } else {
+                            None
+                        };
                     }
                     imgui::TreeNode::new(im_str!("Camera"))
                         .default_open(true)
@@ -682,6 +703,10 @@ fn generate_ui(
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
 
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+
+            if let Some(error) = loading_error {
+                ui.text(im_str!("{}", error));
+            }
 
             if film_ref_count > 1 {
                 ui.text(im_str!("Render manager running"));
