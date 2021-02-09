@@ -7,11 +7,11 @@ use crate::{
     },
     point_light::PointLight,
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
-    yuki_info,
+    yuki_error, yuki_info,
 };
 
 use ply_rs;
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 pub struct Scene {
     pub meshes: Vec<Arc<Mesh>>,
@@ -22,6 +22,8 @@ pub struct Scene {
     pub cam_fov: f32,
 }
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 impl Scene {
     /// Loads a PLY scaled to 2 units and orients the camera on it at an angle
     pub fn ply(path: &PathBuf) -> Result<Scene> {
@@ -31,44 +33,9 @@ impl Scene {
         let header = ply_rs::parser::Parser::<ply_rs::ply::DefaultElement>::new()
             .read_header(&mut file_buf)?;
 
-        // Validate the expected content
-        if let Some(vertex_def) = header.elements.get("vertex") {
-            let props = &vertex_def.properties;
-
-            macro_rules! check_prop {
-                ($props:expr, $key:literal, $element_name:literal) => {
-                    if !$props.contains_key($key) {
-                        return Err(MissingProperty {
-                            element: $element_name,
-                            name: $key,
-                        }
-                        .into());
-                    }
-                };
-            }
-            check_prop!(props, "x", "vertex");
-            check_prop!(props, "y", "vertex");
-            check_prop!(props, "z", "vertex");
-            // TODO: Log extra properties
-        } else {
-            return Err(MissingElement { name: "vertex" }.into());
+        if !is_valid(&header) {
+            return Err("PLY: Unsupported content".into());
         }
-
-        // For some reason (Paul Bourke's example?), PLYs come with one of two different names
-        // for face indices
-        if let Some(face_def) = header.elements.get("face") {
-            let props = &face_def.properties;
-            if !props.contains_key("vertex_index") && !props.contains_key("vertex_indices") {
-                return Err(MissingProperty {
-                    element: "face",
-                    name: "vertex_index or vertex_indices",
-                }
-                .into());
-            }
-        } else {
-            return Err(MissingElement { name: "face" }.into());
-        }
-        // TODO: Log extra elements
 
         let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
         let vertices = vertex_parser.read_payload_for_element(
@@ -287,35 +254,84 @@ impl Scene {
     }
 }
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-#[derive(Debug)]
-pub struct MissingElement {
-    name: &'static str,
-}
-#[derive(Debug)]
-pub struct MissingProperty {
-    element: &'static str,
-    name: &'static str,
+struct PlyContent {
+    vertex: Option<HashSet<String>>,
+    face: Option<HashSet<String>>,
 }
 
-impl std::fmt::Display for MissingElement {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "MissingElement '{}'", self.name)
-    }
-}
-impl std::fmt::Display for MissingProperty {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "MissingProperty '{}' in element '{}'",
-            self.name, self.element
-        )
+impl PlyContent {
+    fn new() -> Self {
+        Self {
+            vertex: None,
+            face: None,
+        }
     }
 }
 
-impl std::error::Error for MissingElement {}
-impl std::error::Error for MissingProperty {}
+fn is_valid(header: &ply_rs::ply::Header) -> bool {
+    let mut content = PlyContent::new();
+    for (name, element) in &header.elements {
+        match name.as_str() {
+            "vertex" => {
+                let mut props = HashSet::new();
+                for (name, _) in &element.properties {
+                    props.insert(name.clone());
+                }
+                content.vertex = Some(props)
+            }
+            "face" => {
+                let mut props = HashSet::new();
+                for (name, _) in &element.properties {
+                    props.insert(name.clone());
+                }
+                content.face = Some(props)
+            }
+            _ => yuki_info!("PLY: Unknown element '{}'", name),
+        }
+    }
+
+    let mut valid = true;
+
+    if let Some(props) = content.vertex {
+        let expected_vert_props = vec!["x", "y", "z"];
+        for p in &expected_vert_props {
+            if !props.contains(&p.to_string()) {
+                yuki_error!("PLY: Element 'vertex' missing property '{}'", p);
+                valid = false;
+            }
+        }
+        for p in props.difference(&expected_vert_props.iter().map(|p| p.to_string()).collect()) {
+            yuki_info!("PLY: Unknown 'vertex' property '{}'", p)
+        }
+    } else {
+        yuki_error!("PLY: Missing element 'vertex'");
+        valid = false;
+    }
+
+    if let Some(props) = content.face {
+        // For some reason (Paul Bourke's example?), PLYs come with one of two different names
+        // for face indices
+        if !props.contains(&String::from("vertex_index"))
+            && !props.contains(&String::from("vertex_indices"))
+        {
+            yuki_error!(
+                "PLY: Elemnent 'face' should have either 'vertex_index' or 'vertex_indices'"
+            );
+            valid = false;
+        }
+        for p in props {
+            match p.as_str() {
+                "vertex_index" | "vertex_indices" => (),
+                _ => yuki_info!("PLY: Unknown 'face' property '{}'", p),
+            }
+        }
+    } else {
+        yuki_error!("PLY: Missing element 'face'");
+        valid = false;
+    }
+
+    valid
+}
 
 struct Vertex {
     x: f32,
