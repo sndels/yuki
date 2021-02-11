@@ -378,6 +378,7 @@ impl Window {
                         &mut film_settings,
                         &mut render_triggered,
                         &mut new_scene_path,
+                        scene.geometry.len(),
                         &mut scene.cam_pos,
                         &mut scene.cam_target,
                         &mut scene.cam_fov,
@@ -597,6 +598,7 @@ fn generate_ui(
     film_settings: &mut FilmSettings,
     render_triggered: &mut bool,
     scene_path: &mut Option<PathBuf>,
+    scene_shape_count: usize,
     cam_pos: &mut Point3<f32>,
     cam_target: &mut Point3<f32>,
     cam_fov: &mut f32,
@@ -661,6 +663,7 @@ fn generate_ui(
                         "Cornell Box"
                     };
                     ui.text(im_str!("Current scene: {}", scene_name));
+                    ui.text(im_str!("Scene shape count: {}", scene_shape_count));
 
                     if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
                         let open_path = if let Some(path) = scene_path {
