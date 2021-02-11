@@ -323,10 +323,14 @@ impl Window {
         let mut scene_path: Option<PathBuf> = None;
         let mut render_triggered = false;
         let mut any_item_active = false;
-        let mut render_handle: Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<_>)> = None;
+        let mut render_handle: Option<(
+            Option<Sender<usize>>,
+            Receiver<RenderResult>,
+            JoinHandle<_>,
+        )> = None;
         let mut render_ending = false;
         let mut update_film_vbo = true;
-        let mut last_render_ms: Option<f32> = None;
+        let mut last_render_result: Option<RenderResult> = None;
         let mut loading_error: Option<String> = None;
 
         let mut match_logical_cores = true;
@@ -385,7 +389,7 @@ impl Window {
                         &mut match_logical_cores,
                         &loading_error,
                         render_ending,
-                        last_render_ms,
+                        last_render_result,
                         Arc::strong_count(&film),
                     );
                     any_item_active = ui.is_any_item_active();
@@ -445,13 +449,13 @@ impl Window {
                             yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
-                            last_render_ms = None;
+                            last_render_result = None;
                             render_triggered = false;
                         }
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
-                        if let Some(finish_ms) = check_running_render(&mut render_handle) {
-                            last_render_ms = Some(finish_ms);
+                        if let Some(result) = check_running_render(&mut render_handle) {
+                            last_render_result = Some(result);
                         }
                     }
 
@@ -605,7 +609,7 @@ fn generate_ui(
     match_logical_cores: &mut bool,
     loading_error: &Option<String>,
     render_ending: bool,
-    last_render_ms: Option<f32>,
+    last_render_result: Option<RenderResult>,
     film_ref_count: usize,
 ) -> bool {
     let glutin::dpi::PhysicalSize {
@@ -722,15 +726,25 @@ fn generate_ui(
                 ui.text(im_str!("Render winding down!"))
             }
 
-            if let Some(ms) = last_render_ms {
-                ui.text(im_str!("Render finished in {:.3}ms", ms));
+            if let Some(result) = last_render_result {
+                ui.text(im_str!("Render finished in {:.2}s", result.secs));
+                ui.text(im_str!(
+                    "{:.2} krays/s",
+                    ((result.ray_count as f32) / result.secs) * 1e-3
+                ));
             }
         });
     values_changed
 }
 
+#[derive(Copy, Clone)]
+struct RenderResult {
+    secs: f32,
+    ray_count: usize,
+}
+
 fn launch_render(
-    to_parent: Sender<f32>,
+    to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
     scene_geometry: &Arc<Vec<Box<dyn Shape>>>,
@@ -789,17 +803,19 @@ fn launch_render(
             .collect();
 
         // Wait for children to finish
+        let mut ray_count = 0;
         while !children.is_empty() {
             if let Ok(_) = from_parent.try_recv() {
                 yuki_debug!("Render: Killed by parent");
                 break;
             }
 
-            if let Ok(thread_id) = from_children.try_recv() {
+            if let Ok((thread_id, rays)) = from_children.try_recv() {
                 yuki_trace!("Render: Join {}", thread_id);
                 let (_, child) = children.remove(&thread_id).unwrap();
                 child.join().unwrap();
                 yuki_trace!("Render: {} terminated", thread_id);
+                ray_count += rays;
             } else {
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
@@ -823,8 +839,8 @@ fn launch_render(
         }
 
         yuki_trace!("Render: Report back");
-        let render_millis = (render_start.elapsed().as_micros() as f32) * 1e-3;
-        if let Err(why) = to_parent.send(render_millis) {
+        let secs = (render_start.elapsed().as_micros() as f32) * 1e-6;
+        if let Err(why) = to_parent.send(RenderResult { secs, ray_count }) {
             yuki_error!("Render: Error notifying parent: {}", why);
         };
         yuki_debug!("Render: End");
@@ -833,7 +849,7 @@ fn launch_render(
 
 fn render(
     thread_id: usize,
-    to_parent: Sender<usize>,
+    to_parent: Sender<(usize, usize)>,
     from_parent: Receiver<usize>,
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     clear_color: Vec3<f32>,
@@ -844,6 +860,7 @@ fn render(
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
 
+    let mut rays = 0;
     'work: loop {
         if let Ok(_) = from_parent.try_recv() {
             yuki_debug!("Render thread {}: Killed by parent", thread_id);
@@ -892,6 +909,7 @@ fn render(
                         }
                     })
             };
+            rays += 1;
 
             let color = if let Some(hit) = hit {
                 // TODO: Do color/spectrum class for this math
@@ -927,7 +945,7 @@ fn render(
     }
 
     yuki_trace!("Render thread {}: Signal end", thread_id);
-    if let Err(why) = to_parent.send(thread_id) {
+    if let Err(why) = to_parent.send((thread_id, rays)) {
         yuki_error!("Render thread {}: Error: {}", thread_id, why);
     };
     yuki_debug!("Render thread {}: End", thread_id);
@@ -1048,7 +1066,11 @@ where
 }
 
 fn check_and_kill_running_render(
-    render_handle: &mut Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<()>)>,
+    render_handle: &mut Option<(
+        Option<Sender<usize>>,
+        Receiver<RenderResult>,
+        JoinHandle<()>,
+    )>,
 ) -> bool {
     let mut render_ending = false;
     let rm = std::mem::replace(render_handle, None);
@@ -1094,17 +1116,21 @@ fn check_and_kill_running_render(
 }
 
 fn check_running_render(
-    render_handle: &mut Option<(Option<Sender<usize>>, Receiver<f32>, JoinHandle<()>)>,
-) -> Option<f32> {
-    let mut finished_ms = None;
+    render_handle: &mut Option<(
+        Option<Sender<usize>>,
+        Receiver<RenderResult>,
+        JoinHandle<()>,
+    )>,
+) -> Option<RenderResult> {
+    let mut ret = None;
     let rm = std::mem::replace(render_handle, None);
     if let Some((to_render, from_render, render_thread)) = rm {
         match from_render.try_recv() {
-            Ok(render_ms) => {
+            Ok(result) => {
                 yuki_trace!("check_running_render: Waiting for the finished render job to exit");
                 render_thread.join().unwrap();
                 yuki_debug!("check_running_render: Render job has finished");
-                finished_ms = Some(render_ms);
+                ret = Some(result);
             }
             Err(why) => match why {
                 TryRecvError::Empty => {
@@ -1118,5 +1144,5 @@ fn check_running_render(
             },
         }
     }
-    finished_ms
+    ret
 }
