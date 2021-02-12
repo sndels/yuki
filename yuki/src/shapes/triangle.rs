@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::{mesh::Mesh, shape::Shape};
 use crate::{
     hit::Hit,
-    math::{normal::Normal, ray::Ray, vector::Vec3},
+    math::{bounds::Bounds3, normal::Normal, ray::Ray, vector::Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -138,5 +138,13 @@ impl Shape for Triangle {
             n,
             albedo: self.albedo,
         })
+    }
+
+    fn world_bound(&self) -> Bounds3<f32> {
+        Bounds3::new(
+            self.mesh.points[self.vertices[0]],
+            self.mesh.points[self.vertices[1]],
+        )
+        .union_p(self.mesh.points[self.vertices[2]])
     }
 }
