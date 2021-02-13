@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use crate::{
     hit::Hit,
     math::{bounds::Bounds3, point::Point3, ray::Ray, vector::Vec3},
     shapes::shape::Shape,
+    yuki_info,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -49,13 +50,23 @@ impl BoundingVolumeHierarchy {
         };
 
         let mut ordered_shapes = Vec::new();
+        let build_start = Instant::now();
         let (root, node_count) =
             ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
+        yuki_info!(
+            "BVH: Built the tree in {:.2}s",
+            (build_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
         std::mem::swap(Arc::get_mut(&mut ret.shapes).unwrap(), &mut ordered_shapes);
 
+        let flatten_start = Instant::now();
         ret.nodes = vec![BVHNode::default(); node_count];
         ret.flatten_tree(root, 0);
+        yuki_info!(
+            "BVH: Flattened the tree in {:.2}s",
+            (flatten_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
         let shapes_arc = ret.shapes.clone();
         (ret, shapes_arc)
