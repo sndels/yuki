@@ -330,8 +330,7 @@ impl Window {
         )> = None;
         let mut render_ending = false;
         let mut update_film_vbo = true;
-        let mut last_render_result: Option<RenderResult> = None;
-        let mut loading_error: Option<String> = None;
+        let mut status_messages: Option<Vec<String>> = None;
 
         let mut match_logical_cores = true;
 
@@ -374,6 +373,19 @@ impl Window {
                     // Init imgui for frame UI
                     let ui = imgui_context.frame();
 
+                    if render_handle.is_some() {
+                        let film_ref_count = Arc::strong_count(&film);
+                        let mut messages = Vec::new();
+                        if film_ref_count > 1 {
+                            messages
+                                .push(format!("Render threads running: {}", film_ref_count - 2));
+                        }
+                        if render_ending {
+                            messages.push("Render winding down".into());
+                        }
+                        status_messages = Some(messages);
+                    }
+
                     // Run frame logic
                     let mut new_scene_path = scene_path.clone();
                     render_triggered |= generate_ui(
@@ -385,10 +397,7 @@ impl Window {
                         scene.geometry.len(),
                         &mut scene_params,
                         &mut match_logical_cores,
-                        &loading_error,
-                        render_ending,
-                        last_render_result,
-                        Arc::strong_count(&film),
+                        &status_messages,
                     );
                     any_item_active = ui.is_any_item_active();
 
@@ -399,7 +408,7 @@ impl Window {
                     {
                         let path = new_scene_path.unwrap();
                         match Scene::ply(&path) {
-                            Ok((new_scene, new_scene_params, _)) => {
+                            Ok((new_scene, new_scene_params, total_secs)) => {
                                 yuki_info!(
                                     "PLY loaded from {}",
                                     path.file_name().unwrap().to_str().unwrap()
@@ -407,12 +416,13 @@ impl Window {
 
                                 scene = Arc::new(new_scene);
                                 scene_params = new_scene_params;
-                                loading_error = None;
                                 scene_path = Some(path);
+                                status_messages =
+                                    Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
                             }
                             Err(why) => {
                                 yuki_error!("Loading PLY failed: {}", why);
-                                loading_error = Some(String::from("Loading failed"));
+                                status_messages = Some(vec!["Scene loading failed".into()]);
                             }
                         }
                     }
@@ -440,13 +450,18 @@ impl Window {
                             yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
-                            last_render_result = None;
                             render_triggered = false;
                         }
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
                         if let Some(result) = check_running_render(&mut render_handle) {
-                            last_render_result = Some(result);
+                            status_messages = Some(vec![
+                                format!("Render finished in {:.2}s", result.secs),
+                                format!(
+                                    "{:.2} krays/s",
+                                    ((result.ray_count as f32) / result.secs) * 1e-3
+                                ),
+                            ]);
                         }
                     }
 
@@ -596,10 +611,7 @@ fn generate_ui(
     scene_shape_count: usize,
     scene_params: &mut DynamicSceneParameters,
     match_logical_cores: &mut bool,
-    loading_error: &Option<String>,
-    render_ending: bool,
-    last_render_result: Option<RenderResult>,
-    film_ref_count: usize,
+    status_messages: &Option<Vec<String>>,
 ) -> bool {
     let glutin::dpi::PhysicalSize {
         width: _,
@@ -700,27 +712,10 @@ fn generate_ui(
 
             *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
 
-            if let Some(error) = loading_error {
-                ui.text(im_str!("{}", error));
-            }
-
-            if film_ref_count > 1 {
-                ui.text(im_str!("Render manager running"));
-            }
-            if film_ref_count > 2 {
-                ui.text(im_str!("Render threads running: {}", film_ref_count - 2));
-            }
-
-            if render_ending {
-                ui.text(im_str!("Render winding down!"))
-            }
-
-            if let Some(result) = last_render_result {
-                ui.text(im_str!("Render finished in {:.2}s", result.secs));
-                ui.text(im_str!(
-                    "{:.2} krays/s",
-                    ((result.ray_count as f32) / result.secs) * 1e-3
-                ));
+            if let Some(lines) = status_messages {
+                for l in lines {
+                    ui.text(im_str!("{}", l));
+                }
             }
         });
     values_changed
