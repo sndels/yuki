@@ -46,27 +46,43 @@ impl Scene {
             return Err("PLY: Unsupported content".into());
         }
 
+        let vertices_start = Instant::now();
         let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
         let vertices = vertex_parser.read_payload_for_element(
             &mut file_buf,
             &header.elements["vertex"],
             &header,
         )?;
-        yuki_info!("PLY: Parsed {} vertices", vertices.len());
+        yuki_info!(
+            "PLY: Parsed {} vertices in {:.2}s",
+            vertices.len(),
+            (vertices_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
+        let faces_start = Instant::now();
         let face_parser = ply_rs::parser::Parser::<Face>::new();
         let faces = face_parser.read_payload_for_element(
             &mut file_buf,
             &header.elements["face"],
             &header,
         )?;
-        yuki_info!("PLY: Parsed {} faces", faces.len());
+        yuki_info!(
+            "PLY: Parsed {} faces in {:.2}s",
+            faces.len(),
+            (faces_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
+        let points_start = Instant::now();
         let points: Vec<Point3<f32>> = vertices
             .iter()
             .map(|&Vertex { x, y, z }| Point3::new(x, y, z))
             .collect();
+        yuki_info!(
+            "PLY: Converted vertices to points in {:.2}s",
+            (points_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
+        let indices_start = Instant::now();
         let mut indices = Vec::new();
         for f in faces {
             let v0 = f.indices[0];
@@ -79,6 +95,10 @@ impl Scene {
                 }
             }
         }
+        yuki_info!(
+            "PLY: Converted faces to an index buffer in {:.2}s",
+            (indices_start.elapsed().as_micros() as f32) * 1e-6
+        );
 
         // Find bounds and transform to fit in (-1,-1,-1),(1,1,1) in world space
         let bb = points
@@ -93,6 +113,7 @@ impl Scene {
             points,
         ));
 
+        let triangles_start = Instant::now();
         let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
         for v0 in (0..mesh.indices.len()).step_by(3) {
             geometry.push(Arc::new(Triangle::new(
@@ -101,6 +122,12 @@ impl Scene {
                 Vec3::new(1.0, 1.0, 1.0),
             )));
         }
+        yuki_info!(
+            "PLY: Gathered {} triangles in {:.2}s",
+            geometry.len(),
+            (triangles_start.elapsed().as_micros() as f32) * 1e-6
+        );
+
         let meshes = vec![mesh];
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 10, SplitMethod::Middle);
@@ -112,6 +139,8 @@ impl Scene {
         let cam_fov = 40.0;
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+
+        yuki_info!("PLY: Loading took {:.2}s in total", total_secs);
 
         Ok((
             Self {
