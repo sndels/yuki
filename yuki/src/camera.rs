@@ -17,6 +17,7 @@ pub struct CameraSample {
 }
 
 /// A simple pinhole camera
+#[derive(Clone)]
 pub struct Camera {
     camera_to_world: Transform<f32>,
     raster_to_camera: Transform<f32>,
