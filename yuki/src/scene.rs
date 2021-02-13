@@ -12,7 +12,7 @@ use crate::{
 };
 
 use ply_rs;
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
 
 pub struct DynamicSceneParameters {
     pub cam_pos: Point3<f32>,
@@ -30,8 +30,12 @@ pub struct Scene {
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 impl Scene {
-    /// Loads a PLY scaled to 2 units and orients the camera on it at an angle
-    pub fn ply(path: &PathBuf) -> Result<(Scene, DynamicSceneParameters)> {
+    /// Loads a PLY scaled to 2 units and orients the camera on it at an angle.
+    /// Returns the scene and its initialized dynamic paramters as well as the
+    /// total time it took to load.
+    pub fn ply(path: &PathBuf) -> Result<(Scene, DynamicSceneParameters, f32)> {
+        let load_start = Instant::now();
+
         let file = std::fs::File::open(path.to_str().unwrap())?;
         let mut file_buf = std::io::BufReader::new(file);
 
@@ -107,6 +111,8 @@ impl Scene {
         let cam_target = Point3::new(0.0, 0.0, 0.0);
         let cam_fov = 40.0;
 
+        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+
         Ok((
             Self {
                 meshes,
@@ -119,6 +125,7 @@ impl Scene {
                 cam_target,
                 cam_fov,
             },
+            total_secs,
         ))
     }
 

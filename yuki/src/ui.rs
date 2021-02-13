@@ -399,7 +399,7 @@ impl Window {
                     {
                         let path = new_scene_path.unwrap();
                         match Scene::ply(&path) {
-                            Ok((new_scene, new_scene_params)) => {
+                            Ok((new_scene, new_scene_params, _)) => {
                                 yuki_info!(
                                     "PLY loaded from {}",
                                     path.file_name().unwrap().to_str().unwrap()
