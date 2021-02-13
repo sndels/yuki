@@ -749,14 +749,13 @@ fn launch_render(
     );
 
     std::thread::spawn(move || {
-        let render_start = Instant::now();
         yuki_debug!("Render: Begin");
-
         yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
         let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
 
         yuki_trace!("Render: Launch threads");
+        let render_start = Instant::now();
         let thread_count = if match_logical_cores {
             num_cpus::get()
         } else {
