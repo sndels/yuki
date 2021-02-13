@@ -1,6 +1,7 @@
 use crate::math::{normal::Normal, point::Point3, vector::Vec3};
 
 /// Info of a surface hit
+#[derive(Clone)]
 pub struct Hit {
     /// Hit distance
     pub t: f32,
