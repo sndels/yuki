@@ -37,10 +37,10 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
+    bvh::BoundingVolumeHierarchy,
     camera::{Camera, CameraSample},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
-    hit::Hit,
     math::{
         point::{Point2, Point3},
         transform::look_at,
@@ -48,7 +48,6 @@ use crate::{
     },
     point_light::PointLight,
     scene::Scene,
-    shapes::shape::Shape,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -440,7 +439,7 @@ impl Window {
                                 render_tx,
                                 render_rx,
                                 &camera,
-                                &scene.geometry,
+                                &scene.bvh,
                                 &scene.light,
                                 film.clone(),
                                 film_settings,
@@ -747,14 +746,14 @@ fn launch_render(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
     camera: &Arc<Camera>,
-    scene_geometry: &Arc<Vec<Box<dyn Shape>>>,
+    scene_bvh: &Arc<BoundingVolumeHierarchy>,
     scene_light: &Arc<PointLight>,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
     let camera = camera.clone();
-    let scene_geometry = scene_geometry.clone();
+    let scene_bvh = scene_bvh.clone();
     let scene_light = scene_light.clone();
 
     std::thread::spawn(move || {
@@ -777,7 +776,7 @@ fn launch_render(
                 let child_tx = child_send.clone();
                 let tiles = tiles.clone();
                 let camera = camera.clone();
-                let scene_geometry = scene_geometry.clone();
+                let scene_bvh = scene_bvh.clone();
                 let scene_light = scene_light.clone();
                 let film = film.clone();
                 (
@@ -792,7 +791,7 @@ fn launch_render(
                                 tiles,
                                 film_settings.clear_color,
                                 camera,
-                                scene_geometry,
+                                scene_bvh,
                                 scene_light,
                                 film,
                             );
@@ -854,7 +853,7 @@ fn render(
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     clear_color: Vec3<f32>,
     camera: Arc<Camera>,
-    scene_geometry: Arc<Vec<Box<dyn Shape>>>,
+    scene_bvh: Arc<BoundingVolumeHierarchy>,
     scene_light: Arc<PointLight>,
     film: Arc<Mutex<Film>>,
 ) {
@@ -889,26 +888,7 @@ fn render(
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
 
-            let hit = {
-                scene_geometry
-                    .iter()
-                    .fold(None, |old_hit: Option<Hit>, shape| {
-                        let new_hit = shape.intersect(ray);
-                        if let Some(new_hit) = new_hit {
-                            if let Some(old_hit) = old_hit {
-                                if new_hit.t < old_hit.t {
-                                    Some(new_hit)
-                                } else {
-                                    Some(old_hit)
-                                }
-                            } else {
-                                Some(new_hit)
-                            }
-                        } else {
-                            old_hit
-                        }
-                    })
-            };
+            let hit = scene_bvh.intersect(ray);
             rays += 1;
 
             let color = if let Some(hit) = hit {

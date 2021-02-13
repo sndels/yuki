@@ -1,4 +1,5 @@
 use crate::{
+    bvh::{BoundingVolumeHierarchy, SplitMethod},
     math::{
         bounds::Bounds3,
         point::Point3,
@@ -15,7 +16,8 @@ use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
 pub struct Scene {
     pub meshes: Vec<Arc<Mesh>>,
-    pub geometry: Arc<Vec<Box<dyn Shape>>>,
+    pub geometry: Arc<Vec<Arc<dyn Shape>>>,
+    pub bvh: Arc<BoundingVolumeHierarchy>,
     pub light: Arc<PointLight>,
     pub cam_pos: Point3<f32>,
     pub cam_target: Point3<f32>,
@@ -84,15 +86,17 @@ impl Scene {
             points,
         ));
 
-        let mut geometry: Vec<Box<dyn Shape>> = Vec::new();
+        let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
         for v0 in (0..mesh.indices.len()).step_by(3) {
-            geometry.push(Box::new(Triangle::new(
+            geometry.push(Arc::new(Triangle::new(
                 mesh.clone(),
                 v0,
                 Vec3::new(1.0, 1.0, 1.0),
             )));
         }
         let meshes = vec![mesh];
+
+        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 10, SplitMethod::Middle);
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(5.0, 5.0, 0.0)),
@@ -105,7 +109,8 @@ impl Scene {
 
         Ok(Self {
             meshes,
-            geometry: Arc::new(geometry),
+            geometry: geometry_arc,
+            bvh: Arc::new(bvh),
             light,
             cam_pos,
             cam_target,
@@ -131,7 +136,7 @@ impl Scene {
         let green = Vec3::new(0.0, 180.0, 0.0) / 255.0;
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
-        let mut geometry: Vec<Box<dyn Shape>> = Vec::new();
+        let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
 
         // Walls
         {
@@ -196,7 +201,7 @@ impl Scene {
             let materials = [white, white, white, green, red];
             for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
                 for v0 in (0..mesh.indices.len()).step_by(3) {
-                    geometry.push(Box::new(Triangle::new(mesh.clone(), v0, *material)));
+                    geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, *material)));
                 }
             }
             meshes.extend(wall_meshes);
@@ -223,16 +228,18 @@ impl Scene {
             ));
 
             for v0 in (0..mesh.indices.len()).step_by(3) {
-                geometry.push(Box::new(Triangle::new(mesh.clone(), v0, white)));
+                geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, white)));
             }
             meshes.push(mesh);
         }
 
-        geometry.push(Box::new(Sphere::new(
+        geometry.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
             white,
         )));
+
+        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(288.0, 547.0, -279.0)),
@@ -245,7 +252,8 @@ impl Scene {
 
         Scene {
             meshes,
-            geometry: Arc::new(geometry),
+            geometry: geometry_arc,
+            bvh: Arc::new(bvh),
             light,
             cam_pos,
             cam_target,
