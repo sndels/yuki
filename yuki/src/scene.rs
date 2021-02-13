@@ -21,6 +21,8 @@ pub struct DynamicSceneParameters {
 }
 
 pub struct Scene {
+    pub name: String,
+    pub path: Option<PathBuf>,
     pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
@@ -144,6 +146,8 @@ impl Scene {
 
         Ok((
             Self {
+                name: path.file_stem().unwrap().to_str().unwrap().into(),
+                path: Some(path.clone()),
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
@@ -292,6 +296,8 @@ impl Scene {
 
         (
             Scene {
+                name: "Cornell Box".into(),
+                path: None,
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,

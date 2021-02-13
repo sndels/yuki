@@ -320,7 +320,6 @@ impl Window {
 
         let mut last_frame = Instant::now();
 
-        let mut scene_path: Option<PathBuf> = None;
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut render_handle: Option<(
@@ -387,24 +386,23 @@ impl Window {
                     }
 
                     // Run frame logic
-                    let mut new_scene_path = scene_path.clone();
-                    render_triggered |= generate_ui(
+                    let ui_ret = generate_ui(
                         &ui,
                         &window,
                         &mut film_settings,
-                        &mut render_triggered,
-                        &mut new_scene_path,
-                        scene.geometry.len(),
                         &mut scene_params,
                         &mut match_logical_cores,
+                        scene.clone(),
                         &status_messages,
                     );
+                    render_triggered |= ui_ret.render_triggered;
+                    let new_scene_path = ui_ret.scene_path;
                     any_item_active = ui.is_any_item_active();
 
-                    if (scene_path.is_some()
+                    if (scene.path.is_some()
                         && new_scene_path.is_some()
-                        && (new_scene_path != scene_path))
-                        || (scene_path.is_none() && new_scene_path.is_some())
+                        && (new_scene_path != scene.path))
+                        || (scene.path.is_none() && new_scene_path.is_some())
                     {
                         let path = new_scene_path.unwrap();
                         match Scene::ply(&path) {
@@ -416,7 +414,6 @@ impl Window {
 
                                 scene = Arc::new(new_scene);
                                 scene_params = new_scene_params;
-                                scene_path = Some(path);
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
                             }
@@ -602,23 +599,30 @@ fn vec2_u16_picker(
     value_changed
 }
 
+struct UiReturn {
+    render_triggered: bool,
+    scene_path: Option<PathBuf>,
+}
+
 fn generate_ui(
     ui: &imgui::Ui,
     window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
-    render_triggered: &mut bool,
-    scene_path: &mut Option<PathBuf>,
-    scene_shape_count: usize,
     scene_params: &mut DynamicSceneParameters,
     match_logical_cores: &mut bool,
+    scene: Arc<Scene>,
     status_messages: &Option<Vec<String>>,
-) -> bool {
+) -> UiReturn {
     let glutin::dpi::PhysicalSize {
         width: _,
         height: window_height,
     } = window.inner_size();
 
-    let mut values_changed = false;
+    let mut ret = UiReturn {
+        render_triggered: false,
+        scene_path: None,
+    };
+
     imgui::Window::new(im_str!("Settings"))
         .position([0.0, 0.0], imgui::Condition::Always)
         .size([370.0, window_height as f32], imgui::Condition::Always)
@@ -628,7 +632,7 @@ fn generate_ui(
             imgui::TreeNode::new(im_str!("Film"))
                 .default_open(true)
                 .build(ui, || {
-                    values_changed |= vec2_u16_picker(
+                    ret.render_triggered |= vec2_u16_picker(
                         ui,
                         im_str!("Resolution"),
                         &mut film_settings.res,
@@ -636,7 +640,7 @@ fn generate_ui(
                         MAX_RES,
                         RES_STEP as f32,
                     );
-                    values_changed |= u16_picker(
+                    ret.render_triggered |= u16_picker(
                         ui,
                         im_str!("Tile size"),
                         &mut film_settings.tile_dim,
@@ -644,10 +648,10 @@ fn generate_ui(
                         MIN_RES,
                         TILE_STEP as f32,
                     );
-                    values_changed |=
+                    ret.render_triggered |=
                         ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
                     imgui::TreeNode::new(im_str!("Clear color")).build(ui, || {
-                        values_changed |= imgui::ColorPicker::new(
+                        ret.render_triggered |= imgui::ColorPicker::new(
                             im_str!("Clear color picker"),
                             imgui::EditableColor::Float3(film_settings.clear_color.array_mut()),
                         )
@@ -662,21 +666,15 @@ fn generate_ui(
             imgui::TreeNode::new(im_str!("Scene"))
                 .default_open(true)
                 .build(ui, || {
-                    let scene_name = if let Some(path) = scene_path {
-                        path.file_stem().unwrap().to_str().unwrap()
-                    } else {
-                        "Cornell Box"
-                    };
-                    ui.text(im_str!("Current scene: {}", scene_name));
-                    ui.text(im_str!("Scene shape count: {}", scene_shape_count));
-
+                    ui.text(im_str!("Current scene: {}", scene.name));
+                    ui.text(im_str!("Scene shape count: {}", scene.geometry.len()));
                     if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
-                        let open_path = if let Some(path) = scene_path {
+                        let open_path = if let Some(path) = &scene.path {
                             path.to_str().unwrap()
                         } else {
                             ""
                         };
-                        *scene_path = if let Some(path) = open_file_dialog(
+                        ret.scene_path = if let Some(path) = open_file_dialog(
                             "Open scene",
                             open_path,
                             Some((&["*.ply"], "Supported scene formats")),
@@ -689,17 +687,17 @@ fn generate_ui(
                     imgui::TreeNode::new(im_str!("Camera"))
                         .default_open(true)
                         .build(ui, || {
-                            values_changed |= imgui::Drag::new(im_str!("Position"))
+                            ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
                                 .speed(0.1)
                                 .display_format(im_str!("%.1f"))
                                 .build_array(ui, scene_params.cam_pos.array_mut());
 
-                            values_changed |= imgui::Drag::new(im_str!("Target"))
+                            ret.render_triggered |= imgui::Drag::new(im_str!("Target"))
                                 .speed(0.1)
                                 .display_format(im_str!("%.1f"))
                                 .build_array(ui, scene_params.cam_target.array_mut());
 
-                            values_changed |= imgui::Drag::new(im_str!("Field of View"))
+                            ret.render_triggered |= imgui::Drag::new(im_str!("Field of View"))
                                 .range(0.1..=359.9)
                                 .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                                 .speed(0.5)
@@ -710,7 +708,7 @@ fn generate_ui(
 
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
 
-            *render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+            ret.render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
 
             if let Some(lines) = status_messages {
                 for l in lines {
@@ -718,7 +716,8 @@ fn generate_ui(
                 }
             }
         });
-    values_changed
+
+    ret
 }
 
 #[derive(Copy, Clone)]
