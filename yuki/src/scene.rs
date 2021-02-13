@@ -14,21 +14,24 @@ use crate::{
 use ply_rs;
 use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
-pub struct Scene {
-    pub meshes: Vec<Arc<Mesh>>,
-    pub geometry: Arc<Vec<Arc<dyn Shape>>>,
-    pub bvh: Arc<BoundingVolumeHierarchy>,
-    pub light: Arc<PointLight>,
+pub struct DynamicSceneParameters {
     pub cam_pos: Point3<f32>,
     pub cam_target: Point3<f32>,
     pub cam_fov: f32,
+}
+
+pub struct Scene {
+    pub meshes: Vec<Arc<Mesh>>,
+    pub geometry: Arc<Vec<Arc<dyn Shape>>>,
+    pub bvh: BoundingVolumeHierarchy,
+    pub light: PointLight,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 impl Scene {
     /// Loads a PLY scaled to 2 units and orients the camera on it at an angle
-    pub fn ply(path: &PathBuf) -> Result<Scene> {
+    pub fn ply(path: &PathBuf) -> Result<(Scene, DynamicSceneParameters)> {
         let file = std::fs::File::open(path.to_str().unwrap())?;
         let mut file_buf = std::io::BufReader::new(file);
 
@@ -98,29 +101,30 @@ impl Scene {
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 10, SplitMethod::Middle);
 
-        let light = Arc::new(PointLight::new(
-            &translation(Vec3::new(5.0, 5.0, 0.0)),
-            Vec3::from(600.0),
-        ));
+        let light = PointLight::new(&translation(Vec3::new(5.0, 5.0, 0.0)), Vec3::from(600.0));
 
         let cam_pos = Point3::new(2.0, 2.0, 2.0);
         let cam_target = Point3::new(0.0, 0.0, 0.0);
         let cam_fov = 40.0;
 
-        Ok(Self {
-            meshes,
-            geometry: geometry_arc,
-            bvh: Arc::new(bvh),
-            light,
-            cam_pos,
-            cam_target,
-            cam_fov,
-        })
+        Ok((
+            Self {
+                meshes,
+                geometry: geometry_arc,
+                bvh: bvh,
+                light,
+            },
+            DynamicSceneParameters {
+                cam_pos,
+                cam_target,
+                cam_fov,
+            },
+        ))
     }
 
     /// The cornell box with a tall box and a sphere
     /// Lifted from http://www.graphics.cornell.edu/online/box/data.html
-    pub fn cornell() -> Scene {
+    pub fn cornell() -> (Scene, DynamicSceneParameters) {
         // Original uses a right-handed coordinate system so flip z
         let handedness_swap = Transform::new([
             [1.0, 0.0, 0.0, 0.0],
@@ -241,24 +245,28 @@ impl Scene {
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);
 
-        let light = Arc::new(PointLight::new(
+        let light = PointLight::new(
             &translation(Vec3::new(288.0, 547.0, -279.0)),
             Vec3::from(60000.0),
-        ));
+        );
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
         let cam_target = Point3::new(278.0, 273.0, -260.0);
         let cam_fov = 40.0;
 
-        Scene {
-            meshes,
-            geometry: geometry_arc,
-            bvh: Arc::new(bvh),
-            light,
-            cam_pos,
-            cam_target,
-            cam_fov,
-        }
+        (
+            Scene {
+                meshes,
+                geometry: geometry_arc,
+                bvh: bvh,
+                light,
+            },
+            DynamicSceneParameters {
+                cam_pos,
+                cam_target,
+                cam_fov,
+            },
+        )
     }
 }
 

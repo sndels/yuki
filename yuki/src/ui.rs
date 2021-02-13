@@ -37,17 +37,15 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    bvh::BoundingVolumeHierarchy,
     camera::{Camera, CameraSample},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
-        point::{Point2, Point3},
+        point::Point2,
         transform::look_at,
         vector::{Vec2, Vec3},
     },
-    point_light::PointLight,
-    scene::Scene,
+    scene::{DynamicSceneParameters, Scene},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -128,7 +126,8 @@ pub struct Window {
     film_ibo: gfx::Slice<gfx_device_gl::Resources>,
     film_texture: FilmTextureHandle,
 
-    scene: Scene,
+    scene: Arc<Scene>,
+    scene_params: DynamicSceneParameters,
 }
 
 const MIN_TILE: u16 = 8;
@@ -275,7 +274,7 @@ impl Window {
             out_color: main_color,
         };
 
-        let scene = Scene::cornell();
+        let (scene, scene_params) = Scene::cornell();
 
         Window {
             event_loop,
@@ -292,7 +291,8 @@ impl Window {
             draw_params,
             film_ibo,
             film_texture,
-            scene,
+            scene: Arc::new(scene),
+            scene_params,
         }
     }
 
@@ -313,6 +313,7 @@ impl Window {
             mut draw_params,
             film_ibo,
             mut scene,
+            mut scene_params,
             ..
         } = self;
         let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
@@ -382,9 +383,7 @@ impl Window {
                         &mut render_triggered,
                         &mut new_scene_path,
                         scene.geometry.len(),
-                        &mut scene.cam_pos,
-                        &mut scene.cam_target,
-                        &mut scene.cam_fov,
+                        &mut scene_params,
                         &mut match_logical_cores,
                         &loading_error,
                         render_ending,
@@ -400,13 +399,14 @@ impl Window {
                     {
                         let path = new_scene_path.unwrap();
                         match Scene::ply(&path) {
-                            Ok(new_scene) => {
+                            Ok((new_scene, new_scene_params)) => {
                                 yuki_info!(
                                     "PLY loaded from {}",
                                     path.file_name().unwrap().to_str().unwrap()
                                 );
 
-                                scene = new_scene;
+                                scene = Arc::new(new_scene);
+                                scene_params = new_scene_params;
                                 loading_error = None;
                                 scene_path = Some(path);
                             }
@@ -426,21 +426,13 @@ impl Window {
 
                         if render_handle.is_none() {
                             yuki_info!("main_loop: Launching render job");
-                            let camera = Arc::new(Camera::new(
-                                &look_at(scene.cam_pos, scene.cam_target, Vec3::new(0.0, 1.0, 0.0))
-                                    .inverted(),
-                                scene.cam_fov,
-                                &film_settings,
-                            ));
-
                             let (to_render, render_rx) = channel();
                             let (render_tx, from_render) = channel();
                             let render_thread = launch_render(
                                 render_tx,
                                 render_rx,
-                                &camera,
-                                &scene.bvh,
-                                &scene.light,
+                                scene.clone(),
+                                &scene_params,
                                 film.clone(),
                                 film_settings,
                                 match_logical_cores,
@@ -602,9 +594,7 @@ fn generate_ui(
     render_triggered: &mut bool,
     scene_path: &mut Option<PathBuf>,
     scene_shape_count: usize,
-    cam_pos: &mut Point3<f32>,
-    cam_target: &mut Point3<f32>,
-    cam_fov: &mut f32,
+    scene_params: &mut DynamicSceneParameters,
     match_logical_cores: &mut bool,
     loading_error: &Option<String>,
     render_ending: bool,
@@ -690,19 +680,19 @@ fn generate_ui(
                             values_changed |= imgui::Drag::new(im_str!("Position"))
                                 .speed(0.1)
                                 .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_pos.array_mut());
+                                .build_array(ui, scene_params.cam_pos.array_mut());
 
                             values_changed |= imgui::Drag::new(im_str!("Target"))
                                 .speed(0.1)
                                 .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_target.array_mut());
+                                .build_array(ui, scene_params.cam_target.array_mut());
 
                             values_changed |= imgui::Drag::new(im_str!("Field of View"))
                                 .range(0.1..=359.9)
                                 .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                                 .speed(0.5)
                                 .display_format(im_str!("%.1f"))
-                                .build(ui, cam_fov);
+                                .build(ui, &mut scene_params.cam_fov);
                         });
                 });
 
@@ -745,20 +735,27 @@ struct RenderResult {
 fn launch_render(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
-    camera: &Arc<Camera>,
-    scene_bvh: &Arc<BoundingVolumeHierarchy>,
-    scene_light: &Arc<PointLight>,
+    scene: Arc<Scene>,
+    scene_params: &DynamicSceneParameters,
     mut film: Arc<Mutex<Film>>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
-    let camera = camera.clone();
-    let scene_bvh = scene_bvh.clone();
-    let scene_light = scene_light.clone();
+    let camera = Camera::new(
+        &look_at(
+            scene_params.cam_pos,
+            scene_params.cam_target,
+            Vec3::new(0.0, 1.0, 0.0),
+        )
+        .inverted(),
+        scene_params.cam_fov,
+        &film_settings,
+    );
 
     std::thread::spawn(move || {
         let render_start = Instant::now();
         yuki_debug!("Render: Begin");
+
         yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
         let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
@@ -772,27 +769,25 @@ fn launch_render(
         let (child_send, from_children) = channel();
         let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
             .map(|i| {
-                let (from_child, child_rx) = channel();
-                let child_tx = child_send.clone();
+                let (to_child, child_receive) = channel();
+                let child_send = child_send.clone();
                 let tiles = tiles.clone();
                 let camera = camera.clone();
-                let scene_bvh = scene_bvh.clone();
-                let scene_light = scene_light.clone();
+                let scene = scene.clone();
                 let film = film.clone();
                 (
                     i,
                     (
-                        from_child,
+                        to_child,
                         std::thread::spawn(move || {
                             render(
                                 i,
-                                child_tx,
-                                child_rx,
+                                child_send,
+                                child_receive,
                                 tiles,
                                 film_settings.clear_color,
+                                scene,
                                 camera,
-                                scene_bvh,
-                                scene_light,
                                 film,
                             );
                         }),
@@ -852,9 +847,8 @@ fn render(
     from_parent: Receiver<usize>,
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     clear_color: Vec3<f32>,
-    camera: Arc<Camera>,
-    scene_bvh: Arc<BoundingVolumeHierarchy>,
-    scene_light: Arc<PointLight>,
+    scene: Arc<Scene>,
+    camera: Camera,
     film: Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
@@ -888,7 +882,7 @@ fn render(
                 p_film: Point2::new(p.x as f32, p.y as f32),
             });
 
-            let hit = scene_bvh.intersect(ray);
+            let hit = scene.bvh.intersect(ray);
             rays += 1;
 
             let color = if let Some(hit) = hit {
@@ -896,7 +890,7 @@ fn render(
                 fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
                     Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
                 }
-                let light_sample = scene_light.sample_li(&hit);
+                let light_sample = scene.light.sample_li(&hit);
                 // TODO: Trace light visibility
                 mul(hit.albedo / std::f32::consts::PI, light_sample.li)
                     * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
