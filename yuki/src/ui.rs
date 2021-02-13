@@ -458,8 +458,8 @@ impl Window {
                             status_messages = Some(vec![
                                 format!("Render finished in {:.2}s", result.secs),
                                 format!(
-                                    "{:.2} krays/s",
-                                    ((result.ray_count as f32) / result.secs) * 1e-3
+                                    "{:.2} Mrays/s",
+                                    ((result.ray_count as f32) / result.secs) * 1e-6
                                 ),
                             ]);
                         }
