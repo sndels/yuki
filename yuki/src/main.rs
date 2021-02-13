@@ -1,3 +1,6 @@
+#![feature(iter_partition_in_place)]
+
+mod bvh;
 mod camera;
 mod film;
 mod hit;
