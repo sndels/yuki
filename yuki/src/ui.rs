@@ -666,24 +666,6 @@ fn generate_ui(
             imgui::TreeNode::new(im_str!("Scene"))
                 .default_open(true)
                 .build(ui, || {
-                    ui.text(im_str!("Current scene: {}", scene.name));
-                    ui.text(im_str!("Scene shape count: {}", scene.geometry.len()));
-                    if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
-                        let open_path = if let Some(path) = &scene.path {
-                            path.to_str().unwrap()
-                        } else {
-                            ""
-                        };
-                        ret.scene_path = if let Some(path) = open_file_dialog(
-                            "Open scene",
-                            open_path,
-                            Some((&["*.ply"], "Supported scene formats")),
-                        ) {
-                            Some(PathBuf::from(path))
-                        } else {
-                            None
-                        };
-                    }
                     imgui::TreeNode::new(im_str!("Camera"))
                         .default_open(true)
                         .build(ui, || {
@@ -704,11 +686,31 @@ fn generate_ui(
                                 .display_format(im_str!("%.1f"))
                                 .build(ui, &mut scene_params.cam_fov);
                         });
+
+                    if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
+                        let open_path = if let Some(path) = &scene.path {
+                            path.to_str().unwrap()
+                        } else {
+                            ""
+                        };
+                        ret.scene_path = if let Some(path) = open_file_dialog(
+                            "Open scene",
+                            open_path,
+                            Some((&["*.ply"], "Supported scene formats")),
+                        ) {
+                            Some(PathBuf::from(path))
+                        } else {
+                            None
+                        };
+                    }
                 });
 
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
 
             ret.render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+
+            ui.text(im_str!("Current scene: {}", scene.name));
+            ui.text(im_str!("Shape count: {}", scene.geometry.len()));
 
             if let Some(lines) = status_messages {
                 for l in lines {
