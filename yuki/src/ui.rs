@@ -679,7 +679,7 @@ fn generate_ui(
                                 .display_format(im_str!("%.1f"))
                                 .build_array(ui, scene_params.cam_target.array_mut());
 
-                            ret.render_triggered |= imgui::Drag::new(im_str!("Field of View"))
+                            ret.render_triggered |= imgui::Drag::new(im_str!("FoV"))
                                 .range(0.1..=359.9)
                                 .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                                 .speed(0.5)
