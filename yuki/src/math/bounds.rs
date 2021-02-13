@@ -7,8 +7,9 @@ use std::{
 use yuki_derive::*;
 
 use super::{
-    common::ValueType,
+    common::{FloatValueType, ValueType},
     point::{Point2, Point3},
+    ray::Ray,
     vector::{Vec2, Vec3},
 };
 
@@ -164,5 +165,31 @@ where
         } else {
             None
         }
+    }
+}
+
+impl<T> Bounds3<T>
+where
+    T: FloatValueType,
+{
+    /// Checks if `ray` hits this `Bounds3`
+    /// `inv_dir` and `dir_is_neg` precomputed from `ray` are supplied an optimization
+    pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>, dir_is_neg: [bool; 3]) -> bool {
+        // X-slabs test
+        let mut t0 = (self[dir_is_neg[0] as usize].x - ray.o.x) * inv_dir.x;
+        let mut t1 = (self[1 - (dir_is_neg[0] as usize)].x - ray.o.x) * inv_dir.x;
+
+        // Y,Z -slabs test
+        for i in 1..3 {
+            let ti0 = (self[dir_is_neg[i] as usize][i] - ray.o[i]) * inv_dir[i];
+            let ti1 = (self[1 - (dir_is_neg[i] as usize)][i] - ray.o[i]) * inv_dir[i];
+            if t0 > ti1 || ti0 > t1 {
+                return false;
+            }
+            t0 = t0.min(ti0);
+            t1 = t1.min(ti1);
+        }
+
+        return t0 < ray.t_max && t1 > T::zero();
     }
 }
