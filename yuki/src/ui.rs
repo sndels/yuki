@@ -638,14 +638,18 @@ fn generate_ui(
                         MAX_RES,
                         RES_STEP as f32,
                     );
-                    ret.render_triggered |= u16_picker(
-                        ui,
-                        im_str!("Tile size"),
-                        &mut film_settings.tile_dim,
-                        MIN_TILE,
-                        MIN_RES,
-                        TILE_STEP as f32,
-                    );
+                    {
+                        let width = ui.push_item_width(118.0);
+                        ret.render_triggered |= u16_picker(
+                            ui,
+                            im_str!("Tile size"),
+                            &mut film_settings.tile_dim,
+                            MIN_TILE,
+                            MIN_RES,
+                            TILE_STEP as f32,
+                        );
+                        width.pop(ui);
+                    }
                     ret.render_triggered |=
                         ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
                     imgui::TreeNode::new(im_str!("Clear color")).build(ui, || {
@@ -660,6 +664,8 @@ fn generate_ui(
                         .build(ui);
                     });
                 });
+
+            ui.spacing();
 
             imgui::TreeNode::new(im_str!("Scene"))
                 .default_open(true)
@@ -677,23 +683,34 @@ fn generate_ui(
                                 .display_format(im_str!("%.1f"))
                                 .build_array(ui, scene_params.cam_target.array_mut());
 
-                            ret.render_triggered |= imgui::Drag::new(im_str!("FoV"))
-                                .range(0.1..=359.9)
-                                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                                .speed(0.5)
-                                .display_format(im_str!("%.1f"))
-                                .build(ui, &mut scene_params.cam_fov);
+                            {
+                                let width = ui.push_item_width(77.0);
+                                ret.render_triggered |= imgui::Drag::new(im_str!("Field of View"))
+                                    .range(0.1..=359.9)
+                                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                                    .speed(0.5)
+                                    .display_format(im_str!("%.1f"))
+                                    .build(ui, &mut scene_params.cam_fov);
+                                width.pop(ui);
+                            }
                         });
 
-                    ui.text(im_str!("Max shapes in BVH node"));
-                    u16_picker(
-                        ui,
-                        im_str!("##max_shapes_in_node"),
-                        &mut load_settings.max_shapes_in_node,
-                        1,
-                        u16::max_value(),
-                        1.0,
-                    );
+                    ui.spacing();
+
+                    {
+                        let width = ui.push_item_width(92.0);
+                        u16_picker(
+                            ui,
+                            im_str!("Max shapes in BVH node"),
+                            &mut load_settings.max_shapes_in_node,
+                            1,
+                            u16::max_value(),
+                            1.0,
+                        );
+                        width.pop(ui);
+                    }
+
+                    ui.spacing();
 
                     if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
                         let open_path = if let Some(path) = &scene.path {
@@ -717,9 +734,16 @@ fn generate_ui(
                     }
                 });
 
+            ui.spacing();
+
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
 
+            ui.spacing();
+
             ret.render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+
+            ui.spacing();
+            ui.separator();
 
             ui.text(im_str!("Current scene: {}", scene.name));
             ui.text(im_str!("Shape count: {}", scene.geometry.len()));
@@ -727,6 +751,9 @@ fn generate_ui(
                 "Shapes in BVH node: {}",
                 (scene.settings.max_shapes_in_node as usize).min(scene.geometry.len())
             ));
+
+            ui.spacing();
+            ui.separator();
 
             if let Some(lines) = status_messages {
                 for l in lines {
