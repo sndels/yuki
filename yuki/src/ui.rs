@@ -82,7 +82,7 @@ out vec2 FragUV;
 
 void main() {
     FragUV = VertUV;
-    gl_Position = Vec4::new(VertPos, 0, 1);
+    gl_Position = vec4(VertPos, 0, 1);
 }
 ";
 
