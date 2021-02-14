@@ -14,6 +14,19 @@ use crate::{
 use ply_rs;
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
 
+#[derive(Copy, Clone)]
+pub struct SceneLoadSettings {
+    pub max_shapes_in_node: u16,
+}
+
+impl SceneLoadSettings {
+    pub fn default() -> Self {
+        Self {
+            max_shapes_in_node: 1,
+        }
+    }
+}
+
 pub struct DynamicSceneParameters {
     pub cam_pos: Point3<f32>,
     pub cam_target: Point3<f32>,
@@ -23,6 +36,7 @@ pub struct DynamicSceneParameters {
 pub struct Scene {
     pub name: String,
     pub path: Option<PathBuf>,
+    pub settings: SceneLoadSettings,
     pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
@@ -36,7 +50,10 @@ impl Scene {
     /// on it at an angle.
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn ply(path: &PathBuf) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn ply(
+        path: &PathBuf,
+        settings: SceneLoadSettings,
+    ) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
         let file = std::fs::File::open(path.to_str().unwrap())?;
@@ -133,7 +150,11 @@ impl Scene {
 
         let meshes = vec![mesh];
 
-        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 10, SplitMethod::Middle);
+        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(
+            geometry,
+            settings.max_shapes_in_node as usize,
+            SplitMethod::Middle,
+        );
 
         let light = PointLight::new(&translation(Vec3::new(5.0, 5.0, 0.0)), Vec3::from(600.0));
 
@@ -149,6 +170,7 @@ impl Scene {
             Self {
                 name: path.file_stem().unwrap().to_str().unwrap().into(),
                 path: Some(path.clone()),
+                settings,
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
@@ -299,6 +321,7 @@ impl Scene {
             Scene {
                 name: "Cornell Box".into(),
                 path: None,
+                settings: SceneLoadSettings::default(),
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,

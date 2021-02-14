@@ -45,7 +45,7 @@ use crate::{
         transform::look_at,
         vector::{Vec2, Vec3},
     },
-    scene::{DynamicSceneParameters, Scene},
+    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -330,6 +330,7 @@ impl Window {
         let mut render_ending = false;
         let mut update_film_vbo = true;
         let mut status_messages: Option<Vec<String>> = None;
+        let mut load_settings = SceneLoadSettings::default();
 
         let mut match_logical_cores = true;
 
@@ -391,6 +392,7 @@ impl Window {
                         &window,
                         &mut film_settings,
                         &mut scene_params,
+                        &mut load_settings,
                         &mut match_logical_cores,
                         scene.clone(),
                         &status_messages,
@@ -399,13 +401,8 @@ impl Window {
                     let new_scene_path = ui_ret.scene_path;
                     any_item_active = ui.is_any_item_active();
 
-                    if (scene.path.is_some()
-                        && new_scene_path.is_some()
-                        && (new_scene_path != scene.path))
-                        || (scene.path.is_none() && new_scene_path.is_some())
-                    {
-                        let path = new_scene_path.unwrap();
-                        match Scene::ply(&path) {
+                    if let Some(path) = new_scene_path {
+                        match Scene::ply(&path, load_settings) {
                             Ok((new_scene, new_scene_params, total_secs)) => {
                                 yuki_info!(
                                     "PLY loaded from {}",
@@ -609,6 +606,7 @@ fn generate_ui(
     window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
     scene_params: &mut DynamicSceneParameters,
+    load_settings: &mut SceneLoadSettings,
     match_logical_cores: &mut bool,
     scene: Arc<Scene>,
     status_messages: &Option<Vec<String>>,
@@ -687,6 +685,16 @@ fn generate_ui(
                                 .build(ui, &mut scene_params.cam_fov);
                         });
 
+                    ui.text(im_str!("Max shapes in BVH node"));
+                    u16_picker(
+                        ui,
+                        im_str!("##max_shapes_in_node"),
+                        &mut load_settings.max_shapes_in_node,
+                        1,
+                        u16::max_value(),
+                        1.0,
+                    );
+
                     if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
                         let open_path = if let Some(path) = &scene.path {
                             path.to_str().unwrap()
@@ -703,6 +711,10 @@ fn generate_ui(
                             None
                         };
                     }
+                    ui.same_line(0.0);
+                    if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
+                        ret.scene_path = scene.path.clone();
+                    }
                 });
 
             ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
@@ -711,6 +723,10 @@ fn generate_ui(
 
             ui.text(im_str!("Current scene: {}", scene.name));
             ui.text(im_str!("Shape count: {}", scene.geometry.len()));
+            ui.text(im_str!(
+                "Shapes in BVH node: {}",
+                (scene.settings.max_shapes_in_node as usize).min(scene.geometry.len())
+            ));
 
             if let Some(lines) = status_messages {
                 for l in lines {
