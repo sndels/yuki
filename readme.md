@@ -1,5 +1,7 @@
 # yuki
 
+![screenshot](screenshot.png)
+
 Ray cast renderer based on [Physically Based Rendering 3rd edition](http://www.pbr-book.org/) ([pbrt-v3](https://github.com/mmp/pbrt-v3)).
 
 UI Features:
