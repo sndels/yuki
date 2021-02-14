@@ -3,16 +3,12 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
-    use yuki::math::{
-        point::{point3, Point3},
-        ray::Ray,
-        vector::vec3,
-    };
+    use yuki::math::{point::Point3, ray::Ray, vector::Vec3};
 
     #[test]
     fn new() {
-        let o = point3(1.0, 2.0, 3.0);
-        let d = vec3(4.0, 5.0, 6.0);
+        let o = Point3::new(1.0, 2.0, 3.0);
+        let d = Vec3::new(4.0, 5.0, 6.0);
         let t_max = 4.0;
         let r = Ray::new(o, d, t_max);
         assert_eq!(r.o, o);
@@ -29,7 +25,7 @@ mod tests {
     fn default() {
         let r = Ray::default();
         assert_eq!(r.o, Point3::zeros());
-        assert_eq!(r.d, vec3(0.0, 1.0, 0.0));
+        assert_eq!(r.d, Vec3::new(0.0, 1.0, 0.0));
         assert_eq!(r.t_max, f32::INFINITY);
     }
 
@@ -51,8 +47,8 @@ mod tests {
 
     #[test]
     fn point() {
-        let o = point3(1.0, 2.0, 3.0);
-        let d = vec3(4.0, 5.0, 6.0);
+        let o = Point3::new(1.0, 2.0, 3.0);
+        let d = Vec3::new(4.0, 5.0, 6.0);
         let r = Ray::new(o, d, 1.0);
         assert_eq!(r.point(1.0), o + d);
         assert_eq!(r.point(2.0), o + d * 2.0);
@@ -60,10 +56,10 @@ mod tests {
 
     #[test]
     fn abs_diff_eq() {
-        let o = point3(1.0, 2.0, 3.0);
-        let oa = point3(2.0, 3.0, 4.0);
-        let d = vec3(4.0, 5.0, 6.0);
-        let da = vec3(5.0, 6.0, 7.0);
+        let o = Point3::new(1.0, 2.0, 3.0);
+        let oa = Point3::new(2.0, 3.0, 4.0);
+        let d = Vec3::new(4.0, 5.0, 6.0);
+        let da = Vec3::new(5.0, 6.0, 7.0);
         let r = Ray::new(o, d, 1.0);
         let rc = r;
         assert_abs_diff_eq!(r, rc);
@@ -75,12 +71,12 @@ mod tests {
 
     #[test]
     fn relative_eq() {
-        let o = point3(1.0, 2.0, 3.0);
-        let oa = point3(2.0, 3.0, 4.0);
-        let or = point3(2.0, 4.0, 6.0);
-        let d = vec3(4.0, 5.0, 6.0);
-        let da = vec3(5.0, 6.0, 7.0);
-        let dr = vec3(8.0, 10.0, 12.0);
+        let o = Point3::new(1.0, 2.0, 3.0);
+        let oa = Point3::new(2.0, 3.0, 4.0);
+        let or = Point3::new(2.0, 4.0, 6.0);
+        let d = Vec3::new(4.0, 5.0, 6.0);
+        let da = Vec3::new(5.0, 6.0, 7.0);
+        let dr = Vec3::new(8.0, 10.0, 12.0);
         let r = Ray::new(o, d, 1.0);
         let rc = r;
         assert_relative_eq!(r, rc);

@@ -6,7 +6,7 @@ mod tests {
     use yuki::math::{
         normal::Normal,
         point::Point3,
-        vector::{vec2, vec3, vec4, Vec2, Vec3, Vec4},
+        vector::{Vec2, Vec3, Vec4},
     };
 
     // Test both Vec* structs and the generation macros here.
@@ -24,20 +24,20 @@ mod tests {
         let v = Vec2::new(0.0, 1.0);
         assert_eq!(v.x, 0.0);
         assert_eq!(v.y, 1.0);
-        assert_eq!(vec2(0.0, 1.0), v);
+        assert_eq!(Vec2::new(0.0, 1.0), v);
 
         let v = Vec3::new(0.0, 1.0, 2.0);
         assert_eq!(v.x, 0.0);
         assert_eq!(v.y, 1.0);
         assert_eq!(v.z, 2.0);
-        assert_eq!(vec3(0.0, 1.0, 2.0), v);
+        assert_eq!(Vec3::new(0.0, 1.0, 2.0), v);
 
         let v = Vec4::new(0.0, 1.0, 2.0, 3.0);
         assert_eq!(v.x, 0.0f32);
         assert_eq!(v.y, 1.0f32);
         assert_eq!(v.z, 2.0f32);
         assert_eq!(v.w, 3.0f32);
-        assert_eq!(vec4(0.0, 1.0, 2.0, 3.0), v);
+        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0), v);
     }
 
     #[test]
@@ -69,15 +69,15 @@ mod tests {
         assert!(result.is_err());
 
         // Test shorthand constructors
-        let result = panic::catch_unwind(|| vec2(f32::NAN, 0.0));
+        let result = panic::catch_unwind(|| Vec2::new(f32::NAN, 0.0));
         assert!(result.is_err());
-        let result = panic::catch_unwind(|| vec2(0.0, f32::NAN));
-        assert!(result.is_err());
-
-        let result = panic::catch_unwind(|| vec3(f32::NAN, 0.0, 0.0));
+        let result = panic::catch_unwind(|| Vec2::new(0.0, f32::NAN));
         assert!(result.is_err());
 
-        let result = panic::catch_unwind(|| vec4(f32::NAN, 0.0, 0.0, 0.0));
+        let result = panic::catch_unwind(|| Vec3::new(f32::NAN, 0.0, 0.0));
+        assert!(result.is_err());
+
+        let result = panic::catch_unwind(|| Vec4::new(f32::NAN, 0.0, 0.0, 0.0));
         assert!(result.is_err());
     }
 

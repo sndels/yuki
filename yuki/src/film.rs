@@ -6,7 +6,7 @@ use std::{
 use crate::{
     math::{
         bounds::Bounds2,
-        point::point2,
+        point::Point2,
         vector::{Vec2, Vec3},
     },
     yuki_debug, yuki_error, yuki_trace, yuki_warn,
@@ -216,7 +216,10 @@ fn generate_tiles(res: Vec2<u16>, tile_dim: u16, film_gen: u64) -> HashMap<(u16,
 
             tiles.insert(
                 (i / dim, j / dim),
-                FilmTile::new(Bounds2::new(point2(i, j), point2(max_x, max_y)), film_gen),
+                FilmTile::new(
+                    Bounds2::new(Point2::new(i, j), Point2::new(max_x, max_y)),
+                    film_gen,
+                ),
             );
         }
     }

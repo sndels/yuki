@@ -3,8 +3,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     use yuki::math::{
-        bounds::Bounds3, matrix::Matrix4x4, normal::Normal, point::point3, ray::Ray,
-        transform::Transform, vector::vec3,
+        bounds::Bounds3, matrix::Matrix4x4, normal::Normal, point::Point3, ray::Ray,
+        transform::Transform, vector::Vec3,
     };
 
     // These are by no means exhaustive. We throw some simple cases at the implementation
@@ -116,36 +116,36 @@ mod tests {
             [0.0, 0.0, 0.0, 1.0],
         ]);
 
-        let v = vec3(17.0, 18.0, 19.0);
-        assert_eq!(&t * v, vec3(584.0, 664.0, 528.0));
+        let v = Vec3::new(17.0, 18.0, 19.0);
+        assert_eq!(&t * v, Vec3::new(584.0, 664.0, 528.0));
 
-        let p = point3(17.0, 18.0, 19.0);
-        assert_eq!(&t * p, point3(597.0, 673.0, 533.0) / 161.0);
-        assert_eq!(&tp * p, point3(597.0, 673.0, 533.0));
+        let p = Point3::new(17.0, 18.0, 19.0);
+        assert_eq!(&t * p, Point3::new(597.0, 673.0, 533.0) / 161.0);
+        assert_eq!(&tp * p, Point3::new(597.0, 673.0, 533.0));
 
         let n = Normal::<f32>::new(17.0, 18.0, 19.0);
         assert_eq!(&t * n, Normal::new(-1.0694447, 0.5972222, 0.5972223));
 
-        let r = Ray::new(p, vec3(20.0, 21.0, 22.0), 23.0);
+        let r = Ray::new(p, Vec3::new(20.0, 21.0, 22.0), 23.0);
         assert_eq!(
             &t * r,
             Ray::new(
-                point3(597.0, 673.0, 533.0) / 161.0,
-                vec3(683.0, 775.0, 615.0),
+                Point3::new(597.0, 673.0, 533.0) / 161.0,
+                Vec3::new(683.0, 775.0, 615.0),
                 23.0
             )
         );
 
-        let bb0 = Bounds3::new(point3(1.0, 2.0, 3.0), point3(4.0, 5.0, 6.0));
+        let bb0 = Bounds3::new(Point3::new(1.0, 2.0, 3.0), Point3::new(4.0, 5.0, 6.0));
         let corners = [
-            point3(1.0, 2.0, 3.0),
-            point3(4.0, 2.0, 3.0),
-            point3(4.0, 5.0, 3.0),
-            point3(1.0, 5.0, 3.0),
-            point3(1.0, 2.0, 6.0),
-            point3(4.0, 2.0, 6.0),
-            point3(1.0, 5.0, 6.0),
-            point3(4.0, 5.0, 6.0),
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(4.0, 2.0, 3.0),
+            Point3::new(4.0, 5.0, 3.0),
+            Point3::new(1.0, 5.0, 3.0),
+            Point3::new(1.0, 2.0, 6.0),
+            Point3::new(4.0, 2.0, 6.0),
+            Point3::new(1.0, 5.0, 6.0),
+            Point3::new(4.0, 5.0, 6.0),
         ];
         let mut bb1 = &t * Bounds3::new(corners[0], corners[0]);
         for &c in &corners {
@@ -167,7 +167,7 @@ mod tests {
             [0.0, 0.0, 1.0, 4.0],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let tt = yuki::math::transform::translation(vec3(2.0, 3.0, 4.0));
+        let tt = yuki::math::transform::translation(Vec3::new(2.0, 3.0, 4.0));
         assert_eq!(tt.m(), &tm);
         assert_eq!(tt.m_inv(), &tm.inverted());
     }
@@ -247,7 +247,8 @@ mod tests {
             ],
             [0.0, 0.0, 0.0, 1.0],
         ]);
-        let rt = yuki::math::transform::rotation(std::f64::consts::FRAC_PI_2, vec3(1.0, 1.0, 1.0));
+        let rt =
+            yuki::math::transform::rotation(std::f64::consts::FRAC_PI_2, Vec3::new(1.0, 1.0, 1.0));
         assert_abs_diff_eq!(rt.m(), &rm, epsilon = 1e-15);
         assert_abs_diff_eq!(rt.m_inv(), &rm.inverted(), epsilon = 1e-15);
     }
@@ -271,9 +272,9 @@ mod tests {
             [0.0, 0.0, 0.0, 1.0],
         ]);
         let mt = yuki::math::transform::look_at(
-            point3(1.0, 2.0, 3.0),
-            point3(40.0, 50.0, 60.0),
-            vec3(0.0, 1.0, 0.0),
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(40.0, 50.0, 60.0),
+            Vec3::new(0.0, 1.0, 0.0),
         );
         // assert_abs_diff_eq!(mt.m(), &m.inverted(), epsilon = 1e-15);
         assert_abs_diff_eq!(mt.m_inv(), &m, epsilon = 1e-15);

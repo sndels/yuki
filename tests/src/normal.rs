@@ -3,10 +3,7 @@ mod tests {
     use approx::{abs_diff_eq, assert_abs_diff_eq, relative_eq};
     use std::panic;
 
-    use yuki::math::{
-        normal::{normal, Normal},
-        vector::Vec3,
-    };
+    use yuki::math::{normal::Normal, vector::Vec3};
 
     // Test the Normal specific methods and merely the existence of methods shared
     // with Vec* since vector tests already validate permutations for those
@@ -18,7 +15,7 @@ mod tests {
         assert_eq!(v.x, 0.0);
         assert_eq!(v.y, 1.0);
         assert_eq!(v.z, 2.0);
-        assert_eq!(normal(0.0, 1.0, 2.0), v);
+        assert_eq!(Normal::new(0.0, 1.0, 2.0), v);
     }
 
     #[test]
@@ -38,7 +35,7 @@ mod tests {
         assert!(result.is_err());
 
         // Test shorthand constructor
-        let result = panic::catch_unwind(|| normal(f32::NAN, 0.0, 0.0));
+        let result = panic::catch_unwind(|| Normal::new(f32::NAN, 0.0, 0.0));
         assert!(result.is_err());
     }
     #[test]

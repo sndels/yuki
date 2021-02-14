@@ -1,4 +1,4 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Data, Field, Ident, ImplGenerics, TypeGenerics, WhereClause};
 
@@ -14,8 +14,6 @@ pub fn vec_like_impl(
     member_ops: Option<TokenStream>,
     post_impl: Option<TokenStream>,
 ) -> TokenStream {
-    let shorthand = Ident::new(&vec_type.to_string().to_lowercase(), Span::call_site());
-
     let new_args = per_component_tokens(
         data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param),
@@ -92,7 +90,6 @@ pub fn vec_like_impl(
     let min_doc = format! { "Returns a new `{0}` with the component-wise minimum of this `{0}` and another `{0}`.", str_type};
     let max_doc = format! { "Returns a new `{0}` with the component-wise maximum of this `{0}` and another `{0}`.", str_type};
     let permuted_doc = format! { "Returns a new `{0}` with a permutation of this `{0}`. The arguments define what index in this `{0}` to map for each component in the new `{0}`.", str_type};
-    let shorthand_doc = format! { "A shorthand version of [{0}::new].", str_type};
 
     quote! {
         impl #impl_generics #vec_type #type_generics
@@ -177,15 +174,6 @@ pub fn vec_like_impl(
                     #permuted_init
                 }
             }
-        }
-
-        #[doc = #shorthand_doc]
-        #[inline]
-        pub fn #shorthand #type_generics (#new_args) -> #vec_type #type_generics
-        #where_clause
-        {
-            // Use new() to catch NANs
-            #vec_type::new(#new_init)
         }
 
         #post_impl
