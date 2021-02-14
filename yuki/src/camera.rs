@@ -69,7 +69,7 @@ impl Camera {
         }
     }
 
-    //a Creates a new [Ray] at the camera sample with this `Camera`.
+    /// Creates a new [Ray] at the camera sample with this `Camera`.
     pub fn ray(&self, sample: CameraSample) -> Ray<f32> {
         let p_film = Point3::new(sample.p_film.x, sample.p_film.y, 0.0);
         let p_camera = &self.raster_to_camera * p_film;

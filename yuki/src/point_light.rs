@@ -16,6 +16,7 @@ pub struct PointLight {
 }
 
 impl PointLight {
+    /// Creates a new `PointLight` with the given transform and intensity.
     pub fn new(light_to_world: &Transform<f32>, i: Vec3<f32>) -> Self {
         Self {
             p: light_to_world * Point3::new(0.0, 0.0, 0.0),
@@ -23,8 +24,9 @@ impl PointLight {
         }
     }
 
-    pub fn sample_li(&self, h: &Hit) -> LightSample {
-        let to_light = self.p - h.p;
+    /// Returns a [LightSample] from `hit` to this `PointLight`.
+    pub fn sample_li(&self, hit: &Hit) -> LightSample {
+        let to_light = self.p - hit.p;
         let dist_sqr = to_light.len_sqr();
         let li = self.i / dist_sqr;
         let dist = dist_sqr.sqrt();

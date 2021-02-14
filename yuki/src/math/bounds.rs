@@ -155,7 +155,9 @@ where
         }
     }
 
-    /// Returns the center and radius of this `Bounds3`'s bounding sphere. Returns `None` if there is no valid bounding sphere.
+    /// Returns the center and radius of this `Bounds3`'s bounding sphere.
+    ///
+    /// Returns [None] if there is no valid bounding sphere.
     #[inline]
     pub fn bounding_sphere(&self) -> Option<(Point3<T>, T)> {
         // The unwrap is a bit dirty but a Num with FromPrimitive should be fine with this cast
@@ -172,8 +174,9 @@ impl<T> Bounds3<T>
 where
     T: FloatValueType,
 {
-    /// Checks if `ray` hits this `Bounds3`
-    /// `inv_dir` and `dir_is_neg` precomputed from `ray` are supplied an optimization
+    /// Checks if `ray` hits this `Bounds3`.
+    ///
+    /// `inv_dir` and `dir_is_neg` precomputed from `ray` are supplied an optimization.
     pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>, dir_is_neg: [bool; 3]) -> bool {
         // X-slabs test
         let mut t0 = (self[dir_is_neg[0] as usize].x - ray.o.x) * inv_dir.x;

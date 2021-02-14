@@ -32,9 +32,10 @@ pub struct Scene {
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 impl Scene {
-    /// Loads a PLY scaled to 2 units and orients the camera on it at an angle.
-    /// Returns the scene and its initialized dynamic paramters as well as the
-    /// total time it took to load.
+    /// Loads a PLY, scales it to fit 2 units around the origin and orients the camera
+    /// on it at an angle.
+    ///
+    /// Also returns the time it took to load in seconds.
     pub fn ply(path: &PathBuf) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
@@ -162,8 +163,8 @@ impl Scene {
         ))
     }
 
-    /// The cornell box with a tall box and a sphere
-    /// Lifted from http://www.graphics.cornell.edu/online/box/data.html
+    /// Constructs the Cornell box holding a tall box and a sphere
+    // Lifted from http://www.graphics.cornell.edu/online/box/data.html
     pub fn cornell() -> (Scene, DynamicSceneParameters) {
         // Original uses a right-handed coordinate system so flip z
         let handedness_swap = Transform::new([

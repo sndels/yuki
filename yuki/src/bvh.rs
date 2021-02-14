@@ -16,6 +16,7 @@ pub enum SplitMethod {
     EqualCounts,
 }
 
+/// A standard BVH.
 pub struct BoundingVolumeHierarchy {
     split_method: SplitMethod,
     max_shapes_in_node: usize,
@@ -72,13 +73,16 @@ impl BoundingVolumeHierarchy {
         (ret, shapes_arc)
     }
 
+    /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
     pub fn intersect(&self, mut ray: Ray<f32>) -> Option<Hit> {
         let mut hit = None;
 
+        // Pre-calculated to speed up Bounds3 intersection tests
         let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
         let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
 
         let mut current_node_index = 0;
+        // to_visit_index points to the next index to access in to_visit_stack
         let mut to_visit_index = 0;
         let mut to_visit_stack = [0; 64];
         loop {
@@ -147,7 +151,9 @@ impl BoundingVolumeHierarchy {
         hit
     }
 
-    /// Builds the BVH
+    /// Builds the node structure as a [BVHBuildNode]-tree.
+    ///
+    /// Returns the root node and the total number of nodes in the tree.
     fn recursive_build(
         &mut self,
         shape_info: &mut Vec<BVHPrimitiveInfo>,
@@ -161,6 +167,7 @@ impl BoundingVolumeHierarchy {
         let first_shape_index = ordered_shapes.len();
 
         let shape_count = end - start;
+
         macro_rules! init_leaf {
             () => {{
                 ordered_shapes.extend(
@@ -184,12 +191,14 @@ impl BoundingVolumeHierarchy {
             let axis = centroid_bounds.maximum_extent();
 
             if centroid_bounds.p_max[axis] == centroid_bounds.p_min[axis] {
+                // No splitting method can help when bb is "zero"
                 init_leaf!()
             } else {
                 let mut mid = start;
                 // We need to fall back to 'equal counts' if 'middle' fails
                 let split_method = match self.split_method {
                     SplitMethod::Middle => {
+                        // Partition shapes by their centroids on the two sides of the axis' middle point
                         let mid_value =
                             (centroid_bounds.p_min[axis] + centroid_bounds.p_max[axis]) / 2.0;
                         mid = shape_info[start..end]
@@ -209,6 +218,7 @@ impl BoundingVolumeHierarchy {
                 match split_method {
                     SplitMethod::Middle => {}
                     SplitMethod::EqualCounts => {
+                        // Partition shapes by their centroids into two sets with equal number of shapes
                         mid = (start + end) / 2;
                         shape_info[start..end].select_nth_unstable_by(mid - start, |a, b| {
                             a.centroid[axis]
@@ -232,6 +242,9 @@ impl BoundingVolumeHierarchy {
         }
     }
 
+    /// Converts the [BVHBuildNode]-tree into a linear array of [BVHNode]s.
+    ///
+    /// Returns the next available index in the internal node array.
     fn flatten_tree(&mut self, root: Box<BVHBuildNode>, mut next_index: usize) -> usize {
         match root.content {
             BuildNodeContent::Interior {
@@ -264,10 +277,12 @@ struct BVHPrimitiveInfo {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum NodeContent {
+    /// Indexes into the node array.
     Interior {
         second_child_index: u32,
         split_axis: u8,
     },
+    /// Indexes into the ordered shape array.
     Leaf {
         first_shape_index: u32,
         shape_count: u16,
@@ -282,6 +297,7 @@ struct BVHNode {
 }
 
 impl BVHNode {
+    /// Creates an uninitialized `BVHNode`.
     fn default() -> Self {
         Self {
             bounds: Bounds3::default(),
@@ -289,6 +305,7 @@ impl BVHNode {
         }
     }
 
+    /// Creates an interior `BVHNode`.
     fn interior(bounds: Bounds3<f32>, second_child_index: usize, split_axis: usize) -> Self {
         Self {
             bounds,
@@ -299,6 +316,7 @@ impl BVHNode {
         }
     }
 
+    /// Creates a leaf `BVHNode`.
     fn leaf(bounds: Bounds3<f32>, first_shape_index: usize, shape_count: usize) -> Self {
         Self {
             bounds,
@@ -315,8 +333,8 @@ enum BuildNodeContent {
         children: [Box<BVHBuildNode>; 2],
         split_axis: usize,
     },
+    /// Indexes into the ordered shape array.
     Leaf {
-        // Index into the ordered shape array
         first_shape_index: usize,
         shape_count: usize,
     },
@@ -328,6 +346,7 @@ struct BVHBuildNode {
 }
 
 impl BVHBuildNode {
+    /// Creates an interior `BVHBuildNode`.
     fn interior(
         split_axis: usize,
         child0: Box<BVHBuildNode>,
@@ -342,6 +361,7 @@ impl BVHBuildNode {
         })
     }
 
+    /// Creates a leaf `BVHBuildNode`.
     fn leaf(first_shape_index: usize, shape_count: usize, bounds: Bounds3<f32>) -> Box<Self> {
         Box::new(Self {
             bounds,

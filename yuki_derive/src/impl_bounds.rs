@@ -55,7 +55,9 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
         bounds_str, point_str
     );
     let intersection_doc = format!(
-        "Creates a new `{0}` that is the bounding box of the intersection of this `{0}` and another `{0}`. Returns [None] if no intersection exists.",
+        "Creates a new `{0}` that is the bounding box of the intersection of this `{0}` and another `{0}`.\n\
+        \n\
+        Returns [None] if no intersection exists.",
         bounds_str
     );
     let overlaps_doc = format!("Checks if this `{0}` overlaps another `{0}`.", bounds_str);
@@ -83,7 +85,9 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
         &|recurse| quote!(#(#recurse)&&*),
     );
     let expanded_doc = format!(
-        "Creates a new `{0}` with this `{0}` expanded by `delta` in all directions. Returns [None] if a negative delta would have caused `p_min > p_max` for any component.",
+        "Creates a new `{0}` with this `{0}` expanded by `delta` in all directions.\n\
+        \n\
+        Returns [None] if a negative delta would have caused `p_min > p_max` for any component.",
         bounds_str
     );
     let expanded_pred = per_component_tokens(

@@ -110,7 +110,7 @@ impl Film {
     }
 
     /// Returns `true` if this `Film`s pixels have been written to since the last
-    /// call to its [clear_dirty].
+    /// call to its [Film::clear_dirty].
     pub fn dirty(&self) -> bool {
         self.dirty
     }
