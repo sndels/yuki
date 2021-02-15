@@ -5,8 +5,8 @@ use crate::{
 };
 
 pub struct PointLight {
-    pub p: Point3<f32>,
-    pub i: Vec3<f32>,
+    p: Point3<f32>,
+    i: Vec3<f32>,
 }
 
 impl PointLight {
