@@ -1,12 +1,12 @@
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
+    lights::{light::Light, point_light::PointLight},
     math::{
         bounds::Bounds3,
         point::Point3,
         transform::{scale, translation, Transform},
         vector::Vec3,
     },
-    point_light::PointLight,
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
     yuki_error, yuki_info,
 };
@@ -40,7 +40,7 @@ pub struct Scene {
     pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
-    pub light: PointLight,
+    pub light: Arc<dyn Light>,
 }
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -156,7 +156,10 @@ impl Scene {
             SplitMethod::Middle,
         );
 
-        let light = PointLight::new(&translation(Vec3::new(5.0, 5.0, 0.0)), Vec3::from(600.0));
+        let light = Arc::new(PointLight::new(
+            &translation(Vec3::new(5.0, 5.0, 0.0)),
+            Vec3::from(600.0),
+        ));
 
         let cam_pos = Point3::new(2.0, 2.0, 2.0);
         let cam_target = Point3::new(0.0, 0.0, 0.0);
@@ -308,10 +311,10 @@ impl Scene {
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);
 
-        let light = PointLight::new(
+        let light = Arc::new(PointLight::new(
             &translation(Vec3::new(288.0, 547.0, -279.0)),
             Vec3::from(60000.0),
-        );
+        ));
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
         let cam_target = Point3::new(278.0, 273.0, -260.0);
