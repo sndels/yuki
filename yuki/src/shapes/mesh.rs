@@ -1,5 +1,8 @@
 use crate::math::{point::Point3, transform::Transform};
 
+// Based on Physically Based Rendering 3rd ed.
+// http://www.pbr-book.org/3ed-2018/Light_Sources/Point_Lights.html
+
 /// Stores the geometry data of a triangle mesh
 pub struct Mesh {
     pub object_to_world: Transform<f32>,

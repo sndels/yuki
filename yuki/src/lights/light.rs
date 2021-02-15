@@ -1,5 +1,8 @@
 use crate::{hit::Hit, math::vector::Vec3};
 
+// Based on Physically Based Rendering 3rd ed.
+// http://www.pbr-book.org/3ed-2018/Light_Sources/Light_Interface.html#Light
+
 /// Sample from a light source for visibility testing and shading
 pub struct LightSample {
     pub l: Vec3<f32>,
