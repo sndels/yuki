@@ -56,82 +56,7 @@ impl Scene {
     ) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let file = std::fs::File::open(path.to_str().unwrap())?;
-        let mut file_buf = std::io::BufReader::new(file);
-
-        let header = ply_rs::parser::Parser::<ply_rs::ply::DefaultElement>::new()
-            .read_header(&mut file_buf)?;
-
-        if !is_valid(&header) {
-            return Err("PLY: Unsupported content".into());
-        }
-
-        let vertices_start = Instant::now();
-        let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
-        let vertices = vertex_parser.read_payload_for_element(
-            &mut file_buf,
-            &header.elements["vertex"],
-            &header,
-        )?;
-        yuki_info!(
-            "PLY: Parsed {} vertices in {:.2}s",
-            vertices.len(),
-            (vertices_start.elapsed().as_micros() as f32) * 1e-6
-        );
-
-        let faces_start = Instant::now();
-        let face_parser = ply_rs::parser::Parser::<Face>::new();
-        let faces = face_parser.read_payload_for_element(
-            &mut file_buf,
-            &header.elements["face"],
-            &header,
-        )?;
-        yuki_info!(
-            "PLY: Parsed {} faces in {:.2}s",
-            faces.len(),
-            (faces_start.elapsed().as_micros() as f32) * 1e-6
-        );
-
-        let points_start = Instant::now();
-        let points: Vec<Point3<f32>> = vertices
-            .iter()
-            .map(|&Vertex { x, y, z }| Point3::new(x, y, z))
-            .collect();
-        yuki_info!(
-            "PLY: Converted vertices to points in {:.2}s",
-            (points_start.elapsed().as_micros() as f32) * 1e-6
-        );
-
-        let indices_start = Instant::now();
-        let mut indices = Vec::new();
-        for f in faces {
-            let v0 = f.indices[0];
-            let mut is = f.indices.iter().skip(1).peekable();
-            while let Some(&v1) = is.next() {
-                if let Some(&&v2) = is.peek() {
-                    indices.push(v0);
-                    indices.push(v1);
-                    indices.push(v2);
-                }
-            }
-        }
-        yuki_info!(
-            "PLY: Converted faces to an index buffer in {:.2}s",
-            (indices_start.elapsed().as_micros() as f32) * 1e-6
-        );
-
-        // Find bounds and transform to fit in (-1,-1,-1),(1,1,1) in world space
-        let bb = points
-            .iter()
-            .fold(Bounds3::default(), |bb, &p| bb.union_p(p));
-        let mesh_center = bb.p_min + bb.diagonal() / 2.0;
-        let mesh_scale = 1.0 / bb.diagonal().max_comp();
-
-        let mesh = Arc::new(Mesh::new(
-            &(&scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))),
-            indices,
-            points,
-        ));
+        let mesh = load_ply(path)?;
 
         let triangles_start = Instant::now();
         let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
@@ -337,6 +262,82 @@ impl Scene {
             },
         )
     }
+}
+
+fn load_ply(path: &PathBuf) -> Result<Arc<Mesh>> {
+    let file = std::fs::File::open(path.to_str().unwrap())?;
+    let mut file_buf = std::io::BufReader::new(file);
+
+    let header =
+        ply_rs::parser::Parser::<ply_rs::ply::DefaultElement>::new().read_header(&mut file_buf)?;
+
+    if !is_valid(&header) {
+        return Err("PLY: Unsupported content".into());
+    }
+
+    let vertices_start = Instant::now();
+    let vertex_parser = ply_rs::parser::Parser::<Vertex>::new();
+    let vertices = vertex_parser.read_payload_for_element(
+        &mut file_buf,
+        &header.elements["vertex"],
+        &header,
+    )?;
+    yuki_info!(
+        "PLY: Parsed {} vertices in {:.2}s",
+        vertices.len(),
+        (vertices_start.elapsed().as_micros() as f32) * 1e-6
+    );
+
+    let faces_start = Instant::now();
+    let face_parser = ply_rs::parser::Parser::<Face>::new();
+    let faces =
+        face_parser.read_payload_for_element(&mut file_buf, &header.elements["face"], &header)?;
+    yuki_info!(
+        "PLY: Parsed {} faces in {:.2}s",
+        faces.len(),
+        (faces_start.elapsed().as_micros() as f32) * 1e-6
+    );
+
+    let points_start = Instant::now();
+    let points: Vec<Point3<f32>> = vertices
+        .iter()
+        .map(|&Vertex { x, y, z }| Point3::new(x, y, z))
+        .collect();
+    yuki_info!(
+        "PLY: Converted vertices to points in {:.2}s",
+        (points_start.elapsed().as_micros() as f32) * 1e-6
+    );
+
+    let indices_start = Instant::now();
+    let mut indices = Vec::new();
+    for f in faces {
+        let v0 = f.indices[0];
+        let mut is = f.indices.iter().skip(1).peekable();
+        while let Some(&v1) = is.next() {
+            if let Some(&&v2) = is.peek() {
+                indices.push(v0);
+                indices.push(v1);
+                indices.push(v2);
+            }
+        }
+    }
+    yuki_info!(
+        "PLY: Converted faces to an index buffer in {:.2}s",
+        (indices_start.elapsed().as_micros() as f32) * 1e-6
+    );
+
+    // Find bounds and transform to fit in (-1,-1,-1),(1,1,1) in world space
+    let bb = points
+        .iter()
+        .fold(Bounds3::default(), |bb, &p| bb.union_p(p));
+    let mesh_center = bb.p_min + bb.diagonal() / 2.0;
+    let mesh_scale = 1.0 / bb.diagonal().max_comp();
+
+    Ok(Arc::new(Mesh::new(
+        &(&scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))),
+        indices,
+        points,
+    )))
 }
 
 struct PlyContent {
