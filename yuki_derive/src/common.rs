@@ -112,7 +112,8 @@ pub fn combined_error(
         .map(|&(err, span)| {
             syn::Error::new(span.unwrap_or(default_span), format!("{}: {}", prefix, err))
         })
-        .fold_first(|mut acc, err| {
+        .reduce(
+            |mut acc, err| {
             acc.combine(err);
             acc
         })

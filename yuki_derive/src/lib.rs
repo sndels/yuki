@@ -1,5 +1,3 @@
-#![feature(iterator_fold_self)]
-
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
