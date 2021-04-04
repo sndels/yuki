@@ -269,7 +269,7 @@ impl Scene {
     ) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (mesh, geometry) = load_ply(path, Vec3::from(1.0), true)?;
+        let (mesh, geometry) = load_ply(path, Vec3::from(1.0), None)?;
 
         let meshes = vec![mesh];
 
@@ -700,6 +700,7 @@ fn parse_shape<T: std::io::Read>(
         return Err(format!("Unexpected shape type '{}'!", data_type).into());
     }
 
+    let mut transform = Transform::default();
     let mut ply_abspath = None;
     let mut material_id = None;
     // TODO: Parse whole shape first, load with constructed material after
@@ -707,7 +708,7 @@ fn parse_shape<T: std::io::Read>(
                                     attributes: Vec<
         xml::attribute::OwnedAttribute,
     >,
-                                    _: &mut i32,
+                                    level: &mut i32,
                                     ignore_level: &mut Option<u32>|
      -> Result<()> {
         let data_type = name.local_name.as_str();
@@ -739,6 +740,11 @@ fn parse_shape<T: std::io::Read>(
                 }
                 material_id = Some(find_attr!(&attributes, "id").clone());
             }
+            "transform" => {
+                transform = parse_transform(parser, indent.clone())?;
+                *level -= 1;
+                indent.truncate(indent.len() - 2);
+            }
             _ => return Err(format!("Unknown shape type '{}'", data_type).into()),
         }
         Ok(())
@@ -750,7 +756,7 @@ fn parse_shape<T: std::io::Read>(
 
     if let Some(id) = material_id {
         if let Some(&material) = materials.get(&id) {
-            match load_ply(&ply_abspath.unwrap(), material, false) {
+            match load_ply(&ply_abspath.unwrap(), material, Some(transform)) {
                 Ok((m, g)) => Ok((Some(m), g)),
                 Err(e) => Err(e),
             }
@@ -894,7 +900,7 @@ fn parse_diffuse<T: std::io::Read>(
 fn load_ply(
     path: &PathBuf,
     albedo: Vec3<f32>,
-    scale_around_origin: bool,
+    transform: Option<Transform<f32>>,
 ) -> Result<(Arc<Mesh>, Vec<Arc<dyn Shape>>)> {
     let file = match std::fs::File::open(path.to_str().unwrap()) {
         Ok(f) => f,
@@ -970,11 +976,9 @@ fn load_ply(
     let mesh_center = bb.p_min + bb.diagonal() / 2.0;
     let mesh_scale = 1.0 / bb.diagonal().max_comp();
 
-    let trfn = if scale_around_origin {
-        &scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))
-    } else {
-        Transform::default()
-    };
+    let trfn = transform.unwrap_or(
+        &scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center)),
+    );
     let mesh = Arc::new(Mesh::new(&trfn, indices, points));
 
     let triangles_start = Instant::now();
