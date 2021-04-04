@@ -1,19 +1,25 @@
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
+    camera::FoV,
     lights::{light::Light, point_light::PointLight},
     math::{
         bounds::Bounds3,
         point::Point3,
-        transform::{scale, translation, Transform},
+        transform::{rotation, rotation_y, scale, translation, Transform},
         vector::Vec3,
     },
-    camera::FoV,
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
-    yuki_error, yuki_info,
+    yuki_error, yuki_info, yuki_trace,
 };
 
 use ply_rs;
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
+use xml::reader::{EventReader, XmlEvent};
 
 #[derive(Copy, Clone)]
 pub struct SceneLoadSettings {
@@ -34,6 +40,16 @@ pub struct DynamicSceneParameters {
     pub cam_fov: FoV,
 }
 
+impl DynamicSceneParameters {
+    fn new() -> Self {
+        Self {
+            cam_pos: Point3::new(0.0, 0.0, 0.0),
+            cam_target: Point3::new(0.0, 0.0, 0.0),
+            cam_fov: FoV::X(0.0),
+        }
+    }
+}
+
 pub struct Scene {
     pub name: String,
     pub path: Option<PathBuf>,
@@ -44,9 +60,206 @@ pub struct Scene {
     pub light: Arc<dyn Light>,
 }
 
+macro_rules! try_find_attr {
+    ($attributes:expr, $name_str:expr) => {{
+        let mut value = None;
+        for attr in $attributes {
+            if attr.name.local_name.as_str() == $name_str {
+                value = Some(&attr.value);
+            }
+        }
+        value
+    }};
+}
+
+macro_rules! find_attr {
+    ($attributes:expr, $name_str:expr) => {{
+        match try_find_attr!($attributes, $name_str) {
+            Some(v) => v,
+            None => return Err(format!("Could not find element attribute '{}'", $name_str).into()),
+        }
+    }};
+}
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 impl Scene {
+    /// Loads a Mitsuba 2 scene
+    ///
+    /// Also returns the time it took to load in seconds.
+    pub fn mitsuba(
+        path: &PathBuf,
+        settings: SceneLoadSettings,
+    ) -> Result<(Scene, DynamicSceneParameters, f32)> {
+        let load_start = Instant::now();
+
+        let dir_path = path.parent().unwrap().to_path_buf();
+        let file = std::fs::File::open(path.to_str().unwrap())?;
+        let file_buf = std::io::BufReader::new(file);
+
+        let mut meshes = Vec::new();
+        let mut geometry = Vec::new();
+        let mut materials: HashMap<String, Vec3<f32>> = HashMap::new();
+        let mut light = None;
+        let mut scene_params = DynamicSceneParameters::new();
+        let mut parser = EventReader::new(file_buf);
+        let mut indent = String::new();
+        let mut ignore_level: Option<u32> = None;
+        loop {
+            match parser.next() {
+                Ok(evt) => match evt {
+                    XmlEvent::StartDocument {
+                        version,
+                        encoding,
+                        standalone,
+                    } => yuki_trace!(
+                        " Start document: XML - {}, encoding - {}, standalone {:?}",
+                        version,
+                        encoding,
+                        standalone
+                    ),
+                    XmlEvent::StartElement {
+                        name, attributes, ..
+                    } => {
+                        // Extra space to account for line number in log
+                        yuki_trace!(" {}Begin: {}", indent, name);
+                        indent += "  ";
+                        yuki_trace!(" {}Attributes", indent);
+                        indent += "  ";
+                        for xml::attribute::OwnedAttribute { name, value } in &attributes {
+                            // Extra space to account for line number in log
+                            yuki_trace!(" {}{}: {}", indent, name, value);
+                        }
+                        indent.truncate(indent.len() - 2);
+
+                        if let None = ignore_level {
+                            match name.local_name.as_str() {
+                                "scene" => {
+                                    if find_attr!(&attributes, "version").as_str() != "2.1.0" {
+                                        return Err("Scene file version is not 2.1.0".into());
+                                    }
+                                }
+                                "default" => {
+                                    // TODO
+                                    ()
+                                }
+                                "integrator" => {
+                                    ignore_level = Some(0);
+                                }
+                                "sensor" => {
+                                    (
+                                        scene_params.cam_pos,
+                                        scene_params.cam_target,
+                                        scene_params.cam_fov,
+                                    ) = parse_sensor(&mut parser, indent.clone())?;
+                                    indent.truncate(indent.len() - 2);
+                                }
+                                "bsdf" => {
+                                    let id = find_attr!(&attributes, "id").clone();
+                                    let material = parse_material(&mut parser, indent.clone())?;
+                                    indent.truncate(indent.len() - 2);
+                                    materials.insert(id, material);
+                                }
+                                "emitter" => {
+                                    let attr_type = find_attr!(&attributes, "type");
+                                    match attr_type.as_str() {
+                                        "constant" => ignore_level = Some(0),
+                                        "point" => {
+                                            // TODO: Multiple light sources
+                                            light = Some(parse_point_light(
+                                                &mut parser,
+                                                indent.clone(),
+                                            )?);
+                                        }
+                                        _ => ignore_level = Some(0),
+                                    }
+                                }
+                                "shape" => {
+                                    let (mesh, geom) = parse_shape(
+                                        &dir_path,
+                                        &materials,
+                                        attributes,
+                                        &mut parser,
+                                        indent.clone(),
+                                    )?;
+                                    if let Some(m) = mesh {
+                                        meshes.push(m);
+                                    }
+                                    geometry.extend(geom);
+                                    indent.truncate(indent.len() - 2);
+                                }
+                                name => return Err(format!("Unknown element: '{}'", name).into()),
+                            }
+                        }
+
+                        if let Some(l) = ignore_level {
+                            yuki_trace!("{}Ignored", indent);
+                            ignore_level = Some(l + 1);
+                        }
+                    }
+                    XmlEvent::EndElement { name } => {
+                        indent.truncate(indent.len() - 2);
+
+                        yuki_trace!("{}End: {}", indent, name);
+
+                        if let Some(l) = ignore_level {
+                            let level_after = l - 1;
+                            if level_after > 0 {
+                                ignore_level = Some(l - 1);
+                            } else {
+                                ignore_level = None;
+                            }
+                        }
+                    }
+                    XmlEvent::ProcessingInstruction { name, .. } => {
+                        return Err(format!("Unexpected processing instruction: {}", name).into())
+                    }
+                    XmlEvent::CData(data) => {
+                        return Err(format!("Unexpected CDATA: {}", data).into())
+                    }
+                    XmlEvent::Comment(_) => (),
+                    XmlEvent::Characters(chars) => {
+                        return Err(format!("Unexpected characters outside tags: {}", chars).into())
+                    }
+                    XmlEvent::Whitespace(_) => (),
+                    XmlEvent::EndDocument => {
+                        yuki_trace!("End document");
+                        break;
+                    }
+                },
+                Err(err) => {
+                    yuki_error!("XML error: {}", err);
+                    break;
+                }
+            }
+        }
+
+        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(
+            geometry,
+            settings.max_shapes_in_node as usize,
+            SplitMethod::Middle,
+        );
+
+        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+
+        yuki_info!("Mitsuba 2.0: Loading took {:.2}s in total", total_secs);
+
+        Ok((
+            Scene {
+                name: path.file_stem().unwrap().to_str().unwrap().into(),
+                path: Some(path.clone()),
+                settings: SceneLoadSettings::default(),
+                meshes,
+                geometry: geometry_arc,
+                bvh: bvh,
+                light: light.unwrap(),
+            },
+            scene_params,
+            total_secs,
+        ))
+    }
+
+    ///
     /// Loads a PLY, scales it to fit 2 units around the origin and orients the camera
     /// on it at an angle.
     ///
@@ -57,22 +270,7 @@ impl Scene {
     ) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let mesh = load_ply(path)?;
-
-        let triangles_start = Instant::now();
-        let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
-        for v0 in (0..mesh.indices.len()).step_by(3) {
-            geometry.push(Arc::new(Triangle::new(
-                mesh.clone(),
-                v0,
-                Vec3::new(1.0, 1.0, 1.0),
-            )));
-        }
-        yuki_info!(
-            "PLY: Gathered {} triangles in {:.2}s",
-            geometry.len(),
-            (triangles_start.elapsed().as_micros() as f32) * 1e-6
-        );
+        let (mesh, geometry) = load_ply(path, Vec3::from(1.0), true)?;
 
         let meshes = vec![mesh];
 
@@ -265,8 +463,447 @@ impl Scene {
     }
 }
 
-fn load_ply(path: &PathBuf) -> Result<Arc<Mesh>> {
-    let file = std::fs::File::open(path.to_str().unwrap())?;
+/// Pumps messages, calling start_body for each StartElement.
+/// 'return's errors for unexpected data blocks.
+/// Breaks when an unmatched EndElement is encountered.
+///
+/// start_body has a signature of (name: &OwnedName, attributes: Vec<OwnedAttribute>, ignore_level: &mut Option<u32>) -> Result<()>
+/// 'ignore_level = Some(0)' can be set to skip the current element and it's children.
+/// 'level' should be decremented after a recursive parser call returns to match the correct level (caller won't see EndElement)
+macro_rules! parse_element {
+    ($parser:ident, $indent:ident, $start_body:expr) => {
+        let mut level = 0i32;
+        let mut ignore_level: Option<u32> = None;
+        loop {
+            match $parser.next() {
+                Ok(evt) => match evt {
+                    XmlEvent::StartDocument { .. } => unreachable!(),
+                    XmlEvent::StartElement {
+                        name, attributes, ..
+                    } => {
+                        if let None = ignore_level {
+                            yuki_trace!("{}Begin: {}", $indent, name);
+                            $indent += "  ";
+                            yuki_trace!("{}Attributes", $indent);
+                            $indent += "  ";
+                            for xml::attribute::OwnedAttribute { name, value } in &attributes {
+                                yuki_trace!("{}{}: {}", $indent, name, value);
+                            }
+                            $indent.truncate($indent.len() - 2);
+                        }
+
+                        if let None = ignore_level {
+                            $start_body(&name, attributes, &mut level, &mut ignore_level)?;
+                        }
+
+                        level += 1;
+
+                        if let Some(l) = ignore_level {
+                            if l == 0 {
+                                yuki_info!("Element '{}' ignored", name);
+                            }
+                            ignore_level = Some(l + 1);
+                        }
+                    }
+                    XmlEvent::EndElement { name } => {
+                        if let Some(l) = ignore_level {
+                            let level_after = l - 1;
+                            if level_after > 0 {
+                                ignore_level = Some(l - 1);
+                            } else {
+                                ignore_level = None;
+                            }
+                        }
+
+                        if ignore_level == None || ignore_level == Some(0) {
+                            $indent.truncate($indent.len() - 2);
+                            yuki_trace!("{}End: {}", $indent, name);
+                        }
+
+                        level -= 1;
+                        if level < 0 {
+                            break;
+                        }
+                    }
+                    XmlEvent::ProcessingInstruction { name, .. } => {
+                        return Err(format!("Unexpected processing instruction: {}", name).into())
+                    }
+                    XmlEvent::CData(data) => {
+                        return Err(format!("Unexpected CDATA: {}", data).into())
+                    }
+                    XmlEvent::Comment(_) => (),
+                    XmlEvent::Characters(chars) => {
+                        return Err(format!("Unexpected characters outside tags: {}", chars).into())
+                    }
+                    XmlEvent::Whitespace(_) => (),
+                    XmlEvent::EndDocument => unreachable!(),
+                },
+                Err(err) => {
+                    yuki_error!("XML error: {}", err);
+                    break;
+                }
+            }
+        }
+    };
+}
+
+fn parse_sensor<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<(Point3<f32>, Point3<f32>, FoV)> {
+    let mut fov_axis = String::new();
+    let mut fov_angle = 0.0f32;
+    let mut transform = Transform::default();
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    level: &mut i32,
+                                    ignore_level: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "string" => {
+                let (attr_name, attr_value) = (
+                    find_attr!(&attributes, "name").as_str(),
+                    find_attr!(&attributes, "value"),
+                );
+                match attr_name {
+                    "fov_axis" => fov_axis = attr_value.clone(),
+                    _ => {
+                        return Err(format!("Unknown sensor string element '{}'", attr_name).into())
+                    }
+                }
+            }
+            "float" => {
+                let (attr_name, attr_value) = (
+                    find_attr!(&attributes, "name").as_str(),
+                    find_attr!(&attributes, "value"),
+                );
+                match attr_name {
+                    "fov" => fov_angle = attr_value.as_str().parse()?,
+                    "near_clip" => (), // TODO
+                    "far_clip" => (),  // TODO
+                    "" => (),          // TODO
+                    _ => {
+                        return Err(format!("Unknown sensor string element '{}'", attr_name).into())
+                    }
+                }
+            }
+            "transform" => {
+                transform = parse_transform(parser, indent.clone())?;
+                *level -= 1;
+                indent.truncate(indent.len() - 2);
+            }
+            "sampler" => {
+                *ignore_level = Some(0);
+            }
+            "film" => {
+                *ignore_level = Some(0);
+            }
+            _ => return Err(format!("Unknown sensor data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    // Mitsuba camera looks at +Z with +X on the left, ours at -Z with +X on the right
+    transform = &scale(1.0, 1.0, -1.0) * &(&transform * &rotation_y(std::f32::consts::PI));
+
+    let cam_pos = &transform * Point3::new(0.0, 0.0, 0.0);
+    let cam_target = &transform * Point3::new(0.0, 0.0, -1.0);
+    if fov_axis != "x" {
+        return Err("Only horizontal fov is supported".into());
+    }
+    let cam_fov = match fov_axis.as_str() {
+        "x" => FoV::X(fov_angle),
+        "y" => FoV::Y(fov_angle),
+        axis => {
+            return Err(format!("Unknown fov axis '{}'", axis).into());
+        }
+    };
+
+    Ok((cam_pos, cam_target, cam_fov))
+}
+
+fn parse_transform<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Transform<f32>> {
+    let mut transform = Transform::default();
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    level: &mut i32,
+                                    ignore_level: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "rotate" => {
+                let axis = {
+                    let mut axis = Vec3::new(0.0, 0.0, 0.0);
+                    if let Some(v) = try_find_attr!(&attributes, "x") {
+                        axis.x = v.parse()?;
+                    }
+                    if let Some(v) = try_find_attr!(&attributes, "y") {
+                        axis.y = v.parse()?;
+                    }
+                    if let Some(v) = try_find_attr!(&attributes, "z") {
+                        axis.z = v.parse()?;
+                    }
+                    axis.normalized()
+                };
+
+                let angle: f32 = find_attr!(&attributes, "angle")
+                    .parse::<f32>()?
+                    .to_radians();
+
+                transform = &rotation(angle, axis) * &transform;
+            }
+            "translate" => {
+                let p: Vec<f32> = find_attr!(&attributes, "value")
+                    .split(" ")
+                    .map(|v| v.parse::<f32>().unwrap())
+                    .collect();
+                transform = &translation(Vec3::new(p[0], p[1], p[2])) * &transform;
+            }
+            "scale" => {
+                let p_strs: Vec<&str> = find_attr!(&attributes, "value").split(" ").collect();
+                let p: Vec<f32> = match p_strs.len() {
+                    1 => {
+                        let v = p_strs[0].parse::<f32>().unwrap();
+                        vec![v, v, v]
+                    }
+                    3 => p_strs.iter().map(|v| v.parse::<f32>().unwrap()).collect(),
+                    _ => unreachable!(),
+                };
+                transform = &translation(Vec3::new(p[0], p[1], p[2])) * &transform;
+            }
+            _ => return Err(format!("Unknown transformation data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    Ok(transform)
+}
+
+fn parse_shape<T: std::io::Read>(
+    dir_path: &PathBuf,
+    materials: &HashMap<String, Vec3<f32>>,
+    attributes: Vec<xml::attribute::OwnedAttribute>,
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<(Option<Arc<Mesh>>, Vec<Arc<dyn Shape>>)> {
+    let data_type = find_attr!(&attributes, "type").as_str();
+    if data_type != "ply" {
+        return Err(format!("Unexpected shape type '{}'!", data_type).into());
+    }
+
+    let mut ply_abspath = None;
+    let mut material_id = None;
+    // TODO: Parse whole shape first, load with constructed material after
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    _: &mut i32,
+                                    ignore_level: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "string" => {
+                if find_attr!(&attributes, "name").as_str() != "filename" {
+                    return Err("Expected 'name': 'filename' as mesh 'string' attribute".into());
+                }
+
+                let mesh_relpath =
+                    PathBuf::from(find_attr!(&attributes, "value").replace("\\", "/"));
+                ply_abspath = match dir_path.join(&mesh_relpath).canonicalize() {
+                    Ok(p) => Some(p),
+                    Err(e) => {
+                        yuki_error!(
+                            "Error canonicalizing absolute mesh path for '{}'",
+                            mesh_relpath.to_string_lossy()
+                        );
+                        return Err(e.into());
+                    }
+                };
+            }
+            "ref" => {
+                let ref_type = find_attr!(&attributes, "name").as_str();
+                if ref_type != "bsdf" {
+                    return Err(
+                        format!("Expected mesh 'ref' to be 'bsdf', got '{}'", ref_type).into(),
+                    );
+                }
+                material_id = Some(find_attr!(&attributes, "id").clone());
+            }
+            _ => return Err(format!("Unknown shape type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    if let None = ply_abspath {
+        return Err("Mesh with no ply".into());
+    }
+
+    if let Some(id) = material_id {
+        if let Some(&material) = materials.get(&id) {
+            match load_ply(&ply_abspath.unwrap(), material, false) {
+                Ok((m, g)) => Ok((Some(m), g)),
+                Err(e) => Err(e),
+            }
+        } else {
+            Err(format!("Unknown mesh material '{}'", id).into())
+        }
+    } else {
+        Err("Mesh with no material".into())
+    }
+}
+
+fn parse_point_light<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Arc<PointLight>> {
+    let mut position = Point3::from(0.0);
+    let mut intensity = Vec3::from(0.0);
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    _: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "point" => {
+                if find_attr!(&attributes, "name").as_str() != "position" {
+                    return Err(
+                        "Expected 'name': 'filename' as first mesh 'string' attribute".into(),
+                    );
+                }
+
+                for axis_value in attributes.iter().skip(1) {
+                    let pos_value = match axis_value.name.local_name.as_str() {
+                        "x" => &mut position.x,
+                        "y" => &mut position.y,
+                        "z" => &mut position.z,
+                        a => {
+                            return Err(format!("Invalid point axis '{}'", a).into());
+                        }
+                    };
+                    *pos_value = axis_value.value.parse()?;
+                }
+            }
+            "rgb" => {
+                let name = find_attr!(&attributes, "name").as_str();
+                if name != "intensity" {
+                    return Err(format!(
+                        "Expected point light rgb to be 'intensity', got '{}'",
+                        name
+                    )
+                    .into());
+                }
+                for (i, c) in find_attr!(&attributes, "value")
+                    .split(" ")
+                    .map(|c| c.parse::<f32>().unwrap())
+                    .enumerate()
+                {
+                    intensity[i] = c;
+                }
+            }
+            _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    Ok(Arc::new(PointLight::new(
+        &translation(position.into()),
+        intensity,
+    )))
+}
+
+fn parse_material<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Vec3<f32>> {
+    let mut material = Vec3::new(1.0, 0.0, 1.0);
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    level: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "bsdf" => {
+                material = parse_diffuse(parser, indent.clone())?;
+                *level -= 1;
+                indent.truncate(indent.len() - 2);
+            }
+            _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+    Ok(material)
+}
+
+fn parse_diffuse<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Vec3<f32>> {
+    let mut reflectance = Vec3::new(0.0, 0.0, 0.0);
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    _: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "rgb" => {
+                let name = find_attr!(&attributes, "name").as_str();
+                if name != "reflectance" {
+                    return Err(format!(
+                        "Expected point light rgb to be 'intensity', got '{}'",
+                        name
+                    )
+                    .into());
+                }
+                for (i, c) in find_attr!(&attributes, "value")
+                    .split(" ")
+                    .map(|c| c.parse::<f32>().unwrap())
+                    .enumerate()
+                {
+                    reflectance[i] = c;
+                }
+            }
+            _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    Ok(reflectance)
+}
+
+fn load_ply(
+    path: &PathBuf,
+    albedo: Vec3<f32>,
+    scale_around_origin: bool,
+) -> Result<(Arc<Mesh>, Vec<Arc<dyn Shape>>)> {
+    let file = match std::fs::File::open(path.to_str().unwrap()) {
+        Ok(f) => f,
+        Err(e) => {
+            yuki_error!("Could not open '{}'", path.to_string_lossy());
+            return Err(e.into());
+        }
+    };
     let mut file_buf = std::io::BufReader::new(file);
 
     let header =
@@ -334,11 +971,25 @@ fn load_ply(path: &PathBuf) -> Result<Arc<Mesh>> {
     let mesh_center = bb.p_min + bb.diagonal() / 2.0;
     let mesh_scale = 1.0 / bb.diagonal().max_comp();
 
-    Ok(Arc::new(Mesh::new(
-        &(&scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))),
-        indices,
-        points,
-    )))
+    let trfn = if scale_around_origin {
+        &scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center))
+    } else {
+        Transform::default()
+    };
+    let mesh = Arc::new(Mesh::new(&trfn, indices, points));
+
+    let triangles_start = Instant::now();
+    let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
+    for v0 in (0..mesh.indices.len()).step_by(3) {
+        geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, albedo)));
+    }
+    yuki_info!(
+        "PLY: Gathered {} triangles in {:.2}s",
+        geometry.len(),
+        (triangles_start.elapsed().as_micros() as f32) * 1e-6
+    );
+
+    return Ok((mesh, geometry));
 }
 
 struct PlyContent {

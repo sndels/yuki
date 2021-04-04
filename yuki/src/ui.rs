@@ -402,21 +402,54 @@ impl Window {
                     any_item_active = ui.is_any_item_active();
 
                     if let Some(path) = new_scene_path {
-                        match Scene::ply(&path, load_settings) {
-                            Ok((new_scene, new_scene_params, total_secs)) => {
-                                yuki_info!(
-                                    "PLY loaded from {}",
-                                    path.file_name().unwrap().to_str().unwrap()
-                                );
+                        match path.extension() {
+                            Some(ext) => match ext.to_str().unwrap() {
+                                "ply" => match Scene::ply(&path, load_settings) {
+                                    Ok((new_scene, new_scene_params, total_secs)) => {
+                                        yuki_info!(
+                                            "PLY loaded from {}",
+                                            path.file_name().unwrap().to_str().unwrap()
+                                        );
 
-                                scene = Arc::new(new_scene);
-                                scene_params = new_scene_params;
-                                status_messages =
-                                    Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
-                            }
-                            Err(why) => {
-                                yuki_error!("Loading PLY failed: {}", why);
-                                status_messages = Some(vec!["Scene loading failed".into()]);
+                                        scene = Arc::new(new_scene);
+                                        scene_params = new_scene_params;
+                                        status_messages = Some(vec![format!(
+                                            "Scene loaded in {:.2}s",
+                                            total_secs
+                                        )]);
+                                    }
+                                    Err(why) => {
+                                        yuki_error!("Loading PLY failed: {}", why);
+                                        status_messages = Some(vec!["Scene loading failed".into()]);
+                                    }
+                                },
+                                "xml" => match Scene::mitsuba(&path, load_settings) {
+                                    Ok((new_scene, new_scene_params, total_secs)) => {
+                                        yuki_info!(
+                                            "Mitsuba 2.0 scene loaded from {}",
+                                            path.file_name().unwrap().to_str().unwrap()
+                                        );
+
+                                        scene = Arc::new(new_scene);
+                                        scene_params = new_scene_params;
+                                        status_messages = Some(vec![format!(
+                                            "Scene loaded in {:.2}s",
+                                            total_secs
+                                        )]);
+                                    }
+                                    Err(why) => {
+                                        yuki_error!("Loading Mitsuba 2.0 scene failed: {}", why);
+                                        status_messages = Some(vec!["Scene loading failed".into()]);
+                                    }
+                                },
+                                _ => {
+                                    // TODO: Why can't this be a oneline "comma"-branch?
+                                    yuki_error!("Unknown extension '{}'", ext.to_str().unwrap());
+                                }
+                            },
+                            None => {
+                                // TODO: Why can't this be a oneline "comma"-branch?
+                                yuki_error!("Expected a file with an extension");
                             }
                         }
                     }
@@ -725,7 +758,7 @@ fn generate_ui(
                         ret.scene_path = if let Some(path) = open_file_dialog(
                             "Open scene",
                             open_path,
-                            Some((&["*.ply"], "Supported scene formats")),
+                            Some((&["*.ply", "*.xml"], "Supported scene formats")),
                         ) {
                             Some(PathBuf::from(path))
                         } else {
