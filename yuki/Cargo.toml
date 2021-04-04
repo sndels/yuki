@@ -24,4 +24,5 @@ old_school_gfx_glutin_ext = "0.26"
 ply-rs = "0.1"
 tinyfiledialogs = "3.3"
 win_dbg_logger = "0.1"
+xml-rs = "0.8"
 yuki_derive = { path = "../yuki_derive" }
