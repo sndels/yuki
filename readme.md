@@ -8,7 +8,9 @@ UI Features:
 - Uniformly scaling film view
 - ~Non-blocking rendering
   - Relaunch on changed Film, camera settings
-- Basic PLY loading
+- Scene formats (partially) supported
+  - [PLY](http://paulbourke.net/dataformats/ply/)
+  - [Mitsuba 2.0](https://mitsuba2.readthedocs.io/en/latest/)
 
 Renderer features:
 - Tile-based rendering
