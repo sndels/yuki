@@ -165,7 +165,10 @@ impl Scene {
                                 "emitter" => {
                                     let attr_type = find_attr!(&attributes, "type");
                                     match attr_type.as_str() {
-                                        "constant" => ignore_level = Some(0),
+                                        "constant" => {
+                                            background =
+                                                parse_constant_emitter(&mut parser, indent.clone())?
+                                        }
                                         "point" => {
                                             lights.push(parse_point_light(
                                                 &mut parser,
@@ -771,6 +774,32 @@ fn parse_shape<T: std::io::Read>(
     } else {
         Err("Mesh with no material".into())
     }
+}
+
+fn parse_constant_emitter<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Vec3<f32>> {
+    let mut radiance = Vec3::from(0.0);
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    _: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "rgb" => {
+                radiance = parse_rgb(&attributes, "radiance")?;
+            }
+            _ => return Err(format!("Unknown constant emitter data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    Ok(radiance)
 }
 
 fn parse_point_light<T: std::io::Read>(
