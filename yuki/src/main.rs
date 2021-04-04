@@ -32,6 +32,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
         // .level(log::LevelFilter::Warn)
         // .level(log::LevelFilter::Error)
         .level_for("gfx_device_gl", log::LevelFilter::Warn)
+        .filter(|meta| meta.target().starts_with("yuki"))
         .chain(std::io::stdout())
         .chain(std::fs::File::create("yuki.log")?)
         .apply()?;
