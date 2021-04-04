@@ -21,8 +21,6 @@ pub struct FilmSettings {
     pub tile_dim: u16,
     /// `true` if pixels need to be cleared even if the buffer is not resized
     pub clear: bool,
-    /// Value to clear the buffer with
-    pub clear_color: Vec3<f32>,
 }
 
 impl FilmSettings {
@@ -32,7 +30,6 @@ impl FilmSettings {
             res: Vec2::new(640, 480),
             tile_dim: 16,
             clear: true,
-            clear_color: Vec3::zeros(),
         }
     }
 }
@@ -152,7 +149,7 @@ impl Film {
         let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
 
         if self.pixels.len() != pixel_count || settings.clear {
-            self.pixels = vec![settings.clear_color; pixel_count];
+            self.pixels = vec![Vec3::from(0.0); pixel_count];
             self.cached_tiles = None;
             self.dirty = true;
         }

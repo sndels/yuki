@@ -685,17 +685,6 @@ fn generate_ui(
                     }
                     ret.render_triggered |=
                         ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
-                    imgui::TreeNode::new(im_str!("Clear color")).build(ui, || {
-                        ret.render_triggered |= imgui::ColorPicker::new(
-                            im_str!("Clear color picker"),
-                            imgui::EditableColor::Float3(film_settings.clear_color.array_mut()),
-                        )
-                        .flags(
-                            imgui::ColorEditFlags::NO_LABEL
-                                | imgui::ColorEditFlags::PICKER_HUE_WHEEL,
-                        )
-                        .build(ui);
-                    });
                 });
 
             ui.spacing();
@@ -860,7 +849,6 @@ fn launch_render(
                                 child_send,
                                 child_receive,
                                 tiles,
-                                film_settings.clear_color,
                                 scene,
                                 camera,
                                 film,
@@ -921,7 +909,6 @@ fn render(
     to_parent: Sender<(usize, usize)>,
     from_parent: Receiver<usize>,
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
-    clear_color: Vec3<f32>,
     scene: Arc<Scene>,
     camera: Camera,
     film: Arc<Mutex<Film>>,
@@ -972,7 +959,7 @@ fn render(
                         * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
                 })
             } else {
-                clear_color
+                scene.background
             };
 
             let Vec2 {

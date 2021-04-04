@@ -58,6 +58,7 @@ pub struct Scene {
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
     pub lights: Vec<Arc<dyn Light>>,
+    pub background: Vec3<f32>,
 }
 
 macro_rules! try_find_attr {
@@ -101,6 +102,7 @@ impl Scene {
         let mut geometry = Vec::new();
         let mut materials: HashMap<String, Vec3<f32>> = HashMap::new();
         let mut lights: Vec<Arc<dyn Light>> = Vec::new();
+        let mut background = Vec3::from(0.0);
         let mut scene_params = DynamicSceneParameters::new();
         let mut parser = EventReader::new(file_buf);
         let mut indent = String::new();
@@ -252,6 +254,7 @@ impl Scene {
                 geometry: geometry_arc,
                 bvh: bvh,
                 lights,
+                background,
             },
             scene_params,
             total_secs,
@@ -301,6 +304,7 @@ impl Scene {
                 geometry: geometry_arc,
                 bvh: bvh,
                 lights: vec![light],
+                background: Vec3::from(0.0),
             },
             DynamicSceneParameters {
                 cam_pos,
@@ -452,6 +456,7 @@ impl Scene {
                 geometry: geometry_arc,
                 bvh: bvh,
                 lights: vec![light],
+                background: Vec3::from(0.0),
             },
             DynamicSceneParameters {
                 cam_pos,
