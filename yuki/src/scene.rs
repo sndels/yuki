@@ -57,7 +57,7 @@ pub struct Scene {
     pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
-    pub light: Arc<dyn Light>,
+    pub lights: Vec<Arc<dyn Light>>,
 }
 
 macro_rules! try_find_attr {
@@ -100,7 +100,7 @@ impl Scene {
         let mut meshes = Vec::new();
         let mut geometry = Vec::new();
         let mut materials: HashMap<String, Vec3<f32>> = HashMap::new();
-        let mut light = None;
+        let mut lights: Vec<Arc<dyn Light>> = Vec::new();
         let mut scene_params = DynamicSceneParameters::new();
         let mut parser = EventReader::new(file_buf);
         let mut indent = String::new();
@@ -165,8 +165,7 @@ impl Scene {
                                     match attr_type.as_str() {
                                         "constant" => ignore_level = Some(0),
                                         "point" => {
-                                            // TODO: Multiple light sources
-                                            light = Some(parse_point_light(
+                                            lights.push(parse_point_light(
                                                 &mut parser,
                                                 indent.clone(),
                                             )?);
@@ -252,7 +251,7 @@ impl Scene {
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
-                light: light.unwrap(),
+                lights,
             },
             scene_params,
             total_secs,
@@ -301,7 +300,7 @@ impl Scene {
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
-                light,
+                lights: vec![light],
             },
             DynamicSceneParameters {
                 cam_pos,
@@ -452,7 +451,7 @@ impl Scene {
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
-                light,
+                lights: vec![light],
             },
             DynamicSceneParameters {
                 cam_pos,

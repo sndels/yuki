@@ -965,10 +965,12 @@ fn render(
                 fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
                     Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
                 }
-                let light_sample = scene.light.sample_li(&hit);
-                // TODO: Trace light visibility
-                mul(hit.albedo / std::f32::consts::PI, light_sample.li)
-                    * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
+                    let light_sample = l.sample_li(&hit);
+                    // TODO: Trace light visibility
+                    c + mul(hit.albedo / std::f32::consts::PI, light_sample.li)
+                        * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                })
             } else {
                 clear_color
             };
