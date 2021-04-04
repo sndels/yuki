@@ -809,21 +809,7 @@ fn parse_point_light<T: std::io::Read>(
                 }
             }
             "rgb" => {
-                let name = find_attr!(&attributes, "name").as_str();
-                if name != "intensity" {
-                    return Err(format!(
-                        "Expected point light rgb to be 'intensity', got '{}'",
-                        name
-                    )
-                    .into());
-                }
-                for (i, c) in find_attr!(&attributes, "value")
-                    .split(" ")
-                    .map(|c| c.parse::<f32>().unwrap())
-                    .enumerate()
-                {
-                    intensity[i] = c;
-                }
+                intensity = parse_rgb(&attributes, "intensity")?;
             }
             _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
         }
@@ -878,21 +864,7 @@ fn parse_diffuse<T: std::io::Read>(
         let data_type = name.local_name.as_str();
         match data_type {
             "rgb" => {
-                let name = find_attr!(&attributes, "name").as_str();
-                if name != "reflectance" {
-                    return Err(format!(
-                        "Expected point light rgb to be 'intensity', got '{}'",
-                        name
-                    )
-                    .into());
-                }
-                for (i, c) in find_attr!(&attributes, "value")
-                    .split(" ")
-                    .map(|c| c.parse::<f32>().unwrap())
-                    .enumerate()
-                {
-                    reflectance[i] = c;
-                }
+                reflectance = parse_rgb(&attributes, "reflectance")?;
             }
             _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
         }
@@ -900,6 +872,25 @@ fn parse_diffuse<T: std::io::Read>(
     });
 
     Ok(reflectance)
+}
+
+fn parse_rgb(
+    attributes: &Vec<xml::attribute::OwnedAttribute>,
+    expected_name: &str,
+) -> Result<Vec3<f32>> {
+    let mut v = Vec3::from(0.0);
+    let name = find_attr!(attributes, "name").as_str();
+    if name != expected_name {
+        return Err(format!("Expected rgb to be '{}', got '{}'", expected_name, name).into());
+    }
+    for (i, c) in find_attr!(attributes, "value")
+        .split(" ")
+        .map(|c| c.parse::<f32>().unwrap())
+        .enumerate()
+    {
+        v[i] = c;
+    }
+    Ok(v)
 }
 
 fn load_ply(
