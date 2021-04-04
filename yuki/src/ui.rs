@@ -37,7 +37,7 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    camera::{Camera, CameraSample},
+    camera::{Camera, CameraSample, FoV},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
@@ -685,12 +685,16 @@ fn generate_ui(
 
                             {
                                 let width = ui.push_item_width(77.0);
+                                let fov = match &mut scene_params.cam_fov {
+                                    FoV::X(ref mut v) => v,
+                                    FoV::Y(ref mut v) => v,
+                                };
                                 ret.render_triggered |= imgui::Drag::new(im_str!("Field of View"))
                                     .range(0.1..=359.9)
                                     .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                                     .speed(0.5)
                                     .display_format(im_str!("%.1f"))
-                                    .build(ui, &mut scene_params.cam_fov);
+                                    .build(ui, fov);
                                 width.pop(ui);
                             }
                         });

@@ -23,9 +23,16 @@ pub struct Camera {
     raster_to_camera: Transform<f32>,
 }
 
+// Angle in degrees
+#[derive(Copy, Clone)]
+pub enum FoV {
+    X(f32),
+    Y(f32),
+}
+
 impl Camera {
     /// Creates a new `Camera`. `fov` is horizontal and in degrees.
-    pub fn new(camera_to_world: &Transform<f32>, fov: f32, film_settings: &FilmSettings) -> Self {
+    pub fn new(camera_to_world: &Transform<f32>, fov: FoV, film_settings: &FilmSettings) -> Self {
         // Standard perspective projection with aspect ratio
         // Screen is
         // NOTE: pbrt uses a 1:1 image plane with a cutout region
@@ -33,7 +40,11 @@ impl Camera {
         // We don't really care about near, far since we only use this to project rays
         let near = 1e-2;
         let far = 1000.0;
-        let inv_tan = 1.0 / ((fov.to_radians() / 2.0).tan());
+        let fov_angle = match fov {
+            FoV::X(v) => v,
+            FoV::Y(v) => v,
+        };
+        let inv_tan = 1.0 / ((fov_angle.to_radians() / 2.0).tan());
         let camera_to_screen = &scale(inv_tan, inv_tan, 1.0)
             * &Transform::new([
                 [1.0, 0.0, 0.0, 0.0],
@@ -42,16 +53,20 @@ impl Camera {
                 [0.0, 0.0, 1.0, 0.0],
             ]);
 
-        // Screen window, pbrt default is [-1,1] along the shorter axis and
-        // proportionally scaled on the other
+        // Screen window
+        // pbrt default is [-1,1] along the shorter axis and proportionally scaled on the other
+        // We adapt the mitsuba convention that has a directional fov by scaling that to 1
         let film_x = film_settings.res.x as f32;
         let film_y = film_settings.res.y as f32;
-        let (screen_min, screen_max) = if film_x > film_y {
-            let ar = film_x / film_y;
-            (Vec2::new(-ar, -1.0), Vec2::new(ar, 1.0))
-        } else {
-            let ar = film_y / film_x;
-            (Vec2::new(-1.0, -ar), Vec2::new(1.0, ar))
+        let (screen_min, screen_max) = match fov {
+            FoV::X(_) => {
+                let ar = film_x / film_y;
+                (Vec2::new(-1.0, -1.0 / ar), Vec2::new(1.0, 1.0 / ar))
+            }
+            FoV::Y(_) => {
+                let ar = film_y / film_x;
+                (Vec2::new(-1.0 / ar, 1.0), Vec2::new(1.0 / ar, 1.0))
+            }
         };
         let screen_to_raster = &scale(film_x, film_y, 1.0)
             * &(&scale(

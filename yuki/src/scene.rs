@@ -7,6 +7,7 @@ use crate::{
         transform::{scale, translation, Transform},
         vector::Vec3,
     },
+    camera::FoV,
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
     yuki_error, yuki_info,
 };
@@ -30,7 +31,7 @@ impl SceneLoadSettings {
 pub struct DynamicSceneParameters {
     pub cam_pos: Point3<f32>,
     pub cam_target: Point3<f32>,
-    pub cam_fov: f32,
+    pub cam_fov: FoV,
 }
 
 pub struct Scene {
@@ -88,7 +89,7 @@ impl Scene {
 
         let cam_pos = Point3::new(2.0, 2.0, 2.0);
         let cam_target = Point3::new(0.0, 0.0, 0.0);
-        let cam_fov = 40.0;
+        let cam_fov = FoV::X(40.0);
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
@@ -243,7 +244,7 @@ impl Scene {
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
         let cam_target = Point3::new(278.0, 273.0, -260.0);
-        let cam_fov = 40.0;
+        let cam_fov = FoV::X(40.0);
 
         (
             Scene {
