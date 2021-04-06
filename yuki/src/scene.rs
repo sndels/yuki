@@ -870,7 +870,7 @@ fn parse_material<T: std::io::Read>(
                 *level -= 1;
                 indent.truncate(indent.len() - 2);
             }
-            _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
+            _ => return Err(format!("Unknown material data type '{}'", data_type).into()),
         }
         Ok(())
     });
