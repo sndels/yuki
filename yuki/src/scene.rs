@@ -881,7 +881,7 @@ fn parse_diffuse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Vec3<f32>> {
-    let mut reflectance = Vec3::new(0.0, 0.0, 0.0);
+    let mut reflectance = Vec3::new(0.5, 0.5, 0.5);
 
     parse_element!(parser, indent, |name: &xml::name::OwnedName,
                                     attributes: Vec<
