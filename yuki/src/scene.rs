@@ -689,6 +689,14 @@ fn parse_transform<T: std::io::Read>(
                 };
                 transform = &translation(Vec3::new(p[0], p[1], p[2])) * &transform;
             }
+            "matrix" => {
+                // TODO: map with ? possible?
+                let values: Vec<f32> = find_attr!(&attributes, "value")
+                    .split(" ")
+                    .map(|v| v.parse().unwrap())
+                    .collect();
+                transform = &Transform::new_m(values.into()) * &transform;
+            }
             _ => return Err(format!("Unknown transformation data type '{}'", data_type).into()),
         }
         Ok(())
