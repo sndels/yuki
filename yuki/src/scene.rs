@@ -1,7 +1,7 @@
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
-    lights::{light::Light, point_light::PointLight},
+    lights::{light::Light, point_light::PointLight, spot_light::SpotLight},
     math::{
         bounds::Bounds3,
         point::Point3,
@@ -171,6 +171,12 @@ impl Scene {
                                         }
                                         "point" => {
                                             lights.push(parse_point_light(
+                                                &mut parser,
+                                                indent.clone(),
+                                            )?);
+                                        }
+                                        "spot" => {
+                                            lights.push(parse_spot_light(
                                                 &mut parser,
                                                 indent.clone(),
                                             )?);
@@ -860,6 +866,57 @@ fn parse_point_light<T: std::io::Read>(
     Ok(Arc::new(PointLight::new(
         &translation(position.into()),
         intensity,
+    )))
+}
+
+fn parse_spot_light<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Arc<SpotLight>> {
+    // Mitsuba's +X is to the left, ours to the right
+    let mut light_to_world = scale(-1.0, 1.0, 1.0);
+    let mut intensity = Vec3::from(0.0);
+    let mut total_width_degrees = 0.0f32;
+    let mut falloff_start_degrees = 0.0f32;
+
+    parse_element!(parser, indent, |name: &xml::name::OwnedName,
+                                    attributes: Vec<
+        xml::attribute::OwnedAttribute,
+    >,
+                                    level: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "float" => match find_attr!(&attributes, "name").as_str() {
+                "cutoff_angle" => {
+                    total_width_degrees = find_attr!(&attributes, "value").parse()?;
+                }
+                "beam_width" => {
+                    falloff_start_degrees = find_attr!(&attributes, "value").parse()?;
+                }
+                n => return Err(format!("Unexpected spot light float 'name': '{}'", n).into()),
+            },
+            "transform" => {
+                light_to_world = parse_transform(parser, indent.clone())?;
+                *level -= 1;
+            }
+            "rgb" => {
+                intensity = parse_rgb(&attributes, "intensity")?;
+            }
+            _ => return Err(format!("Unknown spot light data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    // Mitsuba's +X is to the left, ours to the right
+    light_to_world = &scale(-1.0, 1.0, 1.0) * &light_to_world;
+
+    Ok(Arc::new(SpotLight::new(
+        &light_to_world,
+        intensity,
+        total_width_degrees,
+        falloff_start_degrees,
     )))
 }
 
