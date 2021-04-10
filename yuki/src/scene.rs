@@ -614,8 +614,9 @@ fn parse_sensor<T: std::io::Read>(
         Ok(())
     });
 
-    // Mitsuba camera looks at +Z with +X on the left, ours at -Z with +X on the right
-    transform = &scale(1.0, 1.0, -1.0) * &(&transform * &rotation_y(std::f32::consts::PI));
+    // Mitsuba camera looks at +Z with +X on the left, ours at +Z with +X on the right
+    // TODO: This should not be the correction needed
+    transform = &transform * &rotation_y(std::f32::consts::PI);
 
     let cam_pos = &transform * Point3::new(0.0, 0.0, 0.0);
     let cam_target = &transform * Point3::new(0.0, 0.0, -1.0);
@@ -757,6 +758,9 @@ fn parse_shape<T: std::io::Read>(
         }
         Ok(())
     });
+
+    // Mitsuba's +X is to the left, ours to the right
+    transform = &scale(-1.0, 1.0, 1.0) * &transform;
 
     if let None = ply_abspath {
         return Err("Mesh with no ply".into());
