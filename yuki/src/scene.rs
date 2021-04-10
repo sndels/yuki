@@ -5,13 +5,14 @@ use crate::{
     math::{
         bounds::Bounds3,
         point::Point3,
-        transform::{rotation, rotation_y, scale, translation, Transform},
+        transform::{rotation, scale, translation, Transform},
         vector::Vec3,
     },
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
     yuki_error, yuki_info, yuki_trace,
 };
 
+use approx::relative_eq;
 use ply_rs;
 use std::{
     collections::{HashMap, HashSet},
@@ -34,17 +35,29 @@ impl SceneLoadSettings {
     }
 }
 
+pub enum CameraOrientation {
+    Pose {
+        cam_pos: Point3<f32>,
+        cam_euler_deg: Vec3<f32>,
+    },
+    LookAt {
+        cam_pos: Point3<f32>,
+        cam_target: Point3<f32>,
+    },
+}
+
 pub struct DynamicSceneParameters {
-    pub cam_pos: Point3<f32>,
-    pub cam_target: Point3<f32>,
+    pub cam_orientation: CameraOrientation,
     pub cam_fov: FoV,
 }
 
 impl DynamicSceneParameters {
     fn new() -> Self {
         Self {
-            cam_pos: Point3::new(0.0, 0.0, 0.0),
-            cam_target: Point3::new(0.0, 0.0, 0.0),
+            cam_orientation: CameraOrientation::LookAt {
+                cam_pos: Point3::new(0.0, 0.0, 0.0),
+                cam_target: Point3::new(0.0, 0.0, 0.0),
+            },
             cam_fov: FoV::X(0.0),
         }
     }
@@ -149,11 +162,8 @@ impl Scene {
                                     ignore_level = Some(0);
                                 }
                                 "sensor" => {
-                                    (
-                                        scene_params.cam_pos,
-                                        scene_params.cam_target,
-                                        scene_params.cam_fov,
-                                    ) = parse_sensor(&mut parser, indent.clone())?;
+                                    (scene_params.cam_orientation, scene_params.cam_fov) =
+                                        parse_sensor(&mut parser, indent.clone())?;
                                     indent.truncate(indent.len() - 2);
                                 }
                                 "bsdf" => {
@@ -316,8 +326,10 @@ impl Scene {
                 background: Vec3::from(0.0),
             },
             DynamicSceneParameters {
-                cam_pos,
-                cam_target,
+                cam_orientation: CameraOrientation::LookAt {
+                    cam_pos,
+                    cam_target,
+                },
                 cam_fov,
             },
             total_secs,
@@ -468,8 +480,10 @@ impl Scene {
                 background: Vec3::from(0.0),
             },
             DynamicSceneParameters {
-                cam_pos,
-                cam_target,
+                cam_orientation: CameraOrientation::LookAt {
+                    cam_pos,
+                    cam_target,
+                },
                 cam_fov,
             },
         )
@@ -563,7 +577,7 @@ macro_rules! parse_element {
 fn parse_sensor<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> Result<(Point3<f32>, Point3<f32>, FoV)> {
+) -> Result<(CameraOrientation, FoV)> {
     let mut fov_axis = String::new();
     let mut fov_angle = 0.0f32;
     let mut transform = Transform::default();
@@ -620,12 +634,16 @@ fn parse_sensor<T: std::io::Read>(
         Ok(())
     });
 
-    // Mitsuba camera looks at +Z with +X on the left, ours at +Z with +X on the right
-    // TODO: This should not be the correction needed
-    transform = &transform * &rotation_y(std::f32::consts::PI);
+    let (cam_pos, cam_euler, cam_scale) = match transform.m().decompose() {
+        Ok(result) => result,
+        Err(e) => {
+            return Err(format!("Cannot decompose camera to world matrix: {}", e).into());
+        }
+    };
+    if !relative_eq!(cam_scale, Vec3::new(1.0, 1.0, 1.0)) {
+        return Err("Camera to world has scaling".into());
+    }
 
-    let cam_pos = &transform * Point3::new(0.0, 0.0, 0.0);
-    let cam_target = &transform * Point3::new(0.0, 0.0, -1.0);
     if fov_axis != "x" {
         return Err("Only horizontal fov is supported".into());
     }
@@ -637,7 +655,17 @@ fn parse_sensor<T: std::io::Read>(
         }
     };
 
-    Ok((cam_pos, cam_target, cam_fov))
+    Ok((
+        CameraOrientation::Pose {
+            cam_pos,
+            cam_euler_deg: Vec3::new(
+                cam_euler.x.to_degrees(),
+                cam_euler.y.to_degrees(),
+                cam_euler.z.to_degrees(),
+            ),
+        },
+        cam_fov,
+    ))
 }
 
 fn parse_transform<T: std::io::Read>(

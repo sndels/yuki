@@ -42,10 +42,10 @@ use crate::{
     film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
         point::Point2,
-        transform::look_at,
+        transform::{look_at, rotation_euler, translation},
         vector::{Vec2, Vec3},
     },
-    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -695,15 +695,36 @@ fn generate_ui(
                     imgui::TreeNode::new(im_str!("Camera"))
                         .default_open(true)
                         .build(ui, || {
-                            ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, scene_params.cam_pos.array_mut());
+                            match &mut scene_params.cam_orientation {
+                                CameraOrientation::LookAt {
+                                    ref mut cam_pos,
+                                    ref mut cam_target,
+                                } => {
+                                    ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
+                                        .speed(0.1)
+                                        .display_format(im_str!("%.1f"))
+                                        .build_array(ui, cam_pos.array_mut());
 
-                            ret.render_triggered |= imgui::Drag::new(im_str!("Target"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, scene_params.cam_target.array_mut());
+                                    ret.render_triggered |= imgui::Drag::new(im_str!("Target"))
+                                        .speed(0.1)
+                                        .display_format(im_str!("%.1f"))
+                                        .build_array(ui, cam_target.array_mut());
+                                }
+                                CameraOrientation::Pose {
+                                    ref mut cam_pos,
+                                    ref mut cam_euler_deg,
+                                } => {
+                                    ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
+                                        .speed(0.1)
+                                        .display_format(im_str!("%.1f"))
+                                        .build_array(ui, cam_pos.array_mut());
+
+                                    ret.render_triggered |= imgui::Drag::new(im_str!("Rotation"))
+                                        .speed(0.1)
+                                        .display_format(im_str!("%.1f"))
+                                        .build_array(ui, cam_euler_deg.array_mut());
+                                }
+                            }
 
                             {
                                 let width = ui.push_item_width(77.0);
@@ -806,16 +827,24 @@ fn launch_render(
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
-    let camera = Camera::new(
-        &look_at(
-            scene_params.cam_pos,
-            scene_params.cam_target,
-            Vec3::new(0.0, 1.0, 0.0),
-        )
-        .inverted(),
-        scene_params.cam_fov,
-        &film_settings,
-    );
+    let cam_to_world = match scene_params.cam_orientation {
+        CameraOrientation::LookAt {
+            cam_pos,
+            cam_target,
+        } => look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
+        CameraOrientation::Pose {
+            cam_pos,
+            cam_euler_deg,
+        } => {
+            &translation(cam_pos.into())
+                * &rotation_euler(Vec3::new(
+                    cam_euler_deg.x.to_radians(),
+                    cam_euler_deg.y.to_radians(),
+                    cam_euler_deg.z.to_radians(),
+                ))
+        }
+    };
+    let camera = Camera::new(&cam_to_world, scene_params.cam_fov, &film_settings);
 
     std::thread::spawn(move || {
         yuki_debug!("Render: Begin");
@@ -844,15 +873,7 @@ fn launch_render(
                     (
                         to_child,
                         std::thread::spawn(move || {
-                            render(
-                                i,
-                                child_send,
-                                child_receive,
-                                tiles,
-                                scene,
-                                camera,
-                                film,
-                            );
+                            render(i, child_send, child_receive, tiles, scene, camera, film);
                         }),
                     ),
                 )
