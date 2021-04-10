@@ -334,6 +334,14 @@ where
     Transform::new_full(m, m.transposed())
 }
 
+/// Creates a new `Transform` that is a rotation of euler angles `theta`.
+pub fn rotation_euler<T>(theta: Vec3<T>) -> Transform<T>
+where
+    T: FloatValueType,
+{
+    &rotation_x(theta.x) * &(&rotation_y(theta.y) * &rotation_z(theta.z))
+}
+
 /// Creates a world_to_camera `Transform` with the camera at `pos` looking at `target` with `up` as the up vector.
 pub fn look_at<T>(pos: Point3<T>, target: Point3<T>, up: Vec3<T>) -> Transform<T>
 where
