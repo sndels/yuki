@@ -17,6 +17,28 @@
             "preLaunchTask": "Build bench"
         },
         {
+            "name": "(CppVSDbg) yuki release",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/release/yuki.exe",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": ""
+        },
+        {
+            "name": "(CppVSDbg) yuki debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/yuki.exe",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": ""
+        },
+        {
             "name": "(LLDB) yuki release",
             "type": "lldb",
             "request": "launch",
