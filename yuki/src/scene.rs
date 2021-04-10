@@ -5,7 +5,7 @@ use crate::{
     math::{
         bounds::Bounds3,
         point::Point3,
-        transform::{rotation, scale, translation, Transform},
+        transform::{rotation, rotation_y, scale, translation, Transform},
         vector::Vec3,
     },
     shapes::{mesh::Mesh, shape::Shape, sphere::Sphere, triangle::Triangle},
@@ -659,9 +659,10 @@ fn parse_sensor<T: std::io::Read>(
         CameraOrientation::Pose {
             cam_pos,
             cam_euler_deg: Vec3::new(
-                cam_euler.x.to_degrees(),
+                // Seems odd that y doesn't need negation since that too is cw for us instead of mitsuba's ccw
+                -cam_euler.x.to_degrees(),
                 cam_euler.y.to_degrees(),
-                cam_euler.z.to_degrees(),
+                -cam_euler.z.to_degrees(),
             ),
         },
         cam_fov,
@@ -750,7 +751,6 @@ fn parse_shape<T: std::io::Read>(
     if data_type != "ply" {
         return Err(format!("Unexpected shape type '{}'!", data_type).into());
     }
-
     let mut transform = Transform::default();
     let mut ply_abspath = None;
     let mut material_id = None;
@@ -801,8 +801,8 @@ fn parse_shape<T: std::io::Read>(
         Ok(())
     });
 
-    // Mitsuba's +X is to the left, ours to the right
-    transform = &scale(-1.0, 1.0, 1.0) * &transform;
+    // Mitsuba's +X is to the left of +Z, ours to the right of it
+    transform = &transform * &scale(-1.0, 1.0, 1.0);
 
     if let None = ply_abspath {
         return Err("Mesh with no ply".into());
@@ -901,8 +901,7 @@ fn parse_spot_light<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<SpotLight>> {
-    // Mitsuba's +X is to the left, ours to the right
-    let mut light_to_world = scale(-1.0, 1.0, 1.0);
+    let mut light_to_world = Transform::default();
     let mut intensity = Vec3::from(0.0);
     let mut total_width_degrees = 0.0f32;
     let mut falloff_start_degrees = 0.0f32;
@@ -937,7 +936,7 @@ fn parse_spot_light<T: std::io::Read>(
         Ok(())
     });
 
-    // Mitsuba's +X is to the left, ours to the right
+    // Mitsuba's +X is to the left of +Z, ours to the right of it
     light_to_world = &scale(-1.0, 1.0, 1.0) * &light_to_world;
 
     Ok(Arc::new(SpotLight::new(
