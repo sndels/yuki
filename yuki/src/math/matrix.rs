@@ -226,6 +226,21 @@ where
     }
 }
 
+impl<T> From<Vec<T>> for Matrix4x4<T>
+where
+    T: FloatValueType,
+{
+    fn from(m: Vec<T>) -> Self {
+        assert!(m.len() == 16);
+        Self::new([
+            [m[0], m[1], m[2], m[3]],
+            [m[4], m[5], m[6], m[7]],
+            [m[8], m[9], m[10], m[11]],
+            [m[12], m[13], m[14], m[15]],
+        ])
+    }
+}
+
 // By ref is about twice as fast as by value so let's just endure the syntax
 impl<'a, 'b, T> Mul<&'b Matrix4x4<T>> for &'a Matrix4x4<T>
 where
