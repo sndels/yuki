@@ -1,7 +1,7 @@
 use approx::{AbsDiffEq, RelativeEq};
 use std::ops::Mul;
 
-use super::common::FloatValueType;
+use super::{common::FloatValueType, point::Point3, vector::Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Utilities/Mathematical_Routines.html#Matrix4x4
@@ -223,6 +223,42 @@ where
             }
         }
         Matrix4x4::new(mi)
+    }
+
+    /// Tries to decompose the matrix into translation, rotation and scaling
+    pub fn decompose(&self) -> Result<(Point3<T>, Vec3<T>, Vec3<T>), String> {
+        let m = &self.m;
+
+        let translation = Point3::new(m[0][3], m[1][3], m[2][3]);
+
+        let scale = Vec3::new(
+            Vec3::new(m[0][0], m[1][0], m[2][0]).len(),
+            Vec3::new(m[0][1], m[1][1], m[2][1]).len(),
+            Vec3::new(m[0][2], m[1][2], m[2][2]).len(),
+        );
+
+        if scale.x == T::zero() || scale.y == T::zero() || scale.z == T::zero() {
+            return Err("Cannot decompose matrix with a zero scale component".into());
+        }
+
+        let mr = [
+            [m[0][0] / scale.x, m[0][1] / scale.y, m[0][2] / scale.z],
+            [m[1][0] / scale.x, m[1][1] / scale.y, m[1][2] / scale.z],
+            [m[2][0] / scale.x, m[2][1] / scale.y, m[2][2] / scale.z],
+        ];
+
+        // Extracting Euler Angles from a Rotation Matrix
+        // Mike Day, Insomniac Games
+        let theta_x = mr[1][2].atan2(mr[2][2]);
+        let c2 = (mr[0][0] * mr[0][0] + mr[0][1] * mr[0][1]).sqrt();
+        let theta_y = (-mr[0][2]).atan2(c2);
+        let s1 = theta_x.sin();
+        let c1 = theta_x.cos();
+        let theta_z = (s1 * mr[2][0] - c1 * mr[1][0]).atan2(c1 * mr[1][1] - s1 * mr[2][1]);
+
+        let rotation = Vec3::new(theta_x, theta_y, theta_z);
+
+        Ok((translation, rotation, scale))
     }
 }
 
