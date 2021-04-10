@@ -1,4 +1,3 @@
-#![feature(iter_partition_in_place)]
 #![feature(destructuring_assignment)]
 
 mod bvh;

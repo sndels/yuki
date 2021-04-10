@@ -201,10 +201,9 @@ impl BoundingVolumeHierarchy {
                         // Partition shapes by their centroids on the two sides of the axis' middle point
                         let mid_value =
                             (centroid_bounds.p_min[axis] + centroid_bounds.p_max[axis]) / 2.0;
-                        mid = shape_info[start..end]
-                            .iter_mut()
-                            .partition_in_place(|s| s.centroid[axis] < mid_value)
-                            + start;
+                        mid = itertools::partition(shape_info[start..end].iter_mut(), |s| {
+                            s.centroid[axis] < mid_value
+                        }) + start;
 
                         if mid != start && mid != end {
                             SplitMethod::Middle
