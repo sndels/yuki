@@ -292,8 +292,8 @@ where
     let cos_theta = theta.cos();
     let sin_theta = theta.sin();
     let m = Matrix4x4::new([
-        [cos_theta, -sin_theta, T::zero(), T::zero()],
-        [sin_theta, cos_theta, T::zero(), T::zero()],
+        [cos_theta, sin_theta, T::zero(), T::zero()],
+        [-sin_theta, cos_theta, T::zero(), T::zero()],
         [T::zero(), T::zero(), T::one(), T::zero()],
         [T::zero(), T::zero(), T::zero(), T::one()],
     ]);
