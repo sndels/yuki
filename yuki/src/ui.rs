@@ -45,6 +45,7 @@ use crate::{
         transform::{look_at, rotation_euler, translation},
         vector::{Vec2, Vec3},
     },
+    samplers::{create_sampler, Sampler, SamplerSettings},
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
@@ -135,6 +136,7 @@ const MIN_RES: u16 = 64;
 const MAX_RES: u16 = 4096;
 const RES_STEP: u16 = 2;
 const TILE_STEP: u16 = 2;
+const MAX_SAMPLES: u16 = 32;
 
 impl Window {
     pub fn new(title: &str, resolution: (u16, u16)) -> Window {
@@ -331,6 +333,10 @@ impl Window {
         let mut update_film_vbo = true;
         let mut status_messages: Option<Vec<String>> = None;
         let mut load_settings = SceneLoadSettings::default();
+        let mut sampler_settings = SamplerSettings::StratifiedSampler {
+            pixel_samples: Vec2::new(1, 1),
+            jitter_samples: false,
+        };
 
         let mut match_logical_cores = true;
 
@@ -391,6 +397,7 @@ impl Window {
                         &ui,
                         &window,
                         &mut film_settings,
+                        &mut sampler_settings,
                         &mut scene_params,
                         &mut load_settings,
                         &mut match_logical_cores,
@@ -471,6 +478,7 @@ impl Window {
                                 scene.clone(),
                                 &scene_params,
                                 film.clone(),
+                                create_sampler(sampler_settings),
                                 film_settings,
                                 match_logical_cores,
                             );
@@ -638,6 +646,7 @@ fn generate_ui(
     ui: &imgui::Ui,
     window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
+    sampler_settings: &mut SamplerSettings,
     scene_params: &mut DynamicSceneParameters,
     load_settings: &mut SceneLoadSettings,
     match_logical_cores: &mut bool,
@@ -685,6 +694,31 @@ fn generate_ui(
                     }
                     ret.render_triggered |=
                         ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
+                });
+
+            ui.spacing();
+
+            imgui::TreeNode::new(im_str!("Sampler"))
+                .default_open(true)
+                .build(ui, || {
+                    // TODO: Sampler picker
+                    match sampler_settings {
+                        SamplerSettings::StratifiedSampler {
+                            pixel_samples,
+                            jitter_samples,
+                        } => {
+                            ret.render_triggered |= vec2_u16_picker(
+                                ui,
+                                im_str!("Pixel samples"),
+                                pixel_samples,
+                                1,
+                                MAX_SAMPLES,
+                                1.0,
+                            );
+                            ret.render_triggered |=
+                                ui.checkbox(im_str!("Jitter samples"), jitter_samples);
+                        }
+                    }
                 });
 
             ui.spacing();
@@ -824,6 +858,7 @@ fn launch_render(
     scene: Arc<Scene>,
     scene_params: &DynamicSceneParameters,
     mut film: Arc<Mutex<Film>>,
+    sampler: Arc<dyn Sampler>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
@@ -868,12 +903,22 @@ fn launch_render(
                 let camera = camera.clone();
                 let scene = scene.clone();
                 let film = film.clone();
+                let sampler = sampler.clone();
                 (
                     i,
                     (
                         to_child,
                         std::thread::spawn(move || {
-                            render(i, child_send, child_receive, tiles, scene, camera, film);
+                            render(
+                                i,
+                                child_send,
+                                child_receive,
+                                tiles,
+                                scene,
+                                camera,
+                                sampler,
+                                film,
+                            );
                         }),
                     ),
                 )
@@ -932,6 +977,7 @@ fn render(
     tiles: Arc<Mutex<VecDeque<FilmTile>>>,
     scene: Arc<Scene>,
     camera: Camera,
+    sampler: Arc<dyn Sampler>,
     film: Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
@@ -952,36 +998,49 @@ fn render(
         }
         let mut tile = tile.unwrap();
         let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
+        // Init per tile to try and get as deterministic results as possible between runs
+        // This makes the rng the same per tile regardless of which threads take which tiles
+        // Of course, this is useful only for debug but the init hit is miniscule in comparison to render time
+        let mut sampler = sampler
+            .as_ref()
+            .clone(((tile.bb.p_min.x as u64) << 32) & (tile.bb.p_min.y as u64));
 
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         for p in tile.bb {
-            // Let's have low latency kills for more interactive view
-            if let Ok(_) = from_parent.try_recv() {
-                yuki_debug!("Render thread {}: Killed by parent", thread_id);
-                break 'work;
-            }
-
-            let ray = camera.ray(CameraSample {
-                p_film: Point2::new(p.x as f32, p.y as f32),
-            });
-
-            let hit = scene.bvh.intersect(ray);
-            rays += 1;
-
-            let color = if let Some(hit) = hit {
-                // TODO: Do color/spectrum class for this math
-                fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-                    Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+            sampler.start_pixel();
+            let mut color = Vec3::from(0.0);
+            for _ in 0..sampler.samples_per_pixel() {
+                // Let's have low latency kills for more interactive view
+                if let Ok(_) = from_parent.try_recv() {
+                    yuki_debug!("Render thread {}: Killed by parent", thread_id);
+                    break 'work;
                 }
-                scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
-                    let light_sample = l.sample_li(&hit);
-                    // TODO: Trace light visibility
-                    c + mul(hit.albedo / std::f32::consts::PI, light_sample.li)
-                        * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
-                })
-            } else {
-                scene.background
-            };
+
+                sampler.start_sample();
+
+                let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
+
+                let ray = camera.ray(CameraSample { p_film });
+
+                let hit = scene.bvh.intersect(ray);
+                rays += 1;
+
+                color += if let Some(hit) = hit {
+                    // TODO: Do color/spectrum class for this math
+                    fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
+                        Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+                    }
+                    scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
+                        let light_sample = l.sample_li(&hit);
+                        // TODO: Trace light visibility
+                        c + mul(hit.albedo / std::f32::consts::PI, light_sample.li)
+                            * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                    })
+                } else {
+                    scene.background
+                };
+            }
+            color /= sampler.samples_per_pixel() as f32;
 
             let Vec2 {
                 x: tile_x,

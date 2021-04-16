@@ -7,6 +7,7 @@ mod hit;
 mod lights;
 mod macros;
 mod math;
+mod samplers;
 mod scene;
 mod shapes;
 mod ui;
