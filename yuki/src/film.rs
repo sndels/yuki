@@ -155,6 +155,32 @@ impl Film {
         }
     }
 
+    /// Circles the given tile in this `Film` with a pixel border of `color`.
+    pub fn mark(&mut self, tile: &FilmTile, color: Vec3<f32>) {
+        let (left, top, right, bottom) = (
+            tile.bb.p_min.x as usize,
+            tile.bb.p_min.y as usize,
+            tile.bb.p_max.x as usize,
+            tile.bb.p_max.y as usize,
+        );
+
+        for j in &[top, bottom - 1] {
+            let row_first = j * (self.res.x as usize);
+            for i in left..right {
+                self.pixels[row_first + i] = color;
+            }
+        }
+
+        for i in &[left, right - 1] {
+            for j in top..bottom {
+                let row_first = j * (self.res.x as usize);
+                self.pixels[row_first + i] = color;
+            }
+        }
+
+        self.dirty = true;
+    }
+
     /// Updates this `Film` with the pixel values in a [FilmTile].
     pub fn update_tile(&mut self, tile: FilmTile) {
         if tile.generation != self.generation {
