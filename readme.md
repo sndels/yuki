@@ -7,7 +7,7 @@ Ray cast renderer based on [Physically Based Rendering 3rd edition](http://www.p
 UI Features:
 - Uniformly scaling film view
 - ~Non-blocking rendering
-  - Relaunch on changed Film, camera settings
+  - Relaunch on most setting changes
 - Scene formats (partially) supported
   - [PLY](http://paulbourke.net/dataformats/ply/)
   - [Mitsuba 2.0](https://mitsuba2.readthedocs.io/en/latest/)
@@ -15,8 +15,13 @@ UI Features:
 Renderer features:
 - Tile-based rendering
   - Unwinding spiral pattern
+  - Active work tiles are marked (but not separately cleared if render is restarted)
 - BVH
 - View rays only, direct lighting
+- Stratified sampling
+- Light types
+  - Point
+  - Spot
 
 ## yuki_derive
 
