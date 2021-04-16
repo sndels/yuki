@@ -997,6 +997,17 @@ fn render(
             break;
         }
         let mut tile = tile.unwrap();
+        yuki_trace!("Render thread {}: Mark tile {:?}", thread_id, tile.bb);
+        {
+            yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
+            let mut film = film.lock().unwrap();
+            yuki_trace!("Render thread {}: Acquired film", thread_id);
+
+            film.mark(&tile, Vec3::new(1.0, 0.0, 1.0));
+
+            yuki_trace!("Render thread {}: Releasing film", thread_id);
+        }
+
         let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
         // Init per tile to try and get as deterministic results as possible between runs
         // This makes the rng the same per tile regardless of which threads take which tiles
