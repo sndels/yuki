@@ -5,7 +5,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
     lights::{Light, PointLight},
-    math::{transform::translation, Point3, Transform, Vec3},
+    math::{transforms::translation, Point3, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
 };

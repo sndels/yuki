@@ -1,6 +1,6 @@
 use crate::{
     find_attr,
-    math::{transform::scale, Transform, Vec3},
+    math::{transforms::scale, Transform, Vec3},
     parse_element,
     scene::ply,
     shapes::{Mesh, Shape},

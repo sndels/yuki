@@ -1,7 +1,7 @@
 use crate::{
     film::FilmSettings,
     math::{
-        transform::{scale, translation},
+        transforms::{scale, translation},
         Point2, Point3, Ray, Transform, Vec2, Vec3,
     },
 };

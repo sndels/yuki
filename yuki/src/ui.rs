@@ -41,7 +41,7 @@ use crate::{
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
-        transform::{look_at, rotation_euler, translation},
+        transforms::{look_at, rotation_euler, translation},
         Point2, Vec2, Vec3,
     },
     samplers::{create_sampler, Sampler, SamplerSettings},

@@ -6,7 +6,7 @@ use crate::{
     find_attr,
     lights::{Light, PointLight, SpotLight},
     math::{
-        transform::{scale, translation},
+        transforms::{scale, translation},
         Point3, Transform, Vec3,
     },
     parse_element, yuki_error, yuki_info, yuki_trace,

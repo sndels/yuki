@@ -4,7 +4,8 @@ mod matrix;
 mod normal;
 mod point;
 mod ray;
-pub mod transform;
+mod transform;
+pub mod transforms;
 mod vector;
 
 pub use bounds::{Bounds2, Bounds3};

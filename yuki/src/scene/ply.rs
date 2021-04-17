@@ -1,7 +1,7 @@
 use super::Result;
 use crate::{
     math::{
-        transform::{scale, translation},
+        transforms::{scale, translation},
         Bounds3, Point3, Transform, Vec3,
     },
     shapes::{Mesh, Shape, Triangle},
