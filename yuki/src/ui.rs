@@ -693,8 +693,11 @@ fn generate_ui(
                         );
                         width.pop(ui);
                     }
-                    ret.render_triggered |=
-                        ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear);
+                    if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
+                        && film_settings.clear
+                    {
+                        ret.render_triggered = true;
+                    }
                 });
 
             ui.spacing();
