@@ -1,7 +1,7 @@
 use crate::{
     camera::FoV,
     find_attr,
-    math::{Vec3, Transform},
+    math::{Transform, Vec3},
     parse_element,
     scene::CameraOrientation,
     yuki_error, yuki_info, yuki_trace,
@@ -95,10 +95,10 @@ pub fn parse<T: std::io::Read>(
         CameraOrientation::Pose {
             cam_pos,
             cam_euler_deg: Vec3::new(
-                // Seems odd that y doesn't need negation since that too is cw for us instead of mitsuba's ccw
+                // Mitsuba's +X is to the right, ours to the left
                 -cam_euler.x.to_degrees(),
                 cam_euler.y.to_degrees(),
-                -cam_euler.z.to_degrees(),
+                cam_euler.z.to_degrees(),
             ),
         },
         cam_fov,
