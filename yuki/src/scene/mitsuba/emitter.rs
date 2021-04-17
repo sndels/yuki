@@ -4,11 +4,10 @@ use super::{
 };
 use crate::{
     find_attr,
-    lights::{point_light::PointLight, spot_light::SpotLight, Light},
+    lights::{Light, PointLight, SpotLight},
     math::{
-        point::Point3,
-        transform::{scale, translation, Transform},
-        vector::Vec3,
+        transform::{scale, translation},
+        Point3, Transform, Vec3,
     },
     parse_element, yuki_error, yuki_info, yuki_trace,
 };

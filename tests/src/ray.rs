@@ -3,7 +3,7 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
-    use yuki::math::{point::Point3, ray::Ray, vector::Vec3};
+    use yuki::math::{Point3, Ray, Vec3};
 
     #[test]
     fn new() {

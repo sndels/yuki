@@ -1,6 +1,8 @@
-pub mod stratified;
+mod stratified;
 
-use crate::math::{point::Point2, vector::Vec2};
+pub use stratified::StratifiedSampler;
+
+use crate::math::{Point2, Vec2};
 use std::sync::Arc;
 
 #[derive(Copy, Clone)]
@@ -18,7 +20,7 @@ pub fn create_sampler(settings: SamplerSettings) -> Arc<dyn Sampler> {
             pixel_samples,
             jitter_samples,
             ..
-        } => stratified::StratifiedSampler::new(pixel_samples, jitter_samples),
+        } => StratifiedSampler::new(pixel_samples, jitter_samples),
     })
 }
 

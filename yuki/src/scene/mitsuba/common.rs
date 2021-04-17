@@ -1,4 +1,4 @@
-use crate::{find_attr, math::vector::Vec3};
+use crate::{find_attr, math::Vec3};
 use xml::attribute::OwnedAttribute;
 
 pub type ParseResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;

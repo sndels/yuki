@@ -1,7 +1,7 @@
 use crate::{
     camera::FoV,
     find_attr,
-    math::{transform::Transform, vector::Vec3},
+    math::{Vec3, Transform},
     parse_element,
     scene::CameraOrientation,
     yuki_error, yuki_info, yuki_trace,

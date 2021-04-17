@@ -1,12 +1,9 @@
 use crate::{
     find_attr,
-    math::{
-        transform::{scale, Transform},
-        vector::Vec3,
-    },
+    math::{transform::scale, Transform, Vec3},
     parse_element,
     scene::ply,
-    shapes::{mesh::Mesh, Shape},
+    shapes::{Mesh, Shape},
     yuki_error, yuki_info, yuki_trace,
 };
 

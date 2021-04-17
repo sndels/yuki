@@ -1,10 +1,8 @@
 use crate::{
     film::FilmSettings,
     math::{
-        point::{Point2, Point3},
-        ray::Ray,
-        transform::{scale, translation, Transform},
-        vector::{Vec2, Vec3},
+        transform::{scale, translation},
+        Point2, Point3, Ray, Transform, Vec2, Vec3,
     },
 };
 

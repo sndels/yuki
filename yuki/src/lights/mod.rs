@@ -1,7 +1,10 @@
-pub mod point_light;
-pub mod spot_light;
+mod point_light;
+mod spot_light;
 
-use crate::{hit::Hit, math::vector::Vec3};
+pub use point_light::PointLight;
+pub use spot_light::SpotLight;
+
+use crate::{hit::Hit, math::Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Light_Sources/Light_Interface.html#Light

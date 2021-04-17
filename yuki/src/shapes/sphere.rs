@@ -1,10 +1,7 @@
 use super::Shape;
 use crate::{
     hit::Hit,
-    math::{
-        bounds::Bounds3, normal::Normal, point::Point3, ray::Ray, transform::Transform,
-        vector::Vec3,
-    },
+    math::{Bounds3, Normal, Point3, Ray, Transform, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.

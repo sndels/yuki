@@ -1,4 +1,4 @@
-use crate::math::{point::Point3, transform::Transform};
+use crate::math::{Point3, Transform};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Light_Sources/Point_Lights.html

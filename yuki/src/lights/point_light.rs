@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     hit::Hit,
-    math::{point::Point3, transform::Transform, vector::Vec3},
+    math::{Point3, Transform, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.

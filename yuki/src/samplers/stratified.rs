@@ -1,5 +1,5 @@
 use super::Sampler;
-use crate::math::{point::Point2, vector::Vec2};
+use crate::math::{Point2, Vec2};
 
 use rand::{
     distributions::{Standard, Uniform},

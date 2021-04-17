@@ -1,10 +1,14 @@
-pub mod mesh;
-pub mod sphere;
-pub mod triangle;
+mod mesh;
+mod sphere;
+mod triangle;
+
+pub use mesh::Mesh;
+pub use sphere::Sphere;
+pub use triangle::Triangle;
 
 use crate::{
     hit::Hit,
-    math::{bounds::Bounds3, ray::Ray},
+    math::{Bounds3, Ray},
 };
 
 // Based on Physically Based Rendering 3rd ed.

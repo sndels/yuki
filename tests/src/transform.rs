@@ -2,10 +2,7 @@
 mod tests {
     use approx::assert_abs_diff_eq;
 
-    use yuki::math::{
-        bounds::Bounds3, matrix::Matrix4x4, normal::Normal, point::Point3, ray::Ray,
-        transform::Transform, vector::Vec3,
-    };
+    use yuki::math::{Bounds3, Matrix4x4, Normal, Point3, Ray, Transform, Vec3};
 
     // These are by no means exhaustive. We throw some simple cases at the implementation
     // to catch obvious typos

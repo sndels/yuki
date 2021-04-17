@@ -2,11 +2,7 @@
 mod tests {
     use num::Bounded;
 
-    use yuki::math::{
-        bounds::{Bounds2, Bounds3},
-        point::{Point2, Point3},
-        vector::{Vec2, Vec3},
-    };
+    use yuki::math::{Bounds2, Bounds3, Point2, Point3, Vec2, Vec3};
 
     #[test]
     fn new() {

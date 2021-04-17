@@ -3,11 +3,7 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne, assert_relative_eq, assert_relative_ne};
     use std::panic;
 
-    use yuki::math::{
-        normal::Normal,
-        point::Point3,
-        vector::{Vec2, Vec3, Vec4},
-    };
+    use yuki::math::{Normal, Point3, Vec2, Vec3, Vec4};
 
     // Test both Vec* structs and the generation macros here.
     // Aim is to check everything we expect is implemented and works as expected.

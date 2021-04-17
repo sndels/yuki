@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use crate::{
     hit::Hit,
-    math::{bounds::Bounds3, point::Point3, ray::Ray, vector::Vec3},
+    math::{Bounds3, Point3, Ray, Vec3},
     shapes::Shape,
     yuki_info,
 };

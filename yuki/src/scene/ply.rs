@@ -1,12 +1,10 @@
 use super::Result;
 use crate::{
     math::{
-        bounds::Bounds3,
-        point::Point3,
-        transform::{scale, translation, Transform},
-        vector::Vec3,
+        transform::{scale, translation},
+        Bounds3, Point3, Transform, Vec3,
     },
-    shapes::{mesh::Mesh, Shape, triangle::Triangle},
+    shapes::{Mesh, Shape, Triangle},
     yuki_error, yuki_info,
 };
 

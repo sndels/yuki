@@ -1,4 +1,4 @@
-use crate::math::{normal::Normal, point::Point3, vector::Vec3};
+use crate::math::{Normal, Point3, Vec3};
 
 /// Info of a surface hit
 #[derive(Clone)]

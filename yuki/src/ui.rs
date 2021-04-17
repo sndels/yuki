@@ -41,9 +41,8 @@ use crate::{
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
     math::{
-        point::Point2,
         transform::{look_at, rotation_euler, translation},
-        vector::{Vec2, Vec3},
+        Point2, Vec2, Vec3,
     },
     samplers::{create_sampler, Sampler, SamplerSettings},
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
@@ -51,7 +50,7 @@ use crate::{
 };
 
 // We need to convert our Vec3<f32> pixel buffer to &[f32]
-unsafe impl<T> gfx::memory::Pod for Vec3<T> where T: crate::math::common::ValueType {}
+unsafe impl<T> gfx::memory::Pod for Vec3<T> where T: crate::math::ValueType {}
 
 impl gfx::format::SurfaceTyped for Vec3<f32> {
     type DataType = Self;

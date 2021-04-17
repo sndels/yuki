@@ -4,13 +4,9 @@ mod ply;
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
-    lights::{point_light::PointLight, Light},
-    math::{
-        point::Point3,
-        transform::{translation, Transform},
-        vector::Vec3,
-    },
-    shapes::{mesh::Mesh, sphere::Sphere, triangle::Triangle, Shape},
+    lights::{Light, PointLight},
+    math::{transform::translation, Point3, Transform, Vec3},
+    shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
 };
 

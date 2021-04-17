@@ -10,7 +10,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     find_attr,
     lights::Light,
-    math::vector::Vec3,
+    math::Vec3,
     scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
 };

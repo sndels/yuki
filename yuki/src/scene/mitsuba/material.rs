@@ -1,4 +1,4 @@
-use crate::{math::vector::Vec3, parse_element, yuki_error, yuki_info, yuki_trace};
+use crate::{math::Vec3, parse_element, yuki_error, yuki_info, yuki_trace};
 
 use super::common::{parse_rgb, ParseResult};
 

@@ -4,11 +4,7 @@ use std::{
 };
 
 use crate::{
-    math::{
-        bounds::Bounds2,
-        point::Point2,
-        vector::{Vec2, Vec3},
-    },
+    math::{Bounds2, Point2, Vec2, Vec3},
     yuki_debug, yuki_error, yuki_trace, yuki_warn,
 };
 
