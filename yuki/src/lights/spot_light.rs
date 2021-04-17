@@ -1,6 +1,6 @@
+use super::{Light, LightSample};
 use crate::{
     hit::Hit,
-    lights::light::{Light, LightSample},
     math::{point::Point3, transform::Transform, vector::Vec3},
 };
 

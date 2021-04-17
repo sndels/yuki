@@ -9,7 +9,7 @@ mod transform;
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     find_attr,
-    lights::light::Light,
+    lights::Light,
     math::vector::Vec3,
     scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,

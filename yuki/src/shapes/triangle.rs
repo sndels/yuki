@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{mesh::Mesh, shape::Shape};
+use super::{mesh::Mesh, Shape};
 use crate::{
     hit::Hit,
     math::{bounds::Bounds3, normal::Normal, ray::Ray, vector::Vec3},

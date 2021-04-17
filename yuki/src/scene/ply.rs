@@ -6,7 +6,7 @@ use crate::{
         transform::{scale, translation, Transform},
         vector::Vec3,
     },
-    shapes::{mesh::Mesh, shape::Shape, triangle::Triangle},
+    shapes::{mesh::Mesh, Shape, triangle::Triangle},
     yuki_error, yuki_info,
 };
 

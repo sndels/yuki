@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     find_attr,
-    lights::{light::Light, point_light::PointLight, spot_light::SpotLight},
+    lights::{point_light::PointLight, spot_light::SpotLight, Light},
     math::{
         point::Point3,
         transform::{scale, translation, Transform},

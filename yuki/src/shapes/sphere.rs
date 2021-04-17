@@ -1,4 +1,4 @@
-use super::shape::Shape;
+use super::Shape;
 use crate::{
     hit::Hit,
     math::{

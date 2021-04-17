@@ -6,7 +6,7 @@ use crate::{
     },
     parse_element,
     scene::ply,
-    shapes::{mesh::Mesh, shape::Shape},
+    shapes::{mesh::Mesh, Shape},
     yuki_error, yuki_info, yuki_trace,
 };
 
