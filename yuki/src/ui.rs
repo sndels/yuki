@@ -335,6 +335,7 @@ impl Window {
         let mut load_settings = SceneLoadSettings::default();
         let mut sampler_settings = SamplerSettings::StratifiedSampler {
             pixel_samples: Vec2::new(1, 1),
+            symmetric_dimensions: true,
             jitter_samples: false,
         };
 
@@ -705,18 +706,39 @@ fn generate_ui(
                     match sampler_settings {
                         SamplerSettings::StratifiedSampler {
                             pixel_samples,
+                            symmetric_dimensions,
                             jitter_samples,
                         } => {
-                            ret.render_triggered |= vec2_u16_picker(
-                                ui,
-                                im_str!("Pixel samples"),
-                                pixel_samples,
-                                1,
-                                MAX_SAMPLES,
-                                1.0,
-                            );
+                            if *symmetric_dimensions {
+                                let width = ui.push_item_width(118.0);
+                                ret.render_triggered |= u16_picker(
+                                    ui,
+                                    im_str!("Pixel extent samples"),
+                                    &mut pixel_samples.x,
+                                    1,
+                                    MAX_SAMPLES,
+                                    1.0,
+                                );
+                                width.pop(ui);
+                                pixel_samples.y = pixel_samples.x;
+                            } else {
+                                ret.render_triggered |= vec2_u16_picker(
+                                    ui,
+                                    im_str!("Pixel samples"),
+                                    pixel_samples,
+                                    1,
+                                    MAX_SAMPLES,
+                                    1.0,
+                                );
+                            }
+                            ret.render_triggered |=
+                                ui.checkbox(im_str!("Symmetric dimensions"), symmetric_dimensions);
                             ret.render_triggered |=
                                 ui.checkbox(im_str!("Jitter samples"), jitter_samples);
+                            ui.text(im_str!(
+                                "Samples per pixel: {}",
+                                pixel_samples.x * pixel_samples.y
+                            ));
                         }
                     }
                 });

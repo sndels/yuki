@@ -7,6 +7,7 @@ use std::sync::Arc;
 pub enum SamplerSettings {
     StratifiedSampler {
         pixel_samples: Vec2<u16>,
+        symmetric_dimensions: bool,
         jitter_samples: bool,
     },
 }
@@ -16,6 +17,7 @@ pub fn create_sampler(settings: SamplerSettings) -> Arc<dyn Sampler> {
         SamplerSettings::StratifiedSampler {
             pixel_samples,
             jitter_samples,
+            ..
         } => stratified::StratifiedSampler::new(pixel_samples, jitter_samples),
     })
 }
