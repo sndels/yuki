@@ -313,7 +313,7 @@ impl Window {
             "Failed to create film shader resource view"
         );
         let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-            gfx::texture::FilterMethod::Scale,
+            gfx::texture::FilterMethod::Bilinear,
             gfx::texture::WrapMode::Clamp,
         ));
 
