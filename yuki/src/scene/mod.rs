@@ -266,7 +266,7 @@ impl Scene {
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(288.0, 547.0, -279.0)),
-            Vec3::from(60000.0),
+            Vec3::from(240000.0),
         ));
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
