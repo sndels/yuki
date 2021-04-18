@@ -70,8 +70,11 @@ gfx_defines! {
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         film_color: gfx::TextureSampler<[f32; 3]> = "FilmColor",
+        exposure: gfx::Global<f32> = "Exposure",
         out_color: gfx::RenderTarget<OutputColorFormat> = "OutputColor",
     }
+
+
 }
 
 const VS_CODE: &[u8] = b"#version 410 core
@@ -90,13 +93,57 @@ void main() {
 const FS_CODE: &[u8] = b"#version 410 core
 
 uniform sampler2D FilmColor;
+uniform float Exposure;
 
 in vec2 FragUV;
 
 out vec4 OutputColor;
 
+#define saturate(v) clamp(v, 0, 1)
+
+// ACES implementation ported from MJP and David Neubelt's hlsl adaptation of Stephen Hill's fit
+// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+const mat3 ACESInputMat = transpose(mat3(
+    vec3(0.59719f, 0.35458f, 0.04823f),
+    vec3(0.07600f, 0.90834f, 0.01566f),
+    vec3(0.02840f, 0.13383f, 0.83777f)
+));
+
+// ODT_SAT => XYZ => D60_2_D65 => sRGB
+const mat3 ACESOutputMat = transpose(mat3(
+    vec3( 1.60475f, -0.53108f, -0.07367f),
+    vec3(-0.10208f,  1.10813f, -0.00605f),
+    vec3(-0.00327f, -0.07276f,  1.07602f)
+));
+
+vec3 RRTAndODTFit(vec3 v)
+{
+    vec3 a = v * (v + 0.0245786f) - 0.000090537f;
+    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+vec3 ACESFitted(vec3 color)
+{
+    color = ACESInputMat * color;
+
+    // Apply RRT and ODT
+    color = RRTAndODTFit(color);
+
+    color = ACESOutputMat * color;
+
+    // Clamp to [0, 1]
+    color = saturate(color);
+
+    return color;
+}
+
 void main() {
-    OutputColor = texture(FilmColor, FragUV);
+    vec3 color = texture(FilmColor, FragUV).rgb;
+    color *= Exposure;
+    color = ACESFitted(color);
+    // Output target is linear, hw does gamma correction
+    OutputColor = vec4(color, 1.0f);
 }
 ";
 
@@ -273,6 +320,7 @@ impl Window {
         let draw_params = pipe::Data {
             vbuf: film_vbo.clone(),
             film_color: (film_view, film_sampler),
+            exposure: 1.0,
             out_color: main_color,
         };
 
@@ -338,6 +386,7 @@ impl Window {
             symmetric_dimensions: true,
             jitter_samples: false,
         };
+        let mut exposure = 1.0;
 
         let mut match_logical_cores = true;
 
@@ -398,6 +447,7 @@ impl Window {
                         &ui,
                         &window,
                         &mut film_settings,
+                        &mut exposure,
                         &mut sampler_settings,
                         &mut scene_params,
                         &mut load_settings,
@@ -517,6 +567,8 @@ impl Window {
 
                         update_film_vbo = false;
                     }
+
+                    draw_params.exposure = exposure;
 
                     // Draw frame
                     encoder.clear(&mut draw_params.out_color, [0.0, 0.0, 0.0, 0.0]);
@@ -647,6 +699,7 @@ fn generate_ui(
     ui: &imgui::Ui,
     window: &glutin::window::Window,
     film_settings: &mut FilmSettings,
+    exposure: &mut f32,
     sampler_settings: &mut SamplerSettings,
     scene_params: &mut DynamicSceneParameters,
     load_settings: &mut SceneLoadSettings,
@@ -693,6 +746,18 @@ fn generate_ui(
                         );
                         width.pop(ui);
                     }
+
+                    {
+                        let width = ui.push_item_width(118.0);
+                        imgui::Drag::new(im_str!("Exposure"))
+                            .range(0.0..=f32::MAX)
+                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                            .speed(0.01)
+                            .display_format(im_str!("%.2f"))
+                            .build(ui, exposure);
+                        width.pop(ui);
+                    }
+
                     if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
                         && film_settings.clear
                     {
