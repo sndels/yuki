@@ -1,9 +1,8 @@
 use std::{sync::Arc, time::Instant};
 
 use crate::{
-    hit::Hit,
     math::{Bounds3, Point3, Ray, Vec3},
-    shapes::Shape,
+    shapes::{Hit, Shape},
     yuki_info,
 };
 

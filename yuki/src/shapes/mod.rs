@@ -7,12 +7,18 @@ pub use sphere::Sphere;
 pub use triangle::Triangle;
 
 use crate::{
-    hit::Hit,
+    interaction::SurfaceInteraction,
     math::{Bounds3, Ray},
 };
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Shape
+
+#[derive(Clone)]
+pub struct Hit {
+    pub t: f32,
+    pub si: SurfaceInteraction,
+}
 
 pub trait Shape: Send + Sync {
     /// Intersects [Ray] with this object.

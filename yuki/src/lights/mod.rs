@@ -4,7 +4,7 @@ mod spot_light;
 pub use point_light::PointLight;
 pub use spot_light::SpotLight;
 
-use crate::{hit::Hit, math::Vec3};
+use crate::{interaction::SurfaceInteraction, math::Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Light_Sources/Light_Interface.html#Light
@@ -17,6 +17,6 @@ pub struct LightSample {
 }
 
 pub trait Light: Send + Sync {
-    /// Returns a [LightSample] from `hit` to this `Light`.
-    fn sample_li(&self, hit: &Hit) -> LightSample;
+    /// Returns a [LightSample] from the given [SurfaceInteraction] to this `Light`.
+    fn sample_li(&self, si: &SurfaceInteraction) -> LightSample;
 }

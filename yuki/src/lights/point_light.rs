@@ -1,6 +1,6 @@
 use super::{Light, LightSample};
 use crate::{
-    hit::Hit,
+    interaction::SurfaceInteraction,
     math::{Point3, Transform, Vec3},
 };
 
@@ -23,8 +23,8 @@ impl PointLight {
 }
 
 impl Light for PointLight {
-    fn sample_li(&self, hit: &Hit) -> LightSample {
-        let to_light = self.p - hit.p;
+    fn sample_li(&self, si: &SurfaceInteraction) -> LightSample {
+        let to_light = self.p - si.p;
         let dist_sqr = to_light.len_sqr();
         let li = self.i / dist_sqr;
         let dist = dist_sqr.sqrt();

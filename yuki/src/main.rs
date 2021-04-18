@@ -3,7 +3,7 @@
 mod bvh;
 mod camera;
 mod film;
-mod hit;
+mod interaction;
 mod lights;
 mod macros;
 mod math;

@@ -46,6 +46,7 @@ use crate::{
     },
     samplers::{create_sampler, Sampler, SamplerSettings},
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
+    shapes::Hit,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -1060,16 +1061,16 @@ fn render(
                 let hit = scene.bvh.intersect(ray);
                 rays += 1;
 
-                color += if let Some(hit) = hit {
+                color += if let Some(Hit { si, .. }) = hit {
                     // TODO: Do color/spectrum class for this math
                     fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
                         Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
                     }
                     scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
-                        let light_sample = l.sample_li(&hit);
+                        let light_sample = l.sample_li(&si);
                         // TODO: Trace light visibility
-                        c + mul(hit.albedo / std::f32::consts::PI, light_sample.li)
-                            * hit.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                        c + mul(si.albedo / std::f32::consts::PI, light_sample.li)
+                            * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
                     })
                 } else {
                     scene.background

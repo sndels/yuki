@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use super::{mesh::Mesh, Shape};
+use super::{mesh::Mesh, Hit, Shape};
 use crate::{
-    hit::Hit,
+    interaction::SurfaceInteraction,
     math::{Bounds3, Normal, Ray, Vec3},
 };
 
@@ -133,10 +133,12 @@ impl Shape for Triangle {
 
         Some(Hit {
             t,
-            p: ray.point(t),
-            v: -ray.d,
-            n,
-            albedo: self.albedo,
+            si: SurfaceInteraction {
+                p: ray.point(t),
+                v: -ray.d,
+                n,
+                albedo: self.albedo,
+            },
         })
     }
 

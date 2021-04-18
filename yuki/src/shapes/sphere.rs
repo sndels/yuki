@@ -1,6 +1,6 @@
-use super::Shape;
+use super::{Hit, Shape};
 use crate::{
-    hit::Hit,
+    interaction::SurfaceInteraction,
     math::{Bounds3, Normal, Point3, Ray, Transform, Vec3},
 };
 
@@ -72,10 +72,12 @@ impl Shape for Sphere {
 
         Some(Hit {
             t,
-            p: ray.point(t),
-            v: -ray.d,
-            n,
-            albedo: self.albedo,
+            si: SurfaceInteraction {
+                p: ray.point(t),
+                v: -ray.d,
+                n,
+                albedo: self.albedo,
+            },
         })
     }
 
