@@ -6,6 +6,7 @@ Ray cast renderer based on [Physically Based Rendering 3rd edition](http://www.p
 
 UI Features:
 - Uniformly scaling film view
+- Exposure control and ACES tonemap (Stephen Hill's fit)
 - ~Non-blocking rendering
   - Relaunch on most setting changes
 - Scene formats (partially) supported
