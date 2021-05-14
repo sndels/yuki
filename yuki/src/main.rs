@@ -3,6 +3,7 @@
 mod bvh;
 mod camera;
 mod film;
+mod integrators;
 mod interaction;
 mod lights;
 mod macros;

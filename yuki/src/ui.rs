@@ -37,16 +37,16 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    camera::{Camera, CameraSample, FoV},
+    camera::{Camera, FoV},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
+    integrators::{Integrator, WhittedIntegrator},
     math::{
         transforms::{look_at, rotation_euler, translation},
-        Point2, Vec2, Vec3,
+        Vec2, Vec3,
     },
     samplers::{create_sampler, Sampler, SamplerSettings},
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
-    shapes::Hit,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -1098,57 +1098,24 @@ fn render(
             yuki_trace!("Render thread {}: Releasing film", thread_id);
         }
 
-        let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
-        // Init per tile to try and get as deterministic results as possible between runs
-        // This makes the rng the same per tile regardless of which threads take which tiles
-        // Of course, this is useful only for debug but the init hit is miniscule in comparison to render time
-        let mut sampler = sampler
-            .as_ref()
-            .clone(((tile.bb.p_min.x as u64) << 32) & (tile.bb.p_min.y as u64));
-
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
-        for p in tile.bb {
-            sampler.start_pixel();
-            let mut color = Vec3::from(0.0);
-            for _ in 0..sampler.samples_per_pixel() {
+        let mut terminated_early = false;
+        rays += <WhittedIntegrator as Integrator>::render(
+            &scene,
+            &camera,
+            &sampler,
+            &mut tile,
+            &mut || {
                 // Let's have low latency kills for more interactive view
                 if let Ok(_) = from_parent.try_recv() {
                     yuki_debug!("Render thread {}: Killed by parent", thread_id);
-                    break 'work;
+                    terminated_early = true;
                 }
-
-                sampler.start_sample();
-
-                let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
-
-                let ray = camera.ray(CameraSample { p_film });
-
-                let hit = scene.bvh.intersect(ray);
-                rays += 1;
-
-                color += if let Some(Hit { si, .. }) = hit {
-                    // TODO: Do color/spectrum class for this math
-                    fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-                        Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
-                    }
-                    scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
-                        let light_sample = l.sample_li(&si);
-                        // TODO: Trace light visibility
-                        c + mul(si.albedo / std::f32::consts::PI, light_sample.li)
-                            * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
-                    })
-                } else {
-                    scene.background
-                };
-            }
-            color /= sampler.samples_per_pixel() as f32;
-
-            let Vec2 {
-                x: tile_x,
-                y: tile_y,
-            } = p - tile.bb.p_min;
-            let pixel_offset = (tile_y * tile_width + tile_x) as usize;
-            tile.pixels[pixel_offset] = color;
+                return terminated_early;
+            },
+        );
+        if terminated_early {
+            break 'work;
         }
 
         yuki_trace!("Render thread {}: Update tile {:?}", thread_id, tile.bb);
