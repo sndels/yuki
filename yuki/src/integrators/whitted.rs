@@ -9,7 +9,7 @@ pub struct WhittedIntegrator;
 
 impl Integrator for WhittedIntegrator {
     fn li(ray: Ray<f32>, scene: &Scene) -> (Vec3<f32>, usize) {
-        let hit = scene.bvh.intersect(ray);
+        let (hit, _) = scene.bvh.intersect(ray);
         let ray_count = 1;
 
         let incoming_radiance = if let Some(Hit { si, .. }) = hit {
