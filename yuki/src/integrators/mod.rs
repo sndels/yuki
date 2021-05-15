@@ -1,5 +1,7 @@
+mod bvh_heatmap;
 mod whitted;
 
+pub use bvh_heatmap::BVHIntersectionsIntegrator;
 pub use whitted::WhittedIntegrator;
 
 use crate::{
