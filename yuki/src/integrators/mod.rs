@@ -1,20 +1,24 @@
+mod base;
 mod bvh_heatmap;
 mod whitted;
 
 pub use bvh_heatmap::BVHIntersectionsIntegrator;
 pub use whitted::WhittedIntegrator;
 
+use base::IntegratorBase;
+
 use crate::{
     camera::{Camera, CameraSample},
     film::FilmTile,
-    math::{Point2, Ray, Vec2, Vec3},
+    math::{Point2, Vec2, Vec3},
     samplers::Sampler,
     scene::Scene,
 };
 
 use std::sync::Arc;
 
-pub trait Integrator {
+// Public interface of integrators, IntegratorBase holds the specializations.
+pub trait Integrator: IntegratorBase {
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
         scene: &Scene,
@@ -61,7 +65,5 @@ pub trait Integrator {
         }
         ray_count
     }
-
-    /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.
-    fn li(ray: Ray<f32>, scene: &Scene) -> (Vec3<f32>, usize);
 }
+impl<T: IntegratorBase> Integrator for T {}

@@ -1,4 +1,4 @@
-use super::Integrator;
+use super::base::IntegratorBase;
 use crate::{
     math::{Ray, Vec3},
     scene::Scene,
@@ -7,7 +7,7 @@ use crate::{
 
 pub struct WhittedIntegrator;
 
-impl Integrator for WhittedIntegrator {
+impl IntegratorBase for WhittedIntegrator {
     fn li(ray: Ray<f32>, scene: &Scene) -> (Vec3<f32>, usize) {
         let (hit, _) = scene.bvh.intersect(ray);
         let ray_count = 1;
