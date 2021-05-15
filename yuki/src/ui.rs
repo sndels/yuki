@@ -780,8 +780,8 @@ fn generate_ui(
                         imgui::Drag::new(im_str!("Exposure"))
                             .range(0.0..=f32::MAX)
                             .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                            .speed(0.01)
-                            .display_format(im_str!("%.2f"))
+                            .speed(0.001)
+                            .display_format(im_str!("%.3f"))
                             .build(ui, exposure);
                         width.pop(ui);
                     }
