@@ -57,8 +57,10 @@ impl BoundingVolumeHierarchy {
 
         let mut ordered_shapes = Vec::new();
         let build_start = Instant::now();
-        let (root, node_count) =
-            ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
+        let RecursiveBuildResult {
+            root,
+            nodes_in_tree,
+        } = ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
         yuki_info!(
             "BVH: Built the tree in {:.2}s",
             (build_start.elapsed().as_micros() as f32) * 1e-6
@@ -67,7 +69,7 @@ impl BoundingVolumeHierarchy {
         std::mem::swap(Arc::get_mut(&mut ret.shapes).unwrap(), &mut ordered_shapes);
 
         let flatten_start = Instant::now();
-        ret.nodes = vec![BVHNode::default(); node_count];
+        ret.nodes = vec![BVHNode::default(); nodes_in_tree];
         ret.flatten_tree(root, 0);
         yuki_info!(
             "BVH: Flattened the tree in {:.2}s",
@@ -165,15 +167,13 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Builds the node structure as a [BVHBuildNode]-tree.
-    ///
-    /// Returns the root node and the total number of nodes in the tree.
     fn recursive_build(
         &mut self,
         shape_info: &mut Vec<BVHPrimitiveInfo>,
         start: usize,
         end: usize,
         ordered_shapes: &mut Vec<Arc<dyn Shape>>,
-    ) -> (Box<BVHBuildNode>, usize) {
+    ) -> RecursiveBuildResult {
         let bounds = shape_info[start..end]
             .iter()
             .fold(Bounds3::default(), |b, s| b.union_b(s.bounds));
@@ -188,10 +188,10 @@ impl BoundingVolumeHierarchy {
                         .iter()
                         .map(|s| self.shapes[s.shape_index].clone()),
                 );
-                (
-                    BVHBuildNode::leaf(first_shape_index, shape_count, bounds),
-                    1,
-                )
+                RecursiveBuildResult {
+                    root: BVHBuildNode::leaf(first_shape_index, shape_count, bounds),
+                    nodes_in_tree: 1,
+                }
             }};
         }
 
@@ -242,14 +242,19 @@ impl BoundingVolumeHierarchy {
 
                 assert_ne!(mid, start, "BVH: Split failed");
 
-                let (child0, child0_node_count) =
-                    self.recursive_build(shape_info, start, mid, ordered_shapes);
-                let (child1, child1_node_count) =
-                    self.recursive_build(shape_info, mid, end, ordered_shapes);
-                (
-                    BVHBuildNode::interior(axis, child0, child1),
-                    1 + child0_node_count + child1_node_count,
-                )
+                let RecursiveBuildResult {
+                    root: child0,
+                    nodes_in_tree: child0_node_count,
+                } = self.recursive_build(shape_info, start, mid, ordered_shapes);
+                let RecursiveBuildResult {
+                    root: child1,
+                    nodes_in_tree: child1_node_count,
+                } = self.recursive_build(shape_info, mid, end, ordered_shapes);
+
+                RecursiveBuildResult {
+                    root: BVHBuildNode::interior(axis, child0, child1),
+                    nodes_in_tree: 1 + child0_node_count + child1_node_count,
+                }
             }
         }
     }
@@ -279,6 +284,11 @@ impl BoundingVolumeHierarchy {
         }
         next_index
     }
+}
+
+struct RecursiveBuildResult {
+    root: Box<BVHBuildNode>,
+    nodes_in_tree: usize,
 }
 
 struct BVHPrimitiveInfo {
