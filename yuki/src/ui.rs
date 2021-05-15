@@ -17,9 +17,11 @@ use glutin::{
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use num_enum::TryFromPrimitive;
 use old_school_gfx_glutin_ext::*;
 use std::{
     collections::{HashMap, VecDeque},
+    convert::TryFrom,
     path::PathBuf,
     sync::{
         mpsc::{channel, Receiver, Sender, TryRecvError},
@@ -28,6 +30,7 @@ use std::{
     thread::JoinHandle,
     time::Instant,
 };
+use strum::{EnumVariantNames, VariantNames};
 use tinyfiledialogs::open_file_dialog;
 
 type FilmSurface = gfx::format::R32_G32_B32;
@@ -40,7 +43,7 @@ use crate::{
     camera::{Camera, FoV},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
-    integrators::{Integrator, WhittedIntegrator},
+    integrators::{BVHIntersectionsIntegrator, Integrator, WhittedIntegrator},
     math::{
         transforms::{look_at, rotation_euler, translation},
         Vec2, Vec3,
@@ -146,6 +149,13 @@ void main() {
     OutputColor = vec4(color, 1.0f);
 }
 ";
+
+#[derive(Copy, Clone, EnumVariantNames, TryFromPrimitive)]
+#[repr(usize)]
+enum SceneIntegratorType {
+    Whitted,
+    BVHIntersections,
+}
 
 pub struct Window {
     // Window
@@ -387,6 +397,7 @@ impl Window {
             jitter_samples: false,
         };
         let mut exposure = 1.0;
+        let mut scene_integrator = SceneIntegratorType::Whitted;
 
         let mut match_logical_cores = true;
 
@@ -450,6 +461,7 @@ impl Window {
                         &mut exposure,
                         &mut sampler_settings,
                         &mut scene_params,
+                        &mut scene_integrator,
                         &mut load_settings,
                         &mut match_logical_cores,
                         scene.clone(),
@@ -523,16 +535,31 @@ impl Window {
                             yuki_info!("main_loop: Launching render job");
                             let (to_render, render_rx) = channel();
                             let (render_tx, from_render) = channel();
-                            let render_thread = launch_render::<WhittedIntegrator>(
-                                render_tx,
-                                render_rx,
-                                scene.clone(),
-                                &scene_params,
-                                film.clone(),
-                                create_sampler(sampler_settings),
-                                film_settings,
-                                match_logical_cores,
-                            );
+
+                            macro_rules! launch_typed_render {
+                                ($integrator:ty) => {{
+                                    launch_render::<$integrator>(
+                                        render_tx,
+                                        render_rx,
+                                        scene.clone(),
+                                        &scene_params,
+                                        film.clone(),
+                                        create_sampler(sampler_settings),
+                                        film_settings,
+                                        match_logical_cores,
+                                    )
+                                }};
+                            }
+
+                            let render_thread = match scene_integrator {
+                                SceneIntegratorType::Whitted => {
+                                    launch_typed_render!(WhittedIntegrator)
+                                }
+                                SceneIntegratorType::BVHIntersections => {
+                                    launch_typed_render!(BVHIntersectionsIntegrator)
+                                }
+                            };
+
                             yuki_trace!("main_loop: Render job launched");
 
                             render_handle = Some((Some(to_render), from_render, render_thread));
@@ -702,6 +729,7 @@ fn generate_ui(
     exposure: &mut f32,
     sampler_settings: &mut SamplerSettings,
     scene_params: &mut DynamicSceneParameters,
+    scene_integrator: &mut SceneIntegratorType,
     load_settings: &mut SceneLoadSettings,
     match_logical_cores: &mut bool,
     scene: Arc<Scene>,
@@ -904,6 +932,31 @@ fn generate_ui(
                         ret.scene_path = scene.path.clone();
                     }
                 });
+
+            ui.spacing();
+
+            {
+                let width = ui.push_item_width(140.0);
+
+                let integrator_names = SceneIntegratorType::VARIANTS
+                    .iter()
+                    .map(|&n| imgui::ImString::new(n))
+                    .collect::<Vec<imgui::ImString>>();
+                // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
+                let im_str_integrator_names = integrator_names
+                    .iter()
+                    .map(|n| n.as_ref())
+                    .collect::<Vec<&imgui::ImStr>>();
+                let mut current_integrator = *scene_integrator as usize;
+                imgui::ComboBox::new(im_str!("Scene integrator")).build_simple_string(
+                    ui,
+                    &mut current_integrator,
+                    &im_str_integrator_names,
+                );
+                *scene_integrator = SceneIntegratorType::try_from(current_integrator).unwrap();
+
+                width.pop(ui);
+            }
 
             ui.spacing();
 
