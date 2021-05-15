@@ -523,7 +523,7 @@ impl Window {
                             yuki_info!("main_loop: Launching render job");
                             let (to_render, render_rx) = channel();
                             let (render_tx, from_render) = channel();
-                            let render_thread = launch_render(
+                            let render_thread = launch_render::<WhittedIntegrator>(
                                 render_tx,
                                 render_rx,
                                 scene.clone(),
@@ -942,7 +942,7 @@ struct RenderResult {
     ray_count: usize,
 }
 
-fn launch_render(
+fn launch_render<I: Integrator>(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
     scene: Arc<Scene>,
@@ -999,7 +999,7 @@ fn launch_render(
                     (
                         to_child,
                         std::thread::spawn(move || {
-                            render(
+                            render::<I>(
                                 i,
                                 child_send,
                                 child_receive,
@@ -1060,7 +1060,7 @@ fn launch_render(
     })
 }
 
-fn render(
+fn render<I: Integrator>(
     thread_id: usize,
     to_parent: Sender<(usize, usize)>,
     from_parent: Receiver<usize>,
@@ -1100,20 +1100,14 @@ fn render(
 
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
-        rays += <WhittedIntegrator as Integrator>::render(
-            &scene,
-            &camera,
-            &sampler,
-            &mut tile,
-            &mut || {
-                // Let's have low latency kills for more interactive view
-                if let Ok(_) = from_parent.try_recv() {
-                    yuki_debug!("Render thread {}: Killed by parent", thread_id);
-                    terminated_early = true;
-                }
-                return terminated_early;
-            },
-        );
+        rays += I::render(&scene, &camera, &sampler, &mut tile, &mut || {
+            // Let's have low latency kills for more interactive view
+            if let Ok(_) = from_parent.try_recv() {
+                yuki_debug!("Render thread {}: Killed by parent", thread_id);
+                terminated_early = true;
+            }
+            return terminated_early;
+        });
         if terminated_early {
             break 'work;
         }
