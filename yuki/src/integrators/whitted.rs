@@ -1,5 +1,6 @@
 use super::base::{IntegratorBase, RadianceResult};
 use crate::{
+    bvh::IntersectionResult,
     math::{Ray, Vec3},
     scene::Scene,
     shapes::Hit,
@@ -9,7 +10,7 @@ pub struct WhittedIntegrator;
 
 impl IntegratorBase for WhittedIntegrator {
     fn li(ray: Ray<f32>, scene: &Scene) -> RadianceResult {
-        let (hit, _) = scene.bvh.intersect(ray);
+        let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
 
         let incoming_radiance = if let Some(Hit { si, .. }) = hit {

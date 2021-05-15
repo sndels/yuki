@@ -15,6 +15,12 @@ pub enum SplitMethod {
     EqualCounts,
 }
 
+pub struct IntersectionResult {
+    pub hit: Option<Hit>,
+    pub intersection_test_count: usize,
+    pub intersection_count: usize,
+}
+
 /// A standard BVH.
 pub struct BoundingVolumeHierarchy {
     split_method: SplitMethod,
@@ -73,25 +79,24 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
-    /// Retuns the {Hit} if found along with the total number of BVH node intersections performed and the total BVH hits found.
-    pub fn intersect(&self, mut ray: Ray<f32>) -> (Option<Hit>, (usize, usize)) {
+    pub fn intersect(&self, mut ray: Ray<f32>) -> IntersectionResult {
         let mut hit = None;
 
         // Pre-calculated to speed up Bounds3 intersection tests
         let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
         let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
 
+        let mut intersection_test_count = 0;
         let mut intersection_count = 0;
-        let mut hit_count = 0;
         let mut current_node_index = 0;
         // to_visit_index points to the next index to access in to_visit_stack
         let mut to_visit_index = 0;
         let mut to_visit_stack = [0; 64];
         loop {
             let node = self.nodes[current_node_index];
-            intersection_count += 1;
+            intersection_test_count += 1;
             if node.bounds.intersect(ray, inv_dir, dir_is_neg) {
-                hit_count += 1;
+                intersection_count += 1;
                 match node.content {
                     NodeContent::Interior {
                         second_child_index,
@@ -152,7 +157,11 @@ impl BoundingVolumeHierarchy {
                 current_node_index = to_visit_stack[to_visit_index];
             }
         }
-        (hit, (intersection_count, hit_count))
+        IntersectionResult {
+            hit,
+            intersection_test_count,
+            intersection_count,
+        }
     }
 
     /// Builds the node structure as a [BVHBuildNode]-tree.
