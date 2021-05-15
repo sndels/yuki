@@ -3,6 +3,11 @@ use crate::{
     scene::Scene,
 };
 
+pub struct RadianceResult {
+    pub li: Vec3<f32>,
+    pub ray_scene_intersections: usize,
+}
+
 /// Generic interface that needs to be implemented by all Integrators.
 pub trait IntegratorBase {
     /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.

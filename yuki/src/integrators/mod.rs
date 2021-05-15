@@ -50,9 +50,9 @@ pub trait Integrator: IntegratorBase {
 
                 let ray = camera.ray(CameraSample { p_film });
 
-                let (li, rc) = Self::li(ray, scene);
-                color += li;
-                ray_count += rc;
+                let result = Self::li(ray, scene);
+                color += result.li;
+                ray_count += result.ray_scene_intersections;
             }
             color /= sampler.samples_per_pixel() as f32;
 

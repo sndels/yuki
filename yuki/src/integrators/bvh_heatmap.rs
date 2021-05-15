@@ -1,4 +1,4 @@
-use super::base::IntegratorBase;
+use super::base::{IntegratorBase, RadianceResult};
 use crate::{
     math::{Ray, Vec3},
     scene::Scene,
@@ -10,7 +10,7 @@ use crate::{
 pub struct BVHIntersectionsIntegrator;
 
 impl IntegratorBase for BVHIntersectionsIntegrator {
-    fn li(ray: Ray<f32>, scene: &Scene) -> (Vec3<f32>, usize) {
+    fn li(ray: Ray<f32>, scene: &Scene) -> RadianceResult {
         let (hit, (bvh_intersection_count, bvh_hit_count)) = scene.bvh.intersect(ray);
         let ray_count = 1;
 
@@ -24,6 +24,9 @@ impl IntegratorBase for BVHIntersectionsIntegrator {
             },
         );
 
-        (color, ray_count)
+        RadianceResult {
+            li: color,
+            ray_scene_intersections: ray_count,
+        }
     }
 }

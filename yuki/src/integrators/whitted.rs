@@ -1,4 +1,4 @@
-use super::base::IntegratorBase;
+use super::base::{IntegratorBase, RadianceResult};
 use crate::{
     math::{Ray, Vec3},
     scene::Scene,
@@ -8,7 +8,7 @@ use crate::{
 pub struct WhittedIntegrator;
 
 impl IntegratorBase for WhittedIntegrator {
-    fn li(ray: Ray<f32>, scene: &Scene) -> (Vec3<f32>, usize) {
+    fn li(ray: Ray<f32>, scene: &Scene) -> RadianceResult {
         let (hit, _) = scene.bvh.intersect(ray);
         let ray_count = 1;
 
@@ -27,6 +27,9 @@ impl IntegratorBase for WhittedIntegrator {
             scene.background
         };
 
-        (incoming_radiance, ray_count)
+        RadianceResult {
+            li: incoming_radiance,
+            ray_scene_intersections: ray_count,
+        }
     }
 }
