@@ -137,224 +137,30 @@ impl UI {
             .resizable(false)
             .movable(false)
             .build(&ui, || {
-                imgui::TreeNode::new(im_str!("Film"))
-                    .default_open(true)
-                    .build(&ui, || {
-                        render_triggered |= vec2_u16_picker(
-                            &ui,
-                            im_str!("Resolution"),
-                            &mut film_settings.res,
-                            MIN_RES,
-                            MAX_RES,
-                            RES_STEP as f32,
-                        );
-                        {
-                            let width = ui.push_item_width(118.0);
-                            render_triggered |= u16_picker(
-                                &ui,
-                                im_str!("Tile size"),
-                                &mut film_settings.tile_dim,
-                                MIN_TILE,
-                                MIN_RES,
-                                TILE_STEP as f32,
-                            );
-                            width.pop(&ui);
-                        }
-
-                        {
-                            let width = ui.push_item_width(118.0);
-                            imgui::Drag::new(im_str!("Exposure"))
-                                .range(0.0..=f32::MAX)
-                                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                                .speed(0.001)
-                                .display_format(im_str!("%.3f"))
-                                .build(&ui, exposure);
-                            width.pop(&ui);
-                        }
-
-                        if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
-                            && film_settings.clear
-                        {
-                            render_triggered = true;
-                        }
-                    });
-
+                render_triggered |= generate_film_settings(&ui, film_settings, exposure);
                 ui.spacing();
 
-                imgui::TreeNode::new(im_str!("Sampler"))
-                    .default_open(true)
-                    .build(&ui, || {
-                        // TODO: Sampler picker
-                        match sampler_settings {
-                            SamplerSettings::StratifiedSampler {
-                                pixel_samples,
-                                symmetric_dimensions,
-                                jitter_samples,
-                            } => {
-                                if *symmetric_dimensions {
-                                    let width = ui.push_item_width(118.0);
-                                    render_triggered |= u16_picker(
-                                        &ui,
-                                        im_str!("Pixel extent samples"),
-                                        &mut pixel_samples.x,
-                                        1,
-                                        MAX_SAMPLES,
-                                        1.0,
-                                    );
-                                    width.pop(&ui);
-                                    pixel_samples.y = pixel_samples.x;
-                                } else {
-                                    render_triggered |= vec2_u16_picker(
-                                        &ui,
-                                        im_str!("Pixel samples"),
-                                        pixel_samples,
-                                        1,
-                                        MAX_SAMPLES,
-                                        1.0,
-                                    );
-                                }
-                                render_triggered |= ui.checkbox(
-                                    im_str!("Symmetric dimensions"),
-                                    symmetric_dimensions,
-                                );
-                                render_triggered |=
-                                    ui.checkbox(im_str!("Jitter samples"), jitter_samples);
-                                ui.text(im_str!(
-                                    "Samples per pixel: {}",
-                                    pixel_samples.x * pixel_samples.y
-                                ));
-                            }
-                        }
-                    });
-
+                render_triggered |= generate_sampler_settings(&ui, sampler_settings);
                 ui.spacing();
 
-                imgui::TreeNode::new(im_str!("Scene"))
-                    .default_open(true)
-                    .build(&ui, || {
-                        imgui::TreeNode::new(im_str!("Camera"))
-                            .default_open(true)
-                            .build(&ui, || {
-                                match &mut scene_params.cam_orientation {
-                                    CameraOrientation::LookAt {
-                                        ref mut cam_pos,
-                                        ref mut cam_target,
-                                    } => {
-                                        render_triggered |= imgui::Drag::new(im_str!("Position"))
-                                            .speed(0.1)
-                                            .display_format(im_str!("%.1f"))
-                                            .build_array(&ui, cam_pos.array_mut());
-
-                                        render_triggered |= imgui::Drag::new(im_str!("Target"))
-                                            .speed(0.1)
-                                            .display_format(im_str!("%.1f"))
-                                            .build_array(&ui, cam_target.array_mut());
-                                    }
-                                    CameraOrientation::Pose {
-                                        ref mut cam_pos,
-                                        ref mut cam_euler_deg,
-                                    } => {
-                                        render_triggered |= imgui::Drag::new(im_str!("Position"))
-                                            .speed(0.1)
-                                            .display_format(im_str!("%.1f"))
-                                            .build_array(&ui, cam_pos.array_mut());
-
-                                        render_triggered |= imgui::Drag::new(im_str!("Rotation"))
-                                            .speed(0.1)
-                                            .display_format(im_str!("%.1f"))
-                                            .build_array(&ui, cam_euler_deg.array_mut());
-                                    }
-                                }
-
-                                {
-                                    let width = ui.push_item_width(77.0);
-                                    let fov = match &mut scene_params.cam_fov {
-                                        FoV::X(ref mut v) => v,
-                                        FoV::Y(ref mut v) => v,
-                                    };
-                                    render_triggered |= imgui::Drag::new(im_str!("Field of View"))
-                                        .range(0.1..=359.9)
-                                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                                        .speed(0.5)
-                                        .display_format(im_str!("%.1f"))
-                                        .build(&ui, fov);
-                                    width.pop(&ui);
-                                }
-                            });
-
-                        ui.spacing();
-
-                        {
-                            let width = ui.push_item_width(92.0);
-                            u16_picker(
-                                &ui,
-                                im_str!("Max shapes in BVH node"),
-                                &mut load_settings.max_shapes_in_node,
-                                1,
-                                u16::max_value(),
-                                1.0,
-                            );
-                            width.pop(&ui);
-                        }
-
-                        ui.spacing();
-
-                        if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
-                            let open_path = if let Some(path) = &scene.path {
-                                path.to_str().unwrap()
-                            } else {
-                                ""
-                            };
-                            scene_path = if let Some(path) = open_file_dialog(
-                                "Open scene",
-                                open_path,
-                                Some((&["*.ply", "*.xml"], "Supported scene formats")),
-                            ) {
-                                Some(PathBuf::from(path))
-                            } else {
-                                None
-                            };
-                        }
-                        ui.same_line(0.0);
-                        if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
-                            scene_path = scene.path.clone();
-                        }
-                    });
-
+                render_triggered |= generate_scene_settings(
+                    &ui,
+                    &scene,
+                    scene_params,
+                    load_settings,
+                    &mut scene_path,
+                );
                 ui.spacing();
 
-                {
-                    let width = ui.push_item_width(140.0);
-
-                    let integrator_names = IntegratorType::VARIANTS
-                        .iter()
-                        .map(|&n| imgui::ImString::new(n))
-                        .collect::<Vec<imgui::ImString>>();
-                    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
-                    let im_str_integrator_names = integrator_names
-                        .iter()
-                        .map(|n| n.as_ref())
-                        .collect::<Vec<&imgui::ImStr>>();
-                    let mut current_integrator = *scene_integrator as usize;
-                    imgui::ComboBox::new(im_str!("Scene integrator")).build_simple_string(
-                        &ui,
-                        &mut current_integrator,
-                        &im_str_integrator_names,
-                    );
-                    *scene_integrator = IntegratorType::try_from(current_integrator).unwrap();
-
-                    width.pop(&ui);
-                }
-
+                render_triggered |= generate_integrator_settings(&ui, scene_integrator);
                 ui.spacing();
 
                 ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
-
                 ui.spacing();
 
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
-
                 ui.spacing();
+
                 ui.separator();
 
                 ui.text(im_str!("Current scene: {}", scene.name));
@@ -363,8 +169,8 @@ impl UI {
                     "Shapes in BVH node: {}",
                     (scene.settings.max_shapes_in_node as usize).min(scene.geometry.len())
                 ));
-
                 ui.spacing();
+
                 ui.separator();
 
                 if let Some(lines) = status_messages {
@@ -426,6 +232,7 @@ impl<'a> Drop for FrameUI<'a> {
     }
 }
 
+/// Returns `true` if the value was changed.
 fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, speed: f32) -> bool {
     let mut vi = *v as i32;
 
@@ -440,6 +247,7 @@ fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, sp
     value_changed
 }
 
+/// Returns `true` if the value was changed.
 fn vec2_u16_picker(
     ui: &imgui::Ui,
     label: &ImStr,
@@ -460,4 +268,236 @@ fn vec2_u16_picker(
     v.y = vi[1] as u16;
 
     value_changed
+}
+
+/// Returns `true` if film_settings was changed.
+fn generate_film_settings(
+    ui: &imgui::Ui<'_>,
+    film_settings: &mut FilmSettings,
+    exposure: &mut f32,
+) -> bool {
+    let mut changed = false;
+
+    imgui::TreeNode::new(im_str!("Film"))
+        .default_open(true)
+        .build(&ui, || {
+            changed |= vec2_u16_picker(
+                &ui,
+                im_str!("Resolution"),
+                &mut film_settings.res,
+                MIN_RES,
+                MAX_RES,
+                RES_STEP as f32,
+            );
+
+            {
+                let width = ui.push_item_width(118.0);
+                changed |= u16_picker(
+                    &ui,
+                    im_str!("Tile size"),
+                    &mut film_settings.tile_dim,
+                    MIN_TILE,
+                    MIN_RES,
+                    TILE_STEP as f32,
+                );
+                width.pop(&ui);
+            }
+
+            {
+                let width = ui.push_item_width(118.0);
+                imgui::Drag::new(im_str!("Exposure"))
+                    .range(0.0..=f32::MAX)
+                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                    .speed(0.001)
+                    .display_format(im_str!("%.3f"))
+                    .build(&ui, exposure);
+                width.pop(&ui);
+            }
+
+            if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear) && film_settings.clear
+            {
+                changed = true;
+            }
+        });
+
+    changed
+}
+
+/// Returns `true` if sampler_settings was changed.
+fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerSettings) -> bool {
+    let mut changed = false;
+
+    imgui::TreeNode::new(im_str!("Sampler"))
+        .default_open(true)
+        .build(&ui, || {
+            // TODO: Sampler picker
+            match sampler_settings {
+                SamplerSettings::StratifiedSampler {
+                    pixel_samples,
+                    symmetric_dimensions,
+                    jitter_samples,
+                } => {
+                    if *symmetric_dimensions {
+                        let width = ui.push_item_width(118.0);
+                        changed |= u16_picker(
+                            &ui,
+                            im_str!("Pixel extent samples"),
+                            &mut pixel_samples.x,
+                            1,
+                            MAX_SAMPLES,
+                            1.0,
+                        );
+                        width.pop(&ui);
+                        pixel_samples.y = pixel_samples.x;
+                    } else {
+                        changed |= vec2_u16_picker(
+                            &ui,
+                            im_str!("Pixel samples"),
+                            pixel_samples,
+                            1,
+                            MAX_SAMPLES,
+                            1.0,
+                        );
+                    }
+                    changed |= ui.checkbox(im_str!("Symmetric dimensions"), symmetric_dimensions);
+                    changed |= ui.checkbox(im_str!("Jitter samples"), jitter_samples);
+                    ui.text(im_str!(
+                        "Samples per pixel: {}",
+                        pixel_samples.x * pixel_samples.y
+                    ));
+                }
+            }
+        });
+
+    changed
+}
+
+/// Returns `true` if camera settings were changed.
+fn generate_scene_settings(
+    ui: &imgui::Ui<'_>,
+    scene: &Scene,
+    params: &mut DynamicSceneParameters,
+    load_settings: &mut SceneLoadSettings,
+    scene_path: &mut Option<PathBuf>,
+) -> bool {
+    let mut changed = false;
+    imgui::TreeNode::new(im_str!("Scene"))
+        .default_open(true)
+        .build(&ui, || {
+            imgui::TreeNode::new(im_str!("Camera"))
+                .default_open(true)
+                .build(&ui, || {
+                    match &mut params.cam_orientation {
+                        CameraOrientation::LookAt {
+                            ref mut cam_pos,
+                            ref mut cam_target,
+                        } => {
+                            changed |= imgui::Drag::new(im_str!("Position"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(&ui, cam_pos.array_mut());
+
+                            changed |= imgui::Drag::new(im_str!("Target"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(&ui, cam_target.array_mut());
+                        }
+                        CameraOrientation::Pose {
+                            ref mut cam_pos,
+                            ref mut cam_euler_deg,
+                        } => {
+                            changed |= imgui::Drag::new(im_str!("Position"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(&ui, cam_pos.array_mut());
+
+                            changed |= imgui::Drag::new(im_str!("Rotation"))
+                                .speed(0.1)
+                                .display_format(im_str!("%.1f"))
+                                .build_array(&ui, cam_euler_deg.array_mut());
+                        }
+                    }
+
+                    {
+                        let width = ui.push_item_width(77.0);
+                        let fov = match &mut params.cam_fov {
+                            FoV::X(ref mut v) => v,
+                            FoV::Y(ref mut v) => v,
+                        };
+                        changed |= imgui::Drag::new(im_str!("Field of View"))
+                            .range(0.1..=359.9)
+                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                            .speed(0.5)
+                            .display_format(im_str!("%.1f"))
+                            .build(&ui, fov);
+                        width.pop(&ui);
+                    }
+                });
+
+            ui.spacing();
+
+            {
+                let width = ui.push_item_width(92.0);
+                u16_picker(
+                    &ui,
+                    im_str!("Max shapes in BVH node"),
+                    &mut load_settings.max_shapes_in_node,
+                    1,
+                    u16::max_value(),
+                    1.0,
+                );
+                width.pop(&ui);
+            }
+
+            ui.spacing();
+
+            if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
+                let open_path = if let Some(path) = &scene.path {
+                    path.to_str().unwrap()
+                } else {
+                    ""
+                };
+                *scene_path = if let Some(path) = open_file_dialog(
+                    "Open scene",
+                    open_path,
+                    Some((&["*.ply", "*.xml"], "Supported scene formats")),
+                ) {
+                    Some(PathBuf::from(path))
+                } else {
+                    None
+                };
+            }
+            ui.same_line(0.0);
+            if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
+                *scene_path = scene.path.clone();
+            }
+        });
+
+    changed
+}
+
+/// Returns `true` if the integrator was changed.
+fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
+    let width = ui.push_item_width(140.0);
+
+    let integrator_names = IntegratorType::VARIANTS
+        .iter()
+        .map(|&n| imgui::ImString::new(n))
+        .collect::<Vec<imgui::ImString>>();
+    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
+    let im_str_integrator_names = integrator_names
+        .iter()
+        .map(|n| n.as_ref())
+        .collect::<Vec<&imgui::ImStr>>();
+    let mut current_integrator = *integrator as usize;
+    let changed = imgui::ComboBox::new(im_str!("Scene integrator")).build_simple_string(
+        &ui,
+        &mut current_integrator,
+        &im_str_integrator_names,
+    );
+    *integrator = IntegratorType::try_from(current_integrator).unwrap();
+
+    width.pop(&ui);
+
+    changed
 }
