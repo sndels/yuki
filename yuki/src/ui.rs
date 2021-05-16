@@ -15,18 +15,13 @@ use glutin::{
     PossiblyCurrent, WindowedContext,
 };
 use imgui::{im_str, FontConfig, FontSource, ImStr};
-use imgui_gfx_renderer::{Renderer, Shaders};
+use imgui_gfx_renderer::Shaders;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
 use std::{
-    collections::{HashMap, VecDeque},
     convert::TryFrom,
     path::PathBuf,
-    sync::{
-        mpsc::{channel, Receiver, Sender, TryRecvError},
-        Arc, Mutex,
-    },
-    thread::JoinHandle,
+    sync::{Arc, Mutex},
     time::Instant,
 };
 use strum::VariantNames;
@@ -39,17 +34,15 @@ type DepthFormat = gfx::format::DepthStencil;
 type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
 
 use crate::{
-    camera::{Camera, FoV},
+    camera::FoV,
     expect,
-    film::{film_tiles, Film, FilmSettings, FilmTile},
-    integrators::{BVHIntersectionsIntegrator, Integrator, IntegratorType, WhittedIntegrator},
-    math::{
-        transforms::{look_at, rotation_euler, translation},
-        Vec2, Vec3,
-    },
-    samplers::{create_sampler, Sampler, SamplerSettings},
+    film::{Film, FilmSettings},
+    integrators::IntegratorType,
+    math::{Vec2, Vec3},
+    renderer::Renderer,
+    samplers::SamplerSettings,
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
-    yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
+    yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
 
 // We need to convert our Vec3<f32> pixel buffer to &[f32]
@@ -163,7 +156,7 @@ pub struct Window {
     // Imgui
     imgui_context: imgui::Context,
     imgui_platform: WinitPlatform,
-    imgui_renderer: Renderer<OutputColorFormat, gfx_device_gl::Resources>,
+    imgui_renderer: imgui_gfx_renderer::Renderer<OutputColorFormat, gfx_device_gl::Resources>,
 
     // Rendering
     film_settings: FilmSettings,
@@ -252,7 +245,7 @@ impl Window {
         }
 
         let imgui_renderer = expect!(
-            Renderer::init(&mut imgui_context, &mut factory, Shaders::GlSl400),
+            imgui_gfx_renderer::Renderer::init(&mut imgui_context, &mut factory, Shaders::GlSl400),
             "Failed to initialize renderer"
         );
 
@@ -374,12 +367,7 @@ impl Window {
 
         let mut render_triggered = false;
         let mut any_item_active = false;
-        let mut render_handle: Option<(
-            Option<Sender<usize>>,
-            Receiver<RenderResult>,
-            JoinHandle<_>,
-        )> = None;
-        let mut render_ending = false;
+        let mut renderer = Renderer::new();
         let mut update_film_vbo = true;
         let mut status_messages: Option<Vec<String>> = None;
         let mut load_settings = SceneLoadSettings::default();
@@ -392,19 +380,6 @@ impl Window {
         let mut scene_integrator = IntegratorType::Whitted;
 
         let mut match_logical_cores = true;
-
-        macro_rules! cleanup {
-            () => {
-                if let Some((to_render, _, render_thread)) =
-                    std::mem::replace(&mut render_handle, None)
-                {
-                    if let Some(tx) = to_render {
-                        let _ = tx.send(0);
-                    }
-                    render_thread.join().unwrap();
-                }
-            };
-        }
 
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
@@ -432,14 +407,14 @@ impl Window {
                     // Init imgui for frame UI
                     let ui = imgui_context.frame();
 
-                    if render_handle.is_some() {
+                    if renderer.is_active() {
                         let film_ref_count = Arc::strong_count(&film);
                         let mut messages = Vec::new();
                         if film_ref_count > 1 {
                             messages
                                 .push(format!("Render threads running: {}", film_ref_count - 2));
                         }
-                        if render_ending {
+                        if renderer.is_winding_down() {
                             messages.push("Render winding down".into());
                         }
                         status_messages = Some(messages);
@@ -521,45 +496,23 @@ impl Window {
                         // Make sure there is no render task running on when a new one is launched
                         // Need replace since the thread handle needs to be moved out
                         yuki_trace!("main_loop: Checking for an existing render job");
-                        render_ending = check_and_kill_running_render(&mut render_handle);
 
-                        if render_handle.is_none() {
+                        if renderer.has_finished_or_kill() {
                             yuki_info!("main_loop: Launching render job");
-                            let (to_render, render_rx) = channel();
-                            let (render_tx, from_render) = channel();
-
-                            macro_rules! launch_typed_render {
-                                ($integrator:ty) => {{
-                                    launch_render::<$integrator>(
-                                        render_tx,
-                                        render_rx,
-                                        scene.clone(),
-                                        &scene_params,
-                                        film.clone(),
-                                        create_sampler(sampler_settings),
-                                        film_settings,
-                                        match_logical_cores,
-                                    )
-                                }};
-                            }
-
-                            let render_thread = match scene_integrator {
-                                IntegratorType::Whitted => {
-                                    launch_typed_render!(WhittedIntegrator)
-                                }
-                                IntegratorType::BVHIntersections => {
-                                    launch_typed_render!(BVHIntersectionsIntegrator)
-                                }
-                            };
-
-                            yuki_trace!("main_loop: Render job launched");
-
-                            render_handle = Some((Some(to_render), from_render, render_thread));
+                            renderer.launch(
+                                scene.clone(),
+                                &scene_params,
+                                film.clone(),
+                                sampler_settings,
+                                scene_integrator,
+                                film_settings,
+                                match_logical_cores,
+                            );
                             render_triggered = false;
                         }
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
-                        if let Some(result) = check_running_render(&mut render_handle) {
+                        if let Some(result) = renderer.check_result() {
                             status_messages = Some(vec![
                                 format!("Render finished in {:.2}s", result.secs),
                                 format!(
@@ -616,7 +569,6 @@ impl Window {
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
                         yuki_trace!("main_loop: CloseRequsted");
-                        cleanup!();
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(size) => {
@@ -640,7 +592,6 @@ impl Window {
                             // We only want to handle keypresses if we're not interacting with imgui
                             match key {
                                 VirtualKeyCode::Escape => {
-                                    cleanup!();
                                     *control_flow = ControlFlow::Exit;
                                 }
                                 VirtualKeyCode::Return => render_triggered = true,
@@ -981,201 +932,6 @@ fn generate_ui(
     ret
 }
 
-#[derive(Copy, Clone)]
-struct RenderResult {
-    secs: f32,
-    ray_count: usize,
-}
-
-fn launch_render<I: Integrator>(
-    to_parent: Sender<RenderResult>,
-    from_parent: Receiver<usize>,
-    scene: Arc<Scene>,
-    scene_params: &DynamicSceneParameters,
-    mut film: Arc<Mutex<Film>>,
-    sampler: Arc<dyn Sampler>,
-    film_settings: FilmSettings,
-    match_logical_cores: bool,
-) -> JoinHandle<()> {
-    let cam_to_world = match scene_params.cam_orientation {
-        CameraOrientation::LookAt {
-            cam_pos,
-            cam_target,
-        } => look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
-        CameraOrientation::Pose {
-            cam_pos,
-            cam_euler_deg,
-        } => {
-            &translation(cam_pos.into())
-                * &rotation_euler(Vec3::new(
-                    cam_euler_deg.x.to_radians(),
-                    cam_euler_deg.y.to_radians(),
-                    cam_euler_deg.z.to_radians(),
-                ))
-        }
-    };
-    let camera = Camera::new(&cam_to_world, scene_params.cam_fov, &film_settings);
-
-    std::thread::spawn(move || {
-        yuki_debug!("Render: Begin");
-        yuki_trace!("Render: Getting tiles");
-        // Get tiles, resizes film if necessary
-        let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
-
-        yuki_trace!("Render: Launch threads");
-        let render_start = Instant::now();
-        let thread_count = if match_logical_cores {
-            num_cpus::get()
-        } else {
-            num_cpus::get_physical()
-        };
-        let (child_send, from_children) = channel();
-        let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
-            .map(|i| {
-                let (to_child, child_receive) = channel();
-                let child_send = child_send.clone();
-                let tiles = tiles.clone();
-                let camera = camera.clone();
-                let scene = scene.clone();
-                let film = film.clone();
-                let sampler = sampler.clone();
-                (
-                    i,
-                    (
-                        to_child,
-                        std::thread::spawn(move || {
-                            render::<I>(
-                                i,
-                                child_send,
-                                child_receive,
-                                tiles,
-                                scene,
-                                camera,
-                                sampler,
-                                film,
-                            );
-                        }),
-                    ),
-                )
-            })
-            .collect();
-
-        // Wait for children to finish
-        let mut ray_count = 0;
-        while !children.is_empty() {
-            if let Ok(_) = from_parent.try_recv() {
-                yuki_debug!("Render: Killed by parent");
-                break;
-            }
-
-            if let Ok((thread_id, rays)) = from_children.try_recv() {
-                yuki_trace!("Render: Join {}", thread_id);
-                let (_, child) = children.remove(&thread_id).unwrap();
-                child.join().unwrap();
-                yuki_trace!("Render: {} terminated", thread_id);
-                ray_count += rays;
-            } else {
-                std::thread::sleep(std::time::Duration::from_millis(5));
-            }
-        }
-
-        // Kill children after being killed
-        if !children.is_empty() {
-            // Kill everyone first
-            for (_, (tx, _)) in &children {
-                // No need to check for error, child having disconnected, since that's our goal
-                let _ = tx.send(0);
-            }
-            // Wait for everyone to end
-            for (thread_id, (_, child)) in children {
-                // This message might not be from the same child, but we don't really care as long as
-                // every child notifies us
-                from_children.recv().unwrap();
-                child.join().unwrap();
-                yuki_debug!("Render: {} terminated", thread_id);
-            }
-        }
-
-        yuki_trace!("Render: Report back");
-        let secs = (render_start.elapsed().as_micros() as f32) * 1e-6;
-        if let Err(why) = to_parent.send(RenderResult { secs, ray_count }) {
-            yuki_error!("Render: Error notifying parent: {}", why);
-        };
-        yuki_debug!("Render: End");
-    })
-}
-
-fn render<I: Integrator>(
-    thread_id: usize,
-    to_parent: Sender<(usize, usize)>,
-    from_parent: Receiver<usize>,
-    tiles: Arc<Mutex<VecDeque<FilmTile>>>,
-    scene: Arc<Scene>,
-    camera: Camera,
-    sampler: Arc<dyn Sampler>,
-    film: Arc<Mutex<Film>>,
-) {
-    yuki_debug!("Render thread {}: Begin", thread_id);
-
-    let mut rays = 0;
-    'work: loop {
-        if let Ok(_) = from_parent.try_recv() {
-            yuki_debug!("Render thread {}: Killed by parent", thread_id);
-            break 'work;
-        }
-
-        let tile = {
-            let mut tiles = tiles.lock().unwrap();
-            tiles.pop_front()
-        };
-        if tile.is_none() {
-            break;
-        }
-        let mut tile = tile.unwrap();
-        yuki_trace!("Render thread {}: Mark tile {:?}", thread_id, tile.bb);
-        {
-            yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
-            let mut film = film.lock().unwrap();
-            yuki_trace!("Render thread {}: Acquired film", thread_id);
-
-            film.mark(&tile, Vec3::new(1.0, 0.0, 1.0));
-
-            yuki_trace!("Render thread {}: Releasing film", thread_id);
-        }
-
-        yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
-        let mut terminated_early = false;
-        rays += I::render(&scene, &camera, &sampler, &mut tile, &mut || {
-            // Let's have low latency kills for more interactive view
-            if let Ok(_) = from_parent.try_recv() {
-                yuki_debug!("Render thread {}: Killed by parent", thread_id);
-                terminated_early = true;
-            }
-            return terminated_early;
-        });
-        if terminated_early {
-            break 'work;
-        }
-
-        yuki_trace!("Render thread {}: Update tile {:?}", thread_id, tile.bb);
-        {
-            yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
-            let mut film = film.lock().unwrap();
-            yuki_trace!("Render thread {}: Acquired film", thread_id);
-
-            film.update_tile(tile);
-
-            yuki_trace!("Render thread {}: Releasing film", thread_id);
-        }
-    }
-
-    yuki_trace!("Render thread {}: Signal end", thread_id);
-    if let Err(why) = to_parent.send((thread_id, rays)) {
-        yuki_error!("Render thread {}: Error: {}", thread_id, why);
-    };
-    yuki_debug!("Render thread {}: End", thread_id);
-}
-
 fn update_texture(
     encoder: &mut gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
     factory: &mut gfx_device_gl::Factory,
@@ -1288,86 +1044,4 @@ where
         },
     ];
     factory.create_vertex_buffer(&quad)
-}
-
-fn check_and_kill_running_render(
-    render_handle: &mut Option<(
-        Option<Sender<usize>>,
-        Receiver<RenderResult>,
-        JoinHandle<()>,
-    )>,
-) -> bool {
-    let mut render_ending = false;
-    let rm = std::mem::replace(render_handle, None);
-    if let Some((to_render, from_render, render_thread)) = rm {
-        yuki_trace!("check_and_kill_running_render: Checking if the render job has finished");
-        // See if the task has completed
-        match from_render.try_recv() {
-            Ok(_) => {
-                yuki_trace!(
-                    "check_and_kill_running_render: Waiting for the finished render job to exit"
-                );
-                render_thread.join().unwrap();
-                yuki_debug!("check_and_kill_running_render: Render job has finished");
-            }
-            Err(why) => {
-                // Task is either still running or has disconnected without notifying us
-                match why {
-                    TryRecvError::Empty => {
-                        yuki_debug!("check_and_kill_running_render: Render job still running");
-                        if let Some(tx) = to_render {
-                            // Kill thread on first time here
-                            yuki_trace!("check_and_kill_running_render: Sending kill command to the render job");
-                            let _ = tx.send(0);
-                        }
-                        // Keep handles to continue polling until the thread has stopped
-                        // We won't be sending anything after the kill command
-                        *render_handle = Some((None, from_render, render_thread));
-                        render_ending = true;
-                    }
-                    TryRecvError::Disconnected => {
-                        yuki_warn!(
-                            "check_and_kill_running_render: Render disconnected without notifying"
-                        );
-                        render_thread.join().unwrap();
-                    }
-                }
-            }
-        }
-    } else {
-        yuki_debug!("check_and_kill_running_render: No existing render job");
-    }
-    render_ending
-}
-
-fn check_running_render(
-    render_handle: &mut Option<(
-        Option<Sender<usize>>,
-        Receiver<RenderResult>,
-        JoinHandle<()>,
-    )>,
-) -> Option<RenderResult> {
-    let mut ret = None;
-    let rm = std::mem::replace(render_handle, None);
-    if let Some((to_render, from_render, render_thread)) = rm {
-        match from_render.try_recv() {
-            Ok(result) => {
-                yuki_trace!("check_running_render: Waiting for the finished render job to exit");
-                render_thread.join().unwrap();
-                yuki_debug!("check_running_render: Render job has finished");
-                ret = Some(result);
-            }
-            Err(why) => match why {
-                TryRecvError::Empty => {
-                    yuki_debug!("check_running_render: Render job still running");
-                    *render_handle = Some((to_render, from_render, render_thread));
-                }
-                TryRecvError::Disconnected => {
-                    yuki_warn!("check_running_render: Render disconnected without notifying");
-                    render_thread.join().unwrap();
-                }
-            },
-        }
-    }
-    ret
 }

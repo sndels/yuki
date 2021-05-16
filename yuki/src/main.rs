@@ -8,6 +8,7 @@ mod interaction;
 mod lights;
 mod macros;
 mod math;
+mod renderer;
 mod samplers;
 mod scene;
 mod shapes;
