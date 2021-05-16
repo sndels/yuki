@@ -6,6 +6,8 @@ pub use bvh_heatmap::BVHIntersectionsIntegrator;
 pub use whitted::WhittedIntegrator;
 
 use base::IntegratorBase;
+use num_enum::TryFromPrimitive;
+use strum::EnumVariantNames;
 
 use crate::{
     camera::{Camera, CameraSample},
@@ -16,6 +18,13 @@ use crate::{
 };
 
 use std::sync::Arc;
+
+#[derive(Copy, Clone, EnumVariantNames, TryFromPrimitive)]
+#[repr(usize)]
+pub enum IntegratorType {
+    Whitted,
+    BVHIntersections,
+}
 
 // Public interface of integrators, IntegratorBase holds the specializations.
 pub trait Integrator: IntegratorBase {

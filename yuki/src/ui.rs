@@ -17,7 +17,6 @@ use glutin::{
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_gfx_renderer::{Renderer, Shaders};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use num_enum::TryFromPrimitive;
 use old_school_gfx_glutin_ext::*;
 use std::{
     collections::{HashMap, VecDeque},
@@ -30,7 +29,7 @@ use std::{
     thread::JoinHandle,
     time::Instant,
 };
-use strum::{EnumVariantNames, VariantNames};
+use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
 type FilmSurface = gfx::format::R32_G32_B32;
@@ -43,7 +42,7 @@ use crate::{
     camera::{Camera, FoV},
     expect,
     film::{film_tiles, Film, FilmSettings, FilmTile},
-    integrators::{BVHIntersectionsIntegrator, Integrator, WhittedIntegrator},
+    integrators::{BVHIntersectionsIntegrator, Integrator, IntegratorType, WhittedIntegrator},
     math::{
         transforms::{look_at, rotation_euler, translation},
         Vec2, Vec3,
@@ -149,13 +148,6 @@ void main() {
     OutputColor = vec4(color, 1.0f);
 }
 ";
-
-#[derive(Copy, Clone, EnumVariantNames, TryFromPrimitive)]
-#[repr(usize)]
-enum SceneIntegratorType {
-    Whitted,
-    BVHIntersections,
-}
 
 pub struct Window {
     // Window
@@ -397,7 +389,7 @@ impl Window {
             jitter_samples: false,
         };
         let mut exposure = 1.0;
-        let mut scene_integrator = SceneIntegratorType::Whitted;
+        let mut scene_integrator = IntegratorType::Whitted;
 
         let mut match_logical_cores = true;
 
@@ -552,10 +544,10 @@ impl Window {
                             }
 
                             let render_thread = match scene_integrator {
-                                SceneIntegratorType::Whitted => {
+                                IntegratorType::Whitted => {
                                     launch_typed_render!(WhittedIntegrator)
                                 }
-                                SceneIntegratorType::BVHIntersections => {
+                                IntegratorType::BVHIntersections => {
                                     launch_typed_render!(BVHIntersectionsIntegrator)
                                 }
                             };
@@ -729,7 +721,7 @@ fn generate_ui(
     exposure: &mut f32,
     sampler_settings: &mut SamplerSettings,
     scene_params: &mut DynamicSceneParameters,
-    scene_integrator: &mut SceneIntegratorType,
+    scene_integrator: &mut IntegratorType,
     load_settings: &mut SceneLoadSettings,
     match_logical_cores: &mut bool,
     scene: Arc<Scene>,
@@ -938,7 +930,7 @@ fn generate_ui(
             {
                 let width = ui.push_item_width(140.0);
 
-                let integrator_names = SceneIntegratorType::VARIANTS
+                let integrator_names = IntegratorType::VARIANTS
                     .iter()
                     .map(|&n| imgui::ImString::new(n))
                     .collect::<Vec<imgui::ImString>>();
@@ -953,7 +945,7 @@ fn generate_ui(
                     &mut current_integrator,
                     &im_str_integrator_names,
                 );
-                *scene_integrator = SceneIntegratorType::try_from(current_integrator).unwrap();
+                *scene_integrator = IntegratorType::try_from(current_integrator).unwrap();
 
                 width.pop(ui);
             }
