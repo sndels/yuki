@@ -1,5 +1,6 @@
 #![feature(destructuring_assignment)]
 
+mod app;
 mod bvh;
 mod camera;
 mod film;
@@ -12,9 +13,6 @@ mod renderer;
 mod samplers;
 mod scene;
 mod shapes;
-mod ui;
-
-use ui::Window;
 
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -52,6 +50,6 @@ fn main() {
         yuki_error!("{}\n", info);
     }));
 
-    let window = Window::new("yuki", (1920, 1080));
+    let window = app::Window::new("yuki", (1920, 1080));
     window.main_loop();
 }
