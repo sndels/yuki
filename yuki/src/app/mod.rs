@@ -1,4 +1,6 @@
-// Adapted from imgui-rs gfx example and gfx-rs's examples
+mod defines;
+mod ui;
+// Adapted from gfx-rs examples
 
 // Need to import gfx for macros
 use gfx;
@@ -14,34 +16,24 @@ use glutin::{
     window::WindowBuilder,
     PossiblyCurrent, WindowedContext,
 };
-use imgui::{im_str, FontConfig, FontSource, ImStr};
-use imgui_gfx_renderer::Shaders;
-use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use old_school_gfx_glutin_ext::*;
 use std::{
-    convert::TryFrom,
-    path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
 };
-use strum::VariantNames;
-use tinyfiledialogs::open_file_dialog;
 
-type FilmSurface = gfx::format::R32_G32_B32;
-type FilmFormat = (FilmSurface, gfx::format::Float);
-type OutputColorFormat = gfx::format::Rgba8;
-type DepthFormat = gfx::format::DepthStencil;
-type FilmTextureHandle = gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>;
-
+use self::{
+    defines::{DepthFormat, FilmFormat, FilmSurface, FilmTextureHandle, OutputColorFormat},
+    ui::UI,
+};
 use crate::{
-    camera::FoV,
     expect,
     film::{Film, FilmSettings},
     integrators::IntegratorType,
     math::{Vec2, Vec3},
     renderer::Renderer,
     samplers::SamplerSettings,
-    scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
 
@@ -153,10 +145,7 @@ pub struct Window {
     // main_color is owned by draw_params
     main_depth: DepthStencilView<gfx_device_gl::Resources, DepthFormat>,
 
-    // Imgui
-    imgui_context: imgui::Context,
-    imgui_platform: WinitPlatform,
-    imgui_renderer: imgui_gfx_renderer::Renderer<OutputColorFormat, gfx_device_gl::Resources>,
+    ui: UI,
 
     // Rendering
     film_settings: FilmSettings,
@@ -172,13 +161,6 @@ pub struct Window {
     scene: Arc<Scene>,
     scene_params: DynamicSceneParameters,
 }
-
-const MIN_TILE: u16 = 8;
-const MIN_RES: u16 = 64;
-const MAX_RES: u16 = 4096;
-const RES_STEP: u16 = 2;
-const TILE_STEP: u16 = 2;
-const MAX_SAMPLES: u16 = 32;
 
 impl Window {
     pub fn new(title: &str, resolution: (u16, u16)) -> Window {
@@ -199,61 +181,7 @@ impl Window {
         )
         .init_gfx::<OutputColorFormat, DepthFormat>();
 
-        // Setup imgui
-        let mut imgui_context = imgui::Context::create();
-        imgui_context.set_ini_filename(None);
-
-        let mut imgui_platform = WinitPlatform::init(&mut imgui_context);
-
-        let hidpi_factor = imgui_platform.hidpi_factor();
-        let font_size = (13.0 * hidpi_factor) as f32;
-        imgui_context
-            .fonts()
-            .add_font(&[FontSource::DefaultFontData {
-                config: Some(FontConfig {
-                    size_pixels: font_size,
-                    ..FontConfig::default()
-                }),
-            }]);
-
-        imgui_context.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
-
-        {
-            fn imgui_gamma_to_linear(col: [f32; 4]) -> [f32; 4] {
-                let x = col[0].powf(2.2);
-                let y = col[1].powf(2.2);
-                let z = col[2].powf(2.2);
-                let w = 1.0 - (1.0 - col[3]).powf(2.2);
-                [x, y, z, w]
-            }
-
-            let style = imgui_context.style_mut();
-            // Do rectangular elements
-            style.window_rounding = 0.0;
-            style.child_rounding = 0.0;
-            style.popup_rounding = 0.0;
-            style.grab_rounding = 0.0;
-            style.tab_rounding = 0.0;
-            style.frame_rounding = 0.0;
-            style.scrollbar_rounding = 0.0;
-            // No border line
-            style.window_border_size = 0.0;
-            // Fix incorrect colors with sRGB framebuffer
-            for col in 0..style.colors.len() {
-                style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
-            }
-        }
-
-        let imgui_renderer = expect!(
-            imgui_gfx_renderer::Renderer::init(&mut imgui_context, &mut factory, Shaders::GlSl400),
-            "Failed to initialize renderer"
-        );
-
-        imgui_platform.attach_window(
-            imgui_context.io_mut(),
-            windowed_context.window(),
-            HiDpiMode::Rounded,
-        );
+        let ui = UI::new(&windowed_context, &mut factory);
 
         // Film
         let film = Arc::new(Mutex::new(Film::default()));
@@ -327,9 +255,7 @@ impl Window {
             device,
             factory,
             main_depth,
-            imgui_context,
-            imgui_platform,
-            imgui_renderer,
+            ui,
             film_settings,
             film,
             film_pso,
@@ -348,9 +274,7 @@ impl Window {
             mut device,
             mut factory,
             mut main_depth,
-            mut imgui_context,
-            mut imgui_platform,
-            mut imgui_renderer,
+            mut ui,
             mut film_settings,
             film,
             film_pso,
@@ -384,29 +308,22 @@ impl Window {
         event_loop.run(move |event, _, control_flow| {
             let window = windowed_context.window();
 
-            imgui_platform.handle_event(imgui_context.io_mut(), window, &event);
+            ui.handle_event(window, &event);
             match event {
                 Event::NewEvents(_) => {
                     yuki_trace!("main_loop: NewEvents");
                     let now = Instant::now();
-                    imgui_context.io_mut().update_delta_time(now - last_frame);
+                    ui.update_delta_time(now - last_frame);
                     last_frame = now;
                 }
                 Event::MainEventsCleared => {
                     yuki_trace!("main_loop: MainEventsCleared");
                     // Ran out of events so let's prepare to draw
-                    expect!(
-                        imgui_platform.prepare_frame(imgui_context.io_mut(), window),
-                        "Failed to prepare GL frame"
-                    );
                     window.request_redraw();
                 }
                 Event::RedrawRequested(_) => {
                     let redraw_start = Instant::now();
                     yuki_trace!("main_loop: RedrawRequested");
-                    // Init imgui for frame UI
-                    let ui = imgui_context.frame();
-
                     if renderer.is_active() {
                         let film_ref_count = Arc::strong_count(&film);
                         let mut messages = Vec::new();
@@ -421,8 +338,7 @@ impl Window {
                     }
 
                     // Run frame logic
-                    let ui_ret = generate_ui(
-                        &ui,
+                    let mut frame_ui = ui.generate_frame(
                         &window,
                         &mut film_settings,
                         &mut exposure,
@@ -434,9 +350,9 @@ impl Window {
                         scene.clone(),
                         &status_messages,
                     );
-                    render_triggered |= ui_ret.render_triggered;
-                    let new_scene_path = ui_ret.scene_path;
-                    any_item_active = ui.is_any_item_active();
+                    render_triggered |= frame_ui.render_triggered;
+                    let new_scene_path = frame_ui.scene_path.clone();
+                    any_item_active = frame_ui.any_item_active;
 
                     if let Some(path) = new_scene_path {
                         match path.extension() {
@@ -548,15 +464,11 @@ impl Window {
                     encoder.draw(&film_ibo, &film_pso, &draw_params);
 
                     // UI
-                    imgui_platform.prepare_render(&ui, window);
-                    expect!(
-                        imgui_renderer.render(
-                            &mut factory,
-                            &mut encoder,
-                            &mut draw_params.out_color,
-                            ui.render(),
-                        ),
-                        "Rendering GL window failed"
+                    frame_ui.end_frame(
+                        &window,
+                        &mut factory,
+                        &mut encoder,
+                        &mut draw_params.out_color,
                     );
 
                     // Finish frame
@@ -622,314 +534,6 @@ fn allocate_film_texture(
         ),
         "Failed to create film texture"
     )
-}
-
-fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, speed: f32) -> bool {
-    let mut vi = *v as i32;
-
-    let value_changed = imgui::Drag::new(label)
-        .range((min as i32)..=(max as i32))
-        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-        .speed(speed)
-        .build(ui, &mut vi);
-
-    *v = vi as u16;
-
-    value_changed
-}
-
-fn vec2_u16_picker(
-    ui: &imgui::Ui,
-    label: &ImStr,
-    v: &mut Vec2<u16>,
-    min: u16,
-    max: u16,
-    speed: f32,
-) -> bool {
-    let mut vi = [v.x as i32, v.y as i32];
-
-    let value_changed = imgui::Drag::new(label)
-        .range((min as i32)..=(max as i32))
-        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-        .speed(speed)
-        .build_array(ui, &mut vi);
-
-    v.x = vi[0] as u16;
-    v.y = vi[1] as u16;
-
-    value_changed
-}
-
-struct UiReturn {
-    render_triggered: bool,
-    scene_path: Option<PathBuf>,
-}
-
-fn generate_ui(
-    ui: &imgui::Ui,
-    window: &glutin::window::Window,
-    film_settings: &mut FilmSettings,
-    exposure: &mut f32,
-    sampler_settings: &mut SamplerSettings,
-    scene_params: &mut DynamicSceneParameters,
-    scene_integrator: &mut IntegratorType,
-    load_settings: &mut SceneLoadSettings,
-    match_logical_cores: &mut bool,
-    scene: Arc<Scene>,
-    status_messages: &Option<Vec<String>>,
-) -> UiReturn {
-    let glutin::dpi::PhysicalSize {
-        width: _,
-        height: window_height,
-    } = window.inner_size();
-
-    let mut ret = UiReturn {
-        render_triggered: false,
-        scene_path: None,
-    };
-
-    imgui::Window::new(im_str!("Settings"))
-        .position([0.0, 0.0], imgui::Condition::Always)
-        .size([370.0, window_height as f32], imgui::Condition::Always)
-        .resizable(false)
-        .movable(false)
-        .build(ui, || {
-            imgui::TreeNode::new(im_str!("Film"))
-                .default_open(true)
-                .build(ui, || {
-                    ret.render_triggered |= vec2_u16_picker(
-                        ui,
-                        im_str!("Resolution"),
-                        &mut film_settings.res,
-                        MIN_RES,
-                        MAX_RES,
-                        RES_STEP as f32,
-                    );
-                    {
-                        let width = ui.push_item_width(118.0);
-                        ret.render_triggered |= u16_picker(
-                            ui,
-                            im_str!("Tile size"),
-                            &mut film_settings.tile_dim,
-                            MIN_TILE,
-                            MIN_RES,
-                            TILE_STEP as f32,
-                        );
-                        width.pop(ui);
-                    }
-
-                    {
-                        let width = ui.push_item_width(118.0);
-                        imgui::Drag::new(im_str!("Exposure"))
-                            .range(0.0..=f32::MAX)
-                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                            .speed(0.001)
-                            .display_format(im_str!("%.3f"))
-                            .build(ui, exposure);
-                        width.pop(ui);
-                    }
-
-                    if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
-                        && film_settings.clear
-                    {
-                        ret.render_triggered = true;
-                    }
-                });
-
-            ui.spacing();
-
-            imgui::TreeNode::new(im_str!("Sampler"))
-                .default_open(true)
-                .build(ui, || {
-                    // TODO: Sampler picker
-                    match sampler_settings {
-                        SamplerSettings::StratifiedSampler {
-                            pixel_samples,
-                            symmetric_dimensions,
-                            jitter_samples,
-                        } => {
-                            if *symmetric_dimensions {
-                                let width = ui.push_item_width(118.0);
-                                ret.render_triggered |= u16_picker(
-                                    ui,
-                                    im_str!("Pixel extent samples"),
-                                    &mut pixel_samples.x,
-                                    1,
-                                    MAX_SAMPLES,
-                                    1.0,
-                                );
-                                width.pop(ui);
-                                pixel_samples.y = pixel_samples.x;
-                            } else {
-                                ret.render_triggered |= vec2_u16_picker(
-                                    ui,
-                                    im_str!("Pixel samples"),
-                                    pixel_samples,
-                                    1,
-                                    MAX_SAMPLES,
-                                    1.0,
-                                );
-                            }
-                            ret.render_triggered |=
-                                ui.checkbox(im_str!("Symmetric dimensions"), symmetric_dimensions);
-                            ret.render_triggered |=
-                                ui.checkbox(im_str!("Jitter samples"), jitter_samples);
-                            ui.text(im_str!(
-                                "Samples per pixel: {}",
-                                pixel_samples.x * pixel_samples.y
-                            ));
-                        }
-                    }
-                });
-
-            ui.spacing();
-
-            imgui::TreeNode::new(im_str!("Scene"))
-                .default_open(true)
-                .build(ui, || {
-                    imgui::TreeNode::new(im_str!("Camera"))
-                        .default_open(true)
-                        .build(ui, || {
-                            match &mut scene_params.cam_orientation {
-                                CameraOrientation::LookAt {
-                                    ref mut cam_pos,
-                                    ref mut cam_target,
-                                } => {
-                                    ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
-                                        .speed(0.1)
-                                        .display_format(im_str!("%.1f"))
-                                        .build_array(ui, cam_pos.array_mut());
-
-                                    ret.render_triggered |= imgui::Drag::new(im_str!("Target"))
-                                        .speed(0.1)
-                                        .display_format(im_str!("%.1f"))
-                                        .build_array(ui, cam_target.array_mut());
-                                }
-                                CameraOrientation::Pose {
-                                    ref mut cam_pos,
-                                    ref mut cam_euler_deg,
-                                } => {
-                                    ret.render_triggered |= imgui::Drag::new(im_str!("Position"))
-                                        .speed(0.1)
-                                        .display_format(im_str!("%.1f"))
-                                        .build_array(ui, cam_pos.array_mut());
-
-                                    ret.render_triggered |= imgui::Drag::new(im_str!("Rotation"))
-                                        .speed(0.1)
-                                        .display_format(im_str!("%.1f"))
-                                        .build_array(ui, cam_euler_deg.array_mut());
-                                }
-                            }
-
-                            {
-                                let width = ui.push_item_width(77.0);
-                                let fov = match &mut scene_params.cam_fov {
-                                    FoV::X(ref mut v) => v,
-                                    FoV::Y(ref mut v) => v,
-                                };
-                                ret.render_triggered |= imgui::Drag::new(im_str!("Field of View"))
-                                    .range(0.1..=359.9)
-                                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                                    .speed(0.5)
-                                    .display_format(im_str!("%.1f"))
-                                    .build(ui, fov);
-                                width.pop(ui);
-                            }
-                        });
-
-                    ui.spacing();
-
-                    {
-                        let width = ui.push_item_width(92.0);
-                        u16_picker(
-                            ui,
-                            im_str!("Max shapes in BVH node"),
-                            &mut load_settings.max_shapes_in_node,
-                            1,
-                            u16::max_value(),
-                            1.0,
-                        );
-                        width.pop(ui);
-                    }
-
-                    ui.spacing();
-
-                    if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
-                        let open_path = if let Some(path) = &scene.path {
-                            path.to_str().unwrap()
-                        } else {
-                            ""
-                        };
-                        ret.scene_path = if let Some(path) = open_file_dialog(
-                            "Open scene",
-                            open_path,
-                            Some((&["*.ply", "*.xml"], "Supported scene formats")),
-                        ) {
-                            Some(PathBuf::from(path))
-                        } else {
-                            None
-                        };
-                    }
-                    ui.same_line(0.0);
-                    if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
-                        ret.scene_path = scene.path.clone();
-                    }
-                });
-
-            ui.spacing();
-
-            {
-                let width = ui.push_item_width(140.0);
-
-                let integrator_names = IntegratorType::VARIANTS
-                    .iter()
-                    .map(|&n| imgui::ImString::new(n))
-                    .collect::<Vec<imgui::ImString>>();
-                // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
-                let im_str_integrator_names = integrator_names
-                    .iter()
-                    .map(|n| n.as_ref())
-                    .collect::<Vec<&imgui::ImStr>>();
-                let mut current_integrator = *scene_integrator as usize;
-                imgui::ComboBox::new(im_str!("Scene integrator")).build_simple_string(
-                    ui,
-                    &mut current_integrator,
-                    &im_str_integrator_names,
-                );
-                *scene_integrator = IntegratorType::try_from(current_integrator).unwrap();
-
-                width.pop(ui);
-            }
-
-            ui.spacing();
-
-            ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
-
-            ui.spacing();
-
-            ret.render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
-
-            ui.spacing();
-            ui.separator();
-
-            ui.text(im_str!("Current scene: {}", scene.name));
-            ui.text(im_str!("Shape count: {}", scene.geometry.len()));
-            ui.text(im_str!(
-                "Shapes in BVH node: {}",
-                (scene.settings.max_shapes_in_node as usize).min(scene.geometry.len())
-            ));
-
-            ui.spacing();
-            ui.separator();
-
-            if let Some(lines) = status_messages {
-                for l in lines {
-                    ui.text(im_str!("{}", l));
-                }
-            }
-        });
-
-    ret
 }
 
 fn update_texture(
