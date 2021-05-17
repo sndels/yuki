@@ -1,15 +1,14 @@
-// Adapted from imgui-rs gfx example
+// Adapted from imgui-rs glium example
 
-use glutin::{event::Event, window::Window, WindowedContext};
+use glutin::{event::Event, window::Window};
 use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
-use imgui_gfx_renderer::{Renderer, Shaders};
+use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::{convert::TryFrom, path::PathBuf, sync::Arc, time::Duration};
 use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
-use super::defines::OutputColorFormat;
 use crate::{
     camera::FoV,
     expect,
@@ -31,14 +30,11 @@ const MAX_SAMPLES: u16 = 32;
 pub struct UI {
     context: Context,
     platform: WinitPlatform,
-    renderer: Renderer<OutputColorFormat, gfx_device_gl::Resources>,
+    renderer: Renderer,
 }
 
 impl UI {
-    pub fn new(
-        window: &WindowedContext<glutin::PossiblyCurrent>,
-        gl_factory: &mut gfx_device_gl::Factory,
-    ) -> Self {
+    pub fn new(display: &glium::Display) -> Self {
         let mut context = imgui::Context::create();
         context.set_ini_filename(None);
 
@@ -56,14 +52,6 @@ impl UI {
         context.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
         {
-            fn imgui_gamma_to_linear(col: [f32; 4]) -> [f32; 4] {
-                let x = col[0].powf(2.2);
-                let y = col[1].powf(2.2);
-                let z = col[2].powf(2.2);
-                let w = 1.0 - (1.0 - col[3]).powf(2.2);
-                [x, y, z, w]
-            }
-
             let style = context.style_mut();
             // Do rectangular elements
             style.window_rounding = 0.0;
@@ -75,18 +63,18 @@ impl UI {
             style.scrollbar_rounding = 0.0;
             // No border line
             style.window_border_size = 0.0;
-            // Fix incorrect colors with sRGB framebuffer
-            for col in 0..style.colors.len() {
-                style.colors[col] = imgui_gamma_to_linear(style.colors[col]);
-            }
         }
 
         let renderer = expect!(
-            imgui_gfx_renderer::Renderer::init(&mut context, gl_factory, Shaders::GlSl400),
+            Renderer::init(&mut context, display),
             "Failed to initialize renderer"
         );
 
-        platform.attach_window(context.io_mut(), window.window(), HiDpiMode::Rounded);
+        platform.attach_window(
+            context.io_mut(),
+            display.gl_window().window(),
+            HiDpiMode::Rounded,
+        );
 
         Self {
             context,
@@ -196,7 +184,7 @@ impl UI {
 /// Kind of a closure that gets around having to store imgui::UI within UI during a frame
 pub struct FrameUI<'a> {
     platform: &'a mut WinitPlatform,
-    renderer: &'a mut Renderer<OutputColorFormat, gfx_device_gl::Resources>,
+    renderer: &'a mut Renderer,
     ui: Option<imgui::Ui<'a>>,
     pub render_triggered: bool,
     pub scene_path: Option<PathBuf>,
@@ -204,18 +192,12 @@ pub struct FrameUI<'a> {
 }
 
 impl<'a> FrameUI<'a> {
-    pub fn end_frame(
-        &mut self,
-        window: &Window,
-        gl_factory: &mut gfx_device_gl::Factory,
-        encoder: &mut gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
-        out_color: &mut gfx::handle::RenderTargetView<gfx_device_gl::Resources, OutputColorFormat>,
-    ) {
+    pub fn end_frame(&mut self, display: &glium::Display, render_target: &mut glium::Frame) {
         if let Some(ui) = std::mem::replace(&mut self.ui, None) {
-            self.platform.prepare_render(&ui, window);
+            self.platform
+                .prepare_render(&ui, display.gl_window().window());
             expect!(
-                self.renderer
-                    .render(gl_factory, encoder, out_color, ui.render(),),
+                self.renderer.render(render_target, ui.render()),
                 "Rendering GL window failed"
             );
         } else {

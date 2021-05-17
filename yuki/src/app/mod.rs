@@ -1,31 +1,19 @@
-mod defines;
 mod ui;
-// Adapted from gfx-rs examples
 
-// Need to import gfx for macros
-use gfx;
-use gfx::{
-    gfx_defines, gfx_impl_struct_meta, gfx_pipeline, gfx_pipeline_inner, gfx_vertex_struct_meta,
-    handle::DepthStencilView,
-    traits::{Factory, FactoryExt},
-};
+use glium::Surface;
 use glutin::{
     dpi::LogicalSize,
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
-    PossiblyCurrent, WindowedContext,
 };
-use old_school_gfx_glutin_ext::*;
 use std::{
+    borrow::Cow,
     sync::{Arc, Mutex},
     time::Instant,
 };
 
-use self::{
-    defines::{DepthFormat, FilmFormat, FilmSurface, FilmTextureHandle, OutputColorFormat},
-    ui::UI,
-};
+use self::ui::UI;
 use crate::{
     expect,
     film::{Film, FilmSettings},
@@ -37,54 +25,54 @@ use crate::{
     yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
 
-// We need to convert our Vec3<f32> pixel buffer to &[f32]
-unsafe impl<T> gfx::memory::Pod for Vec3<T> where T: crate::math::ValueType {}
+impl<'a> glium::texture::Texture2dDataSource<'a> for &'a Film {
+    type Data = Vec3<f32>;
 
-impl gfx::format::SurfaceTyped for Vec3<f32> {
-    type DataType = Self;
-    fn get_surface_type() -> gfx::format::SurfaceType {
-        gfx::format::SurfaceType::R32_G32_B32
+    fn into_raw(self) -> glium::texture::RawImage2d<'a, Vec3<f32>> {
+        let Vec2 { x, y } = self.res();
+        glium::texture::RawImage2d {
+            data: Cow::from(self.pixels()),
+            width: x as u32,
+            height: y as u32,
+            format: glium::texture::ClientFormat::F32F32F32,
+        }
     }
 }
 
-// Simple pipeline that draws our scaled quad for film scaling and tonemapping
-gfx_defines! {
-    vertex Vertex {
-        pos: [f32; 2] = "VertPos",
-        uv: [f32; 2] = "VertUV",
-    }
-
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        film_color: gfx::TextureSampler<[f32; 3]> = "FilmColor",
-        exposure: gfx::Global<f32> = "Exposure",
-        out_color: gfx::RenderTarget<OutputColorFormat> = "OutputColor",
-    }
-
-
+#[derive(Copy, Clone)]
+struct FilmVertex {
+    position: [f32; 2],
+    uv: [f32; 2],
 }
 
-const VS_CODE: &[u8] = b"#version 410 core
+glium::implement_vertex!(FilmVertex, position, uv);
 
-in vec2 VertPos;
-in vec2 VertUV;
+const FILM_FORMAT: glium::texture::UncompressedFloatFormat =
+    glium::texture::UncompressedFloatFormat::F32F32F32;
 
-out vec2 FragUV;
+const VS_CODE: &'static str = r#"
+#version 410 core
+
+in vec2 position;
+in vec2 uv;
+
+out vec2 frag_uv;
 
 void main() {
-    FragUV = VertUV;
-    gl_Position = vec4(VertPos, 0, 1);
+    frag_uv = uv;
+    gl_Position = vec4(position, 0, 1);
 }
-";
+"#;
 
-const FS_CODE: &[u8] = b"#version 410 core
+const FS_CODE: &'static str = r#"
+#version 410 core
 
-uniform sampler2D FilmColor;
-uniform float Exposure;
+uniform sampler2D film_color;
+uniform float exposure;
 
-in vec2 FragUV;
+in vec2 frag_uv;
 
-out vec4 OutputColor;
+out vec4 output_color;
 
 #define saturate(v) clamp(v, 0, 1)
 
@@ -126,24 +114,18 @@ vec3 ACESFitted(vec3 color)
 }
 
 void main() {
-    vec3 color = texture(FilmColor, FragUV).rgb;
-    color *= Exposure;
+    vec3 color = texture(film_color, frag_uv).rgb;
+    color *= exposure;
     color = ACESFitted(color);
     // Output target is linear, hw does gamma correction
-    OutputColor = vec4(color, 1.0f);
+    output_color = vec4(color, 1.0f);
 }
-";
+"#;
 
 pub struct Window {
-    // Window
+    // Window and GL context
     event_loop: EventLoop<()>,
-    windowed_context: WindowedContext<PossiblyCurrent>,
-
-    // GL context
-    device: gfx_device_gl::Device,
-    factory: gfx_device_gl::Factory,
-    // main_color is owned by draw_params
-    main_depth: DepthStencilView<gfx_device_gl::Resources, DepthFormat>,
+    display: glium::Display,
 
     ui: UI,
 
@@ -152,36 +134,30 @@ pub struct Window {
     film: Arc<Mutex<Film>>,
 
     // Film draw
-    film_pso: gfx::PipelineState<gfx_device_gl::Resources, pipe::Meta>,
-    draw_params: pipe::Data<gfx_device_gl::Resources>,
-    // vbo is owned by params
-    film_ibo: gfx::Slice<gfx_device_gl::Resources>,
-    film_texture: FilmTextureHandle,
+    film_vbo: glium::VertexBuffer<FilmVertex>,
+    film_ibo: glium::IndexBuffer<u16>,
+    film_program: glium::Program,
+    film_texture: glium::Texture2d,
 
+    // Scene
     scene: Arc<Scene>,
     scene_params: DynamicSceneParameters,
 }
 
 impl Window {
     pub fn new(title: &str, resolution: (u16, u16)) -> Window {
-        // Create window
+        // Create window and gl context
         let event_loop = EventLoop::new();
-        let builder = WindowBuilder::new()
+        let window_builder = WindowBuilder::new()
             .with_title(title.to_owned())
             .with_inner_size(LogicalSize::new(resolution.0 as f64, resolution.1 as f64));
+        let context_builder = glutin::ContextBuilder::new();
+        let display = expect!(
+            glium::Display::new(window_builder, context_builder, &event_loop),
+            "Failed to initialize glium display"
+        );
 
-        // Create gl context
-        let (windowed_context, device, mut factory, main_color, main_depth) = expect!(
-            glutin::ContextBuilder::new()
-                .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
-                .with_vsync(true)
-                .with_gfx_color_depth::<OutputColorFormat, DepthFormat>()
-                .build_windowed(builder, &event_loop),
-            "Failed to initialize glutin context"
-        )
-        .init_gfx::<OutputColorFormat, DepthFormat>();
-
-        let ui = UI::new(&windowed_context, &mut factory);
+        let ui = UI::new(&display);
 
         // Film
         let film = Arc::new(Mutex::new(Film::default()));
@@ -189,78 +165,43 @@ impl Window {
         let film_settings = FilmSettings::default();
 
         // Film draw
-        let shader_set = expect!(
-            factory.create_shader_set(VS_CODE, FS_CODE),
-            "Failed to create shader set"
-        );
+        let film_vbo = create_film_vbo(&display, &film);
 
-        let film_pso = expect!(
-            factory.create_pipeline_state(
-                &shader_set,
-                gfx::Primitive::TriangleList,
-                gfx::state::Rasterizer::new_fill(),
-                pipe::new(),
+        let film_ibo = expect!(
+            glium::index::IndexBuffer::new(
+                &display,
+                glium::index::PrimitiveType::TrianglesList,
+                &[0u16, 1, 2, 0, 2, 3]
             ),
-            "Failed to create pso"
+            "Failed to create film index buffer"
+        );
+        let film_program = expect!(
+            glium::Program::from_source(&display, VS_CODE, FS_CODE, None),
+            "Failed to create film "
         );
 
-        let quad = [
-            Vertex {
-                pos: [-1.0, -1.0],
-                uv: [0.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, -1.0],
-                uv: [1.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, 1.0],
-                uv: [1.0, 0.0],
-            },
-            Vertex {
-                pos: [-1.0, 1.0],
-                uv: [0.0, 0.0],
-            },
-        ];
-        let (film_vbo, film_ibo) =
-            factory.create_vertex_buffer_with_slice(&quad, &[0u16, 1, 2, 0, 2, 3] as &[u16]);
-
-        let film_texture = allocate_film_texture(&mut factory, film_settings.res);
-
-        let film_view = expect!(
-            factory.view_texture_as_shader_resource::<FilmFormat>(
-                &film_texture,
-                (0, 0),
-                gfx::format::Swizzle::new(),
+        let film_texture = expect!(
+            glium::Texture2d::empty_with_format(
+                &display,
+                FILM_FORMAT,
+                glium::texture::MipmapsOption::NoMipmap,
+                film_settings.res.x as u32,
+                film_settings.res.y as u32,
             ),
-            "Failed to create film shader resource view"
+            "Failed to create film texture"
         );
-        let film_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-            gfx::texture::FilterMethod::Bilinear,
-            gfx::texture::WrapMode::Clamp,
-        ));
-
-        let draw_params = pipe::Data {
-            vbuf: film_vbo.clone(),
-            film_color: (film_view, film_sampler),
-            exposure: 1.0,
-            out_color: main_color,
-        };
 
         let (scene, scene_params) = Scene::cornell();
 
         Window {
             event_loop,
-            windowed_context,
-            device,
-            factory,
-            main_depth,
+            display,
             ui,
             film_settings,
             film,
-            film_pso,
-            draw_params,
+            film_vbo,
             film_ibo,
+            film_program,
             film_texture,
             scene: Arc::new(scene),
             scene_params,
@@ -270,22 +211,17 @@ impl Window {
     pub fn main_loop(self) {
         let Window {
             event_loop,
-            windowed_context,
-            mut device,
-            mut factory,
-            mut main_depth,
+            display,
             mut ui,
             mut film_settings,
             film,
-            film_pso,
-            mut film_texture,
-            mut draw_params,
+            mut film_vbo,
             film_ibo,
+            film_program,
+            mut film_texture,
             mut scene,
             mut scene_params,
-            ..
         } = self;
-        let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
 
         let mut last_frame = Instant::now();
 
@@ -306,7 +242,8 @@ impl Window {
         let mut match_logical_cores = true;
 
         event_loop.run(move |event, _, control_flow| {
-            let window = windowed_context.window();
+            let gl_window = display.gl_window();
+            let window = gl_window.window();
 
             ui.handle_event(window, &event);
             match event {
@@ -440,40 +377,43 @@ impl Window {
                     }
 
                     yuki_trace!("main_loop: Checking for texture update");
-                    if let Some(film_view) =
-                        update_texture(&mut encoder, &mut factory, &mut film_texture, &film)
-                    {
-                        yuki_debug!("main_loop: Texture size changed, updating view");
-                        draw_params.film_color.0 = film_view;
-                        // Texture size changed so we need to update output scaling
+                    if update_film_texture(&display, &film, &mut film_texture) {
+                        yuki_debug!("main_loop: Texture size changed, updating vbo");
                         update_film_vbo = true;
                     }
 
                     if update_film_vbo {
                         yuki_debug!("main_loop: VBO update required");
-                        draw_params.vbuf = create_film_vbo(&mut factory, &window, &film);
-
-                        update_film_vbo = false;
+                        film_vbo = create_film_vbo(&display, &film);
                     }
 
-                    draw_params.exposure = exposure;
-
                     // Draw frame
-                    encoder.clear(&mut draw_params.out_color, [0.0, 0.0, 0.0, 0.0]);
+                    let mut render_target = display.draw();
+                    render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
-                    encoder.draw(&film_ibo, &film_pso, &draw_params);
-
-                    // UI
-                    frame_ui.end_frame(
-                        &window,
-                        &mut factory,
-                        &mut encoder,
-                        &mut draw_params.out_color,
+                    let uniforms = glium::uniform! {
+                            film_color: film_texture.sampled()
+                                .wrap_function(glium::uniforms::SamplerWrapFunction::BorderClamp)
+                                .minify_filter(glium::uniforms::MinifySamplerFilter::Linear)
+                                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear),
+                            exposure: exposure,
+                    };
+                    expect!(
+                        render_target.draw(
+                            &film_vbo,
+                            &film_ibo,
+                            &film_program,
+                            &uniforms,
+                            &Default::default()
+                        ),
+                        "Failed to draw film"
                     );
 
+                    // UI
+                    frame_ui.end_frame(&display, &mut render_target);
+
                     // Finish frame
-                    encoder.flush(&mut device);
-                    expect!(windowed_context.swap_buffers(), "Swap buffers failed");
+                    expect!(render_target.finish(), "Frame::finish() failed");
 
                     let spent_millis = (redraw_start.elapsed().as_micros() as f32) * 1e-3;
                     yuki_debug!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
@@ -485,9 +425,7 @@ impl Window {
                     }
                     WindowEvent::Resized(size) => {
                         yuki_trace!("main_loop: Resized");
-                        windowed_context.resize(size);
-                        windowed_context.update_gfx(&mut draw_params.out_color, &mut main_depth);
-
+                        display.gl_window().resize(size);
                         update_film_vbo = true;
                     }
                     WindowEvent::KeyboardInput {
@@ -519,84 +457,46 @@ impl Window {
     }
 }
 
-fn allocate_film_texture(
-    factory: &mut gfx_device_gl::Factory,
-    res: Vec2<u16>,
-) -> FilmTextureHandle {
-    let kind = gfx::texture::Kind::D2(res.x, res.y, gfx::texture::AaMode::Single);
-    expect!(
-        factory.create_texture::<FilmSurface>(
-            kind,
-            1,
-            gfx::memory::Bind::SHADER_RESOURCE | gfx::memory::Bind::TRANSFER_DST,
-            gfx::memory::Usage::Dynamic,
-            Some(gfx::format::ChannelType::Float),
-        ),
-        "Failed to create film texture"
-    )
-}
-
-fn update_texture(
-    encoder: &mut gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
-    factory: &mut gfx_device_gl::Factory,
-    film_texture: &mut gfx::handle::Texture<gfx_device_gl::Resources, FilmSurface>,
+fn update_film_texture(
+    display: &glium::Display,
     film: &Mutex<Film>,
-) -> Option<gfx::handle::ShaderResourceView<gfx_device_gl::Resources, [f32; 3]>> {
-    let mut ret = None;
+    texture: &mut glium::Texture2d,
+) -> bool {
+    let mut resized = false;
 
-    yuki_trace!("update_texture: Begin");
-    yuki_trace!("update_texture: Waiting for lock on film");
+    yuki_trace!("create_film_texture: Begin");
+    yuki_trace!("create_film_texture: Waiting for lock on film");
     let mut film = film.lock().unwrap();
-    yuki_trace!("update_texture: Acquired film");
+    yuki_trace!("create_film_texture: Acquired film");
 
-    let film_res = film.res();
     if film.dirty() {
-        yuki_debug!("update_texture: Film is dirty");
-        let film_pixels = film.pixels();
-
-        // Resize texture if needed
-        let (tex_width, tex_height, _, _) = film_texture.get_info().kind.get_dimensions();
-        if film_res.x != tex_width || film_res.y != tex_height {
-            yuki_trace!("update_texture: Resizing texture");
-            *film_texture = allocate_film_texture(factory, film_res);
-
-            ret = Some(expect!(
-                factory.view_texture_as_shader_resource::<FilmFormat>(
-                    &film_texture,
-                    (0, 0),
-                    gfx::format::Swizzle::new(),
-                ),
-                "Failed to create film shader resource view"
-            ));
-            yuki_trace!("update_texture: Resized");
-        }
-
-        // Update texture
-        // TODO: Benefit from updating partially?
-        let new_info = film_texture.get_info().to_image_info(0);
-        let data = gfx::memory::cast_slice(&film_pixels);
-        expect!(
-            encoder.update_texture::<_, FilmFormat>(&film_texture, None, new_info, data,),
-            "Error updating film texture"
+        yuki_debug!("create_film_texture: Film is dirty");
+        // We could update only the tiles that have changed but that's more work and scaffolding
+        // than it's worth especially with marked tiles. This is fast enough at small resolutions.
+        *texture = expect!(
+            glium::Texture2d::with_format(
+                display,
+                &*film,
+                FILM_FORMAT,
+                glium::texture::MipmapsOption::NoMipmap
+            ),
+            "Error creating new film texture"
         );
+        let film_res = film.res();
+        resized = film_res.x != (texture.width() as u16) || film_res.y != (texture.height() as u16);
 
         film.clear_dirty();
-        yuki_trace!("update_texture: Texture updated");
+        yuki_trace!("create_film_texture: Texture created");
     }
 
-    yuki_trace!("update_texture: Releasing film");
-    ret
+    yuki_trace!("create_film_texture: Releasing film");
+    resized
 }
 
-fn create_film_vbo<F, R>(
-    factory: &mut F,
-    window: &glutin::window::Window,
+fn create_film_vbo(
+    display: &glium::Display,
     film: &Mutex<Film>,
-) -> gfx::handle::Buffer<R, Vertex>
-where
-    R: gfx::Resources,
-    F: gfx::Factory<R>,
-{
+) -> glium::VertexBuffer<FilmVertex> {
     let film_res = {
         yuki_trace!("create_film_vbo: Locking film");
         let film = film.lock().unwrap();
@@ -608,7 +508,7 @@ where
     let glutin::dpi::PhysicalSize {
         width: window_width,
         height: window_height,
-    } = window.inner_size();
+    } = display.gl_window().window().inner_size();
 
     // Retain film aspect ratio by scaling quad vertices directly
     let window_aspect = (window_width as f32) / (window_height as f32);
@@ -630,22 +530,25 @@ where
     };
 
     let quad = [
-        Vertex {
-            pos: [left, bottom],
+        FilmVertex {
+            position: [left, bottom],
             uv: [0.0, 1.0],
         },
-        Vertex {
-            pos: [right, bottom],
+        FilmVertex {
+            position: [right, bottom],
             uv: [1.0, 1.0],
         },
-        Vertex {
-            pos: [right, top],
+        FilmVertex {
+            position: [right, top],
             uv: [1.0, 0.0],
         },
-        Vertex {
-            pos: [left, top],
+        FilmVertex {
+            position: [left, top],
             uv: [0.0, 0.0],
         },
     ];
-    factory.create_vertex_buffer(&quad)
+    expect!(
+        glium::VertexBuffer::new(display, &quad),
+        "Failed to create film vertex buffer"
+    )
 }
