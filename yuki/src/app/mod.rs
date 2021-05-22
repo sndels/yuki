@@ -1,3 +1,4 @@
+mod renderpasses;
 mod ui;
 
 use glium::Surface;
@@ -8,119 +9,24 @@ use glutin::{
     window::WindowBuilder,
 };
 use std::{
-    borrow::Cow,
     sync::{Arc, Mutex},
     time::Instant,
 };
 
-use self::ui::UI;
+use self::{
+    renderpasses::{ScaleOutput, ToneMapFilm},
+    ui::UI,
+};
 use crate::{
     expect,
     film::{Film, FilmSettings},
     integrators::IntegratorType,
-    math::{Vec2, Vec3},
+    math::Vec2,
     renderer::Renderer,
     samplers::SamplerSettings,
     scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
-
-impl<'a> glium::texture::Texture2dDataSource<'a> for &'a Film {
-    type Data = Vec3<f32>;
-
-    fn into_raw(self) -> glium::texture::RawImage2d<'a, Vec3<f32>> {
-        let Vec2 { x, y } = self.res();
-        glium::texture::RawImage2d {
-            data: Cow::from(self.pixels()),
-            width: x as u32,
-            height: y as u32,
-            format: glium::texture::ClientFormat::F32F32F32,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-struct FilmVertex {
-    position: [f32; 2],
-    uv: [f32; 2],
-}
-
-glium::implement_vertex!(FilmVertex, position, uv);
-
-const FILM_FORMAT: glium::texture::UncompressedFloatFormat =
-    glium::texture::UncompressedFloatFormat::F32F32F32;
-
-const VS_CODE: &'static str = r#"
-#version 410 core
-
-in vec2 position;
-in vec2 uv;
-
-out vec2 frag_uv;
-
-void main() {
-    frag_uv = uv;
-    gl_Position = vec4(position, 0, 1);
-}
-"#;
-
-const FS_CODE: &'static str = r#"
-#version 410 core
-
-uniform sampler2D film_color;
-uniform float exposure;
-
-in vec2 frag_uv;
-
-out vec4 output_color;
-
-#define saturate(v) clamp(v, 0, 1)
-
-// ACES implementation ported from MJP and David Neubelt's hlsl adaptation of Stephen Hill's fit
-// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
-const mat3 ACESInputMat = transpose(mat3(
-    vec3(0.59719f, 0.35458f, 0.04823f),
-    vec3(0.07600f, 0.90834f, 0.01566f),
-    vec3(0.02840f, 0.13383f, 0.83777f)
-));
-
-// ODT_SAT => XYZ => D60_2_D65 => sRGB
-const mat3 ACESOutputMat = transpose(mat3(
-    vec3( 1.60475f, -0.53108f, -0.07367f),
-    vec3(-0.10208f,  1.10813f, -0.00605f),
-    vec3(-0.00327f, -0.07276f,  1.07602f)
-));
-
-vec3 RRTAndODTFit(vec3 v)
-{
-    vec3 a = v * (v + 0.0245786f) - 0.000090537f;
-    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
-    return a / b;
-}
-
-vec3 ACESFitted(vec3 color)
-{
-    color = ACESInputMat * color;
-
-    // Apply RRT and ODT
-    color = RRTAndODTFit(color);
-
-    color = ACESOutputMat * color;
-
-    // Clamp to [0, 1]
-    color = saturate(color);
-
-    return color;
-}
-
-void main() {
-    vec3 color = texture(film_color, frag_uv).rgb;
-    color *= exposure;
-    color = ACESFitted(color);
-    // Output target is linear, hw does gamma correction
-    output_color = vec4(color, 1.0f);
-}
-"#;
 
 pub struct Window {
     // Window and GL context
@@ -133,11 +39,8 @@ pub struct Window {
     film_settings: FilmSettings,
     film: Arc<Mutex<Film>>,
 
-    // Film draw
-    film_vbo: glium::VertexBuffer<FilmVertex>,
-    film_ibo: glium::IndexBuffer<u16>,
-    film_program: glium::Program,
-    film_texture: glium::Texture2d,
+    // Output
+    tone_map_film: ToneMapFilm,
 
     // Scene
     scene: Arc<Scene>,
@@ -164,31 +67,9 @@ impl Window {
 
         let film_settings = FilmSettings::default();
 
-        // Film draw
-        let film_vbo = create_film_vbo(&display, &film);
-
-        let film_ibo = expect!(
-            glium::index::IndexBuffer::new(
-                &display,
-                glium::index::PrimitiveType::TrianglesList,
-                &[0u16, 1, 2, 0, 2, 3]
-            ),
-            "Failed to create film index buffer"
-        );
-        let film_program = expect!(
-            glium::Program::from_source(&display, VS_CODE, FS_CODE, None),
-            "Failed to create film "
-        );
-
-        let film_texture = expect!(
-            glium::Texture2d::empty_with_format(
-                &display,
-                FILM_FORMAT,
-                glium::texture::MipmapsOption::NoMipmap,
-                film_settings.res.x as u32,
-                film_settings.res.y as u32,
-            ),
-            "Failed to create film texture"
+        let tone_map_film = expect!(
+            ToneMapFilm::new(&display),
+            "Failed to create tone map render pass"
         );
 
         let (scene, scene_params) = Scene::cornell();
@@ -197,12 +78,9 @@ impl Window {
             event_loop,
             display,
             ui,
+            tone_map_film,
             film_settings,
             film,
-            film_vbo,
-            film_ibo,
-            film_program,
-            film_texture,
             scene: Arc::new(scene),
             scene_params,
         }
@@ -213,12 +91,9 @@ impl Window {
             event_loop,
             display,
             mut ui,
+            mut tone_map_film,
             mut film_settings,
             film,
-            mut film_vbo,
-            film_ibo,
-            film_program,
-            mut film_texture,
             mut scene,
             mut scene_params,
         } = self;
@@ -228,7 +103,6 @@ impl Window {
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut renderer = Renderer::new();
-        let mut update_film_vbo = true;
         let mut status_messages: Option<Vec<String>> = None;
         let mut load_settings = SceneLoadSettings::default();
         let mut sampler_settings = SamplerSettings::StratifiedSampler {
@@ -376,38 +250,15 @@ impl Window {
                         }
                     }
 
-                    yuki_trace!("main_loop: Checking for texture update");
-                    if update_film_texture(&display, &film, &mut film_texture) {
-                        yuki_debug!("main_loop: Texture size changed, updating vbo");
-                        update_film_vbo = true;
-                    }
-
-                    if update_film_vbo {
-                        yuki_debug!("main_loop: VBO update required");
-                        film_vbo = create_film_vbo(&display, &film);
-                    }
-
                     // Draw frame
                     let mut render_target = display.draw();
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
-                    let uniforms = glium::uniform! {
-                            film_color: film_texture.sampled()
-                                .wrap_function(glium::uniforms::SamplerWrapFunction::BorderClamp)
-                                .minify_filter(glium::uniforms::MinifySamplerFilter::Linear)
-                                .magnify_filter(glium::uniforms::MagnifySamplerFilter::Linear),
-                            exposure: exposure,
-                    };
-                    expect!(
-                        render_target.draw(
-                            &film_vbo,
-                            &film_ibo,
-                            &film_program,
-                            &uniforms,
-                            &Default::default()
-                        ),
-                        "Failed to draw film"
+                    let tone_mapped_film = expect!(
+                        tone_map_film.draw(&display, &film, exposure),
+                        "Film tone map pass failed"
                     );
+                    ScaleOutput::draw(tone_mapped_film, &mut render_target);
 
                     // UI
                     frame_ui.end_frame(&display, &mut render_target);
@@ -426,7 +277,6 @@ impl Window {
                     WindowEvent::Resized(size) => {
                         yuki_trace!("main_loop: Resized");
                         display.gl_window().resize(size);
-                        update_film_vbo = true;
                     }
                     WindowEvent::KeyboardInput {
                         input:
@@ -455,100 +305,4 @@ impl Window {
             }
         })
     }
-}
-
-fn update_film_texture(
-    display: &glium::Display,
-    film: &Mutex<Film>,
-    texture: &mut glium::Texture2d,
-) -> bool {
-    let mut resized = false;
-
-    yuki_trace!("create_film_texture: Begin");
-    yuki_trace!("create_film_texture: Waiting for lock on film");
-    let mut film = film.lock().unwrap();
-    yuki_trace!("create_film_texture: Acquired film");
-
-    if film.dirty() {
-        yuki_debug!("create_film_texture: Film is dirty");
-        // We could update only the tiles that have changed but that's more work and scaffolding
-        // than it's worth especially with marked tiles. This is fast enough at small resolutions.
-        *texture = expect!(
-            glium::Texture2d::with_format(
-                display,
-                &*film,
-                FILM_FORMAT,
-                glium::texture::MipmapsOption::NoMipmap
-            ),
-            "Error creating new film texture"
-        );
-        let film_res = film.res();
-        resized = film_res.x != (texture.width() as u16) || film_res.y != (texture.height() as u16);
-
-        film.clear_dirty();
-        yuki_trace!("create_film_texture: Texture created");
-    }
-
-    yuki_trace!("create_film_texture: Releasing film");
-    resized
-}
-
-fn create_film_vbo(
-    display: &glium::Display,
-    film: &Mutex<Film>,
-) -> glium::VertexBuffer<FilmVertex> {
-    let film_res = {
-        yuki_trace!("create_film_vbo: Locking film");
-        let film = film.lock().unwrap();
-        let res = film.res();
-        yuki_trace!("create_film_vbo: Releasing film");
-        res
-    };
-
-    let glutin::dpi::PhysicalSize {
-        width: window_width,
-        height: window_height,
-    } = display.gl_window().window().inner_size();
-
-    // Retain film aspect ratio by scaling quad vertices directly
-    let window_aspect = (window_width as f32) / (window_height as f32);
-    let film_aspect = (film_res.x as f32) / (film_res.y as f32);
-    let (left, right, top, bottom) = if window_aspect < film_aspect {
-        let left = -1.0;
-        let right = 1.0;
-        let scale_y = window_aspect / film_aspect;
-        let top = scale_y;
-        let bottom = -scale_y;
-        (left, right, top, bottom)
-    } else {
-        let top = 1.0;
-        let bottom = -1.0;
-        let scale_x = film_aspect / window_aspect;
-        let left = -scale_x;
-        let right = scale_x;
-        (left, right, top, bottom)
-    };
-
-    let quad = [
-        FilmVertex {
-            position: [left, bottom],
-            uv: [0.0, 1.0],
-        },
-        FilmVertex {
-            position: [right, bottom],
-            uv: [1.0, 1.0],
-        },
-        FilmVertex {
-            position: [right, top],
-            uv: [1.0, 0.0],
-        },
-        FilmVertex {
-            position: [left, top],
-            uv: [0.0, 0.0],
-        },
-    ];
-    expect!(
-        glium::VertexBuffer::new(display, &quad),
-        "Failed to create film vertex buffer"
-    )
 }
