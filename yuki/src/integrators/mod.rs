@@ -1,8 +1,10 @@
 mod base;
 mod bvh_heatmap;
+mod normals;
 mod whitted;
 
 pub use bvh_heatmap::BVHIntersectionsIntegrator;
+pub use normals::NormalsIntegrator;
 pub use whitted::WhittedIntegrator;
 
 use base::IntegratorBase;
@@ -24,6 +26,7 @@ use std::sync::Arc;
 pub enum IntegratorType {
     Whitted,
     BVHIntersections,
+    Normals,
 }
 
 // Public interface of integrators, IntegratorBase holds the specializations.

@@ -11,7 +11,10 @@ use std::{
 use crate::{
     camera::Camera,
     film::{film_tiles, Film, FilmSettings, FilmTile},
-    integrators::{BVHIntersectionsIntegrator, Integrator, IntegratorType, WhittedIntegrator},
+    integrators::{
+        BVHIntersectionsIntegrator, Integrator, IntegratorType, NormalsIntegrator,
+        WhittedIntegrator,
+    },
     math::{
         transforms::{look_at, rotation_euler, translation},
         Vec3,
@@ -195,6 +198,9 @@ impl Renderer {
             }
             IntegratorType::BVHIntersections => {
                 launch_typed_render!(BVHIntersectionsIntegrator)
+            }
+            IntegratorType::Normals => {
+                launch_typed_render!(NormalsIntegrator)
             }
         };
 
