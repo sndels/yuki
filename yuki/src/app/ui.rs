@@ -103,6 +103,7 @@ impl UI {
         load_settings: &mut SceneLoadSettings,
         match_logical_cores: &mut bool,
         scene: Arc<Scene>,
+        render_in_progress: bool,
         status_messages: &Option<Vec<String>>,
     ) -> FrameUI {
         expect!(
@@ -117,6 +118,7 @@ impl UI {
 
         let ui = self.context.frame();
         let mut render_triggered = false;
+        let mut write_exr = false;
         let mut scene_path = None;
 
         imgui::Window::new(im_str!("Settings"))
@@ -147,6 +149,10 @@ impl UI {
                 ui.spacing();
 
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+                if !render_in_progress {
+                    ui.same_line(0.0);
+                    write_exr |= ui.button(im_str!("Write EXR"), [75.0, 20.0]);
+                }
                 ui.spacing();
 
                 ui.separator();
@@ -175,6 +181,7 @@ impl UI {
             renderer: &mut self.renderer,
             ui: Some(ui),
             render_triggered,
+            write_exr,
             scene_path,
             any_item_active,
         }
@@ -187,6 +194,7 @@ pub struct FrameUI<'a> {
     renderer: &'a mut Renderer,
     ui: Option<imgui::Ui<'a>>,
     pub render_triggered: bool,
+    pub write_exr: bool,
     pub scene_path: Option<PathBuf>,
     pub any_item_active: bool,
 }

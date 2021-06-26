@@ -12,6 +12,8 @@ UI Features:
 - Scene formats (partially) supported
   - [PLY](http://paulbourke.net/dataformats/ply/)
   - [Mitsuba 2.0](https://mitsuba2.readthedocs.io/en/latest/)
+- EXR export for the raw pixels
+  - [HDRView](https://github.com/wkjarosz/hdrview) is snappy for inspection and diffs
 
 Renderer features:
 - Tile-based rendering
