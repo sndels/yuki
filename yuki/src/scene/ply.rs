@@ -229,12 +229,15 @@ impl ply_rs::ply::PropertyAccess for Face {
     }
 
     fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
-        match property {
-            ply_rs::ply::Property::ListInt(v) => match key.as_str() {
-                // For some reason (Paul Bourke's example?), PLYs come with one of two different
-                // names for face indices
-                "vertex_index" | "vertex_indices" => {
-                    self.indices = v.iter().map(|&i| i as usize).collect()
+        match key.as_str() {
+            // For some reason (Paul Bourke's example?), PLYs come with one of two different
+            // names for face indices
+            "vertex_index" | "vertex_indices" => match property {
+                ply_rs::ply::Property::ListInt(v) => {
+                    self.indices = v.iter().map(|&i| i as usize).collect();
+                }
+                ply_rs::ply::Property::ListUInt(v) => {
+                    self.indices = v.iter().map(|&i| i as usize).collect();
                 }
                 _ => (),
             },
