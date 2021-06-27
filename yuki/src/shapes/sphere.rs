@@ -1,7 +1,7 @@
 use super::{Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
-    math::{Bounds3, Normal, Point3, Ray, Transform, Vec3},
+    math::{Bounds3, Point3, Ray, Transform, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -29,19 +29,19 @@ impl Sphere {
 
 impl Shape for Sphere {
     fn intersect(&self, ray: Ray<f32>) -> Option<Hit> {
-        let Ray { o, d, t_max } = &self.world_to_object * ray;
+        let r = &self.world_to_object * ray;
 
         // Quadratic coefficients
-        let a = d.x * d.x + d.y * d.y + d.z * d.z;
-        let b = 2.0 * (d.x * o.x + d.y * o.y + d.z * o.z);
-        let c = o.x * o.x + o.y * o.y + o.z * o.z - self.radius * self.radius;
+        let a = r.d.x * r.d.x + r.d.y * r.d.y + r.d.z * r.d.z;
+        let b = 2.0 * (r.d.x * r.o.x + r.d.y * r.o.y + r.d.z * r.o.z);
+        let c = r.o.x * r.o.x + r.o.y * r.o.y + r.o.z * r.o.z - self.radius * self.radius;
 
         // Solve quadratic equation for ts
-        let d = b * b - 4.0 * a * c;
-        if d < 0.0 {
+        let discrim = b * b - 4.0 * a * c;
+        if discrim < 0.0 {
             return None;
         }
-        let rd = d.sqrt();
+        let rd = discrim.sqrt();
 
         let q = if b < 0.0 {
             -0.5 * (b - rd)
@@ -56,28 +56,57 @@ impl Shape for Sphere {
             std::mem::swap(&mut t0, &mut t1);
         }
 
-        if t0 > t_max || t1 <= 0.0 {
+        if t0 > r.t_max || t1 <= 0.0 {
             return None;
         }
         let mut t = t0;
         if t <= 0.0 {
             t = t1;
-            if t > t_max {
+            if t > r.t_max {
                 return None;
             }
         };
 
-        // TODO: This can be computed the same way for all surfaces from the partial derivatives dp/du, dp/dv
-        let n = Normal::from((ray.point(t) - &self.object_to_world * Point3::zeros()).normalized());
+        // Do in object space to compute parametric representation
+        let p = {
+            let mut p = r.point(t);
+            // Refine
+            p *= self.radius / p.dist(Point3::from(0.0));
+            // Remove division by zero further on
+            if p.x == 0.0 && p.y == 0.0 {
+                p.x = 1e-5f32 * self.radius;
+            }
+            p
+        };
+
+        // TODO: Simplify math
+        let phi_max = 2.0 * std::f32::consts::PI;
+        let theta_min = std::f32::consts::PI;
+        let theta_max = 0.0;
+        let theta = (p.z / self.radius).clamp(-1.0, 1.0).acos();
+
+        let (dpdu, dpdv) = {
+            let z_radius = (p.x * p.x + p.y * p.y).sqrt();
+            let inv_z_radius = 1.0 / z_radius;
+            let cos_phi = p.x * inv_z_radius;
+            let sin_phi = p.y * inv_z_radius;
+            let dpdu = Vec3::new(-phi_max * p.y, phi_max * p.x, 0.0);
+            let dpdv = Vec3::new(p.z * cos_phi, p.z * sin_phi, -self.radius * theta.sin())
+                * (theta_max - theta_min);
+            (dpdu, dpdv)
+        };
 
         Some(Hit {
             t,
-            si: SurfaceInteraction {
-                p: ray.point(t),
-                v: -ray.d,
-                n,
-                albedo: self.albedo,
-            },
+            si: &self.object_to_world
+                * &SurfaceInteraction::new(
+                    p,
+                    dpdu,
+                    dpdv,
+                    -ray.d,
+                    self.albedo,
+                    self.object_to_world.swaps_handedness(),
+                ),
         })
     }
 

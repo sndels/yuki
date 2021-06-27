@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::{mesh::Mesh, Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
-    math::{Bounds3, Normal, Ray, Vec3},
+    math::{coordinate_system, Bounds3, Normal, Point2, Ray, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -41,13 +41,11 @@ impl Shape for Triangle {
         // ray lies on the +z axis. This way we don't get incorrect misses e.g. on rays
         // that intersect directly on an edge.
 
-        let (mut n, p0t, p1t, p2t, sz) = {
-            let p0 = self.mesh.points[self.vertices[0]];
-            let p1 = self.mesh.points[self.vertices[1]];
-            let p2 = self.mesh.points[self.vertices[2]];
+        let p0 = self.mesh.points[self.vertices[0]];
+        let p1 = self.mesh.points[self.vertices[1]];
+        let p2 = self.mesh.points[self.vertices[2]];
 
-            let n = Normal::from((p1 - p0).cross(p2 - p0).normalized());
-
+        let (p0t, p1t, p2t, sz) = {
             // Do things in relation to ray's origin
             let mut p0t = p0 - ray.o;
             let mut p1t = p1 - ray.o;
@@ -76,7 +74,7 @@ impl Shape for Triangle {
             p2t.x += sx * p2t.z;
             p2t.y += sy * p2t.z;
 
-            (n, p0t, p1t, p2t, sz)
+            (p0t, p1t, p2t, sz)
         };
 
         // Edge coefficients
@@ -124,18 +122,50 @@ impl Shape for Triangle {
         // World space distance to hit
         let t = t_scaled / det;
 
-        // Flip normal for backface hits
+        // Partial derivatives
+        // TODO: Use mesh shading uvs if present
+        let uv = [
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 0.0),
+            Point2::new(1.0, 1.0),
+        ];
+
+        let duv02 = uv[0] - uv[2];
+        let duv12 = uv[1] - uv[2];
+        let dp02 = p0 - p2;
+        let dp12 = p1 - p2;
+
+        let uv_det = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+        let (dpdu, dpdv) = if uv_det == 0.0 {
+            let n = (p2 - p0).cross(p1 - p0).normalized();
+            coordinate_system(n)
+        } else {
+            let inv_uv_det = 1.0 / uv_det;
+            (
+                (dp02 * duv12[1] - dp12 * duv02[1]) * inv_uv_det,
+                (-dp02 * duv12[0] + dp12 * duv02[0]) * inv_uv_det,
+            )
+        };
+
+        // Geometry normal, flip for backface hits
+        let mut n = Normal::from(dp02.cross(dp12).normalized());
+        // TODO: Handle in material since this defines in/out refraction
         n = if ray.d.dot_n(n) < 0.0 { n } else { -n };
+
+        // TODO: Shading geometry
 
         // pbrt swaps normal direction if object_to_world swaps handedness.
         // We won't need to since our normal is already calculated with world space
         // vertex positions.
+        // NOTE: That has to change if/when animations are implemented and vertices are transformed here.
 
         Some(Hit {
             t,
             si: SurfaceInteraction {
                 p: ray.point(t),
-                v: -ray.d,
+                dpdu,
+                dpdv,
+                wo: -ray.d,
                 n,
                 albedo: self.albedo,
             },
