@@ -21,8 +21,10 @@ impl IntegratorBase for WhittedIntegrator {
             scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
                 let light_sample = l.sample_li(&si);
                 // TODO: Trace light visibility
-                c + mul(si.albedo / std::f32::consts::PI, light_sample.li)
-                    * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                c + mul(
+                    si.bsdf.as_ref().unwrap().f(si.wo, light_sample.l),
+                    light_sample.li,
+                ) * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
             })
         } else {
             scene.background

@@ -8,6 +8,7 @@ mod integrators;
 mod interaction;
 mod lights;
 mod macros;
+mod materials;
 mod math;
 mod renderer;
 mod samplers;

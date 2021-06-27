@@ -1,11 +1,13 @@
-use crate::math::{Normal, Point3, Transform, Vec3};
+use crate::{
+    materials::BSDF,
+    math::{Normal, Point3, Transform, Vec3},
+};
 use std::ops::Mul;
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Interactions#SurfaceInteraction
 
 // Info for a point on a surface
-#[derive(Clone)]
 pub struct SurfaceInteraction {
     /// World position
     pub p: Point3<f32>,
@@ -15,8 +17,8 @@ pub struct SurfaceInteraction {
     pub wo: Vec3<f32>,
     /// Surface normal
     pub n: Normal<f32>,
-    /// Diffuse surface color
-    pub albedo: Vec3<f32>,
+    /// Material
+    pub bsdf: Option<BSDF>,
 }
 
 impl SurfaceInteraction {
@@ -25,7 +27,6 @@ impl SurfaceInteraction {
         dpdu: Vec3<f32>,
         dpdv: Vec3<f32>,
         wo: Vec3<f32>,
-        albedo: Vec3<f32>,
         should_reverse_normals: bool,
     ) -> Self {
         let n = {
@@ -41,22 +42,22 @@ impl SurfaceInteraction {
             dpdv,
             n,
             wo,
-            albedo,
+            bsdf: None,
         }
     }
 }
 
-impl<'a> Mul<&SurfaceInteraction> for &'a Transform<f32> {
+impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
     type Output = SurfaceInteraction;
 
-    fn mul(self, other: &SurfaceInteraction) -> SurfaceInteraction {
+    fn mul(self, other: SurfaceInteraction) -> SurfaceInteraction {
         SurfaceInteraction {
             p: self * other.p,
             dpdu: self * other.dpdu,
             dpdv: self * other.dpdv,
             wo: self * other.wo,
             n: self * other.n,
-            albedo: other.albedo,
+            bsdf: other.bsdf,
         }
     }
 }

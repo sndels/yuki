@@ -1,5 +1,6 @@
 use super::Result;
 use crate::{
+    materials::Material,
     math::{
         transforms::{scale, translation},
         Bounds3, Point3, Transform, Vec3,
@@ -13,7 +14,7 @@ use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
 
 pub fn load(
     path: &PathBuf,
-    albedo: Vec3<f32>,
+    material: Arc<dyn Material>,
     transform: Option<Transform<f32>>,
 ) -> Result<(Arc<Mesh>, Vec<Arc<dyn Shape>>)> {
     let file = match std::fs::File::open(path.to_str().unwrap()) {
@@ -98,7 +99,7 @@ pub fn load(
     let triangles_start = Instant::now();
     let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
     for v0 in (0..mesh.indices.len()).step_by(3) {
-        geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, albedo)));
+        geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, material.clone())));
     }
     yuki_info!(
         "PLY: Gathered {} triangles in {:.2}s",

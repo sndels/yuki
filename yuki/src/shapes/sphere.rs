@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use super::{Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
+    materials::Material,
     math::{Bounds3, Point3, Ray, Transform, Vec3},
 };
 
@@ -12,17 +15,17 @@ pub struct Sphere {
     object_to_world: Transform<f32>,
     world_to_object: Transform<f32>,
     radius: f32,
-    albedo: Vec3<f32>,
+    material: Arc<dyn Material>,
 }
 
 impl Sphere {
     /// Creates a new `Sphere`.
-    pub fn new(object_to_world: &Transform<f32>, radius: f32, albedo: Vec3<f32>) -> Self {
+    pub fn new(object_to_world: &Transform<f32>, radius: f32, material: Arc<dyn Material>) -> Self {
         Self {
             object_to_world: object_to_world.clone(),
             world_to_object: object_to_world.inverted(),
             radius,
-            albedo,
+            material,
         }
     }
 }
@@ -95,19 +98,17 @@ impl Shape for Sphere {
                 * (theta_max - theta_min);
             (dpdu, dpdv)
         };
+        let mut si = &self.object_to_world
+            * SurfaceInteraction::new(
+                p,
+                dpdu,
+                dpdv,
+                -ray.d,
+                self.object_to_world.swaps_handedness(),
+            );
+        si.bsdf = Some(self.material.compute_scattering_functions(&si));
 
-        Some(Hit {
-            t,
-            si: &self.object_to_world
-                * &SurfaceInteraction::new(
-                    p,
-                    dpdu,
-                    dpdv,
-                    -ray.d,
-                    self.albedo,
-                    self.object_to_world.swaps_handedness(),
-                ),
-        })
+        Some(Hit { t, si })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {

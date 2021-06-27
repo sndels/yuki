@@ -10,6 +10,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     find_attr,
     lights::Light,
+    materials::Material,
     math::Vec3,
     scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
@@ -33,7 +34,7 @@ pub fn load(
 
     let mut meshes = Vec::new();
     let mut geometry = Vec::new();
-    let mut materials: HashMap<String, Vec3<f32>> = HashMap::new();
+    let mut materials: HashMap<String, Arc<dyn Material>> = HashMap::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Vec3::from(0.0);
     let mut scene_params = DynamicSceneParameters::new();

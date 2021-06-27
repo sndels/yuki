@@ -122,7 +122,7 @@ impl BoundingVolumeHierarchy {
                         let shape_range = (first_shape_index as usize)
                             ..((first_shape_index + (shape_count as u32)) as usize);
                         hit = self.shapes[shape_range].iter().fold(
-                            hit.clone(),
+                            hit,
                             |old_hit: Option<Hit>, shape| {
                                 if let Some(new_hit) = shape.intersect(ray) {
                                     if let Some(old_hit) = old_hit {

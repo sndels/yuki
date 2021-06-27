@@ -1,6 +1,7 @@
 use crate::{
     find_attr,
-    math::{transforms::scale, Transform, Vec3},
+    materials::Material,
+    math::{transforms::scale, Transform},
     parse_element,
     scene::ply,
     shapes::{Mesh, Shape},
@@ -14,7 +15,7 @@ use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
 pub fn parse<T: std::io::Read>(
     dir_path: &PathBuf,
-    materials: &HashMap<String, Vec3<f32>>,
+    materials: &HashMap<String, Arc<dyn Material>>,
     attributes: Vec<OwnedAttribute>,
     parser: &mut EventReader<T>,
     mut indent: String,
@@ -79,8 +80,8 @@ pub fn parse<T: std::io::Read>(
     }
 
     if let Some(id) = material_id {
-        if let Some(&material) = materials.get(&id) {
-            match ply::load(&ply_abspath.unwrap(), material, Some(transform)) {
+        if let Some(material) = materials.get(&id) {
+            match ply::load(&ply_abspath.unwrap(), material.clone(), Some(transform)) {
                 Ok((m, g)) => Ok((Some(m), g)),
                 Err(e) => Err(e),
             }

@@ -14,7 +14,6 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Shape
 
-#[derive(Clone)]
 pub struct Hit {
     pub t: f32,
     pub si: SurfaceInteraction,

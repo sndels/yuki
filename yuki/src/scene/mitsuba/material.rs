@@ -1,14 +1,20 @@
-use crate::{math::Vec3, parse_element, yuki_error, yuki_info, yuki_trace};
+use crate::{
+    materials::{Material, Matte},
+    math::Vec3,
+    parse_element, yuki_error, yuki_info, yuki_trace,
+};
 
 use super::common::{parse_rgb, ParseResult};
 
+use std::sync::Arc;
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
 pub fn parse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<Vec3<f32>> {
-    let mut material = Vec3::new(1.0, 0.0, 1.0);
+) -> ParseResult<Arc<dyn Material>> {
+    let mut material = Arc::new(Matte::new(Vec3::new(1.0, 0.0, 1.0)));
+
     parse_element!(parser, indent, |name: &OwnedName,
                                     _: Vec<OwnedAttribute>,
                                     level: &mut i32,
@@ -17,7 +23,7 @@ pub fn parse<T: std::io::Read>(
         let data_type = name.local_name.as_str();
         match data_type {
             "bsdf" => {
-                material = parse_diffuse(parser, indent.clone())?;
+                material = Arc::new(Matte::new(parse_diffuse(parser, indent.clone())?));
                 *level -= 1;
                 indent.truncate(indent.len() - 2);
             }

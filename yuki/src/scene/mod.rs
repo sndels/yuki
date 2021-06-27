@@ -5,6 +5,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
     lights::{Light, PointLight},
+    materials::Matte,
     math::{transforms::translation, Point3, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
@@ -96,7 +97,7 @@ impl Scene {
     ) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (mesh, geometry) = ply::load(path, Vec3::from(1.0), None)?;
+        let (mesh, geometry) = ply::load(path, Arc::new(Matte::new(Vec3::from(1.0))), None)?;
 
         let meshes = vec![mesh];
 
@@ -154,9 +155,9 @@ impl Scene {
 
         // Materials
         // These are approximate as the originals are defined as spectrums
-        let white = Vec3::from(180.0) / 255.0;
-        let red = Vec3::new(180.0, 0.0, 0.0) / 255.0;
-        let green = Vec3::new(0.0, 180.0, 0.0) / 255.0;
+        let white = Arc::new(Matte::new(Vec3::from(180.0) / 255.0));
+        let red = Arc::new(Matte::new(Vec3::new(180.0, 0.0, 0.0) / 255.0));
+        let green = Arc::new(Matte::new(Vec3::new(0.0, 180.0, 0.0) / 255.0));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
@@ -221,10 +222,16 @@ impl Scene {
                 )),
             ];
 
-            let materials = [white, white, white, green, red];
+            let materials = [
+                white.clone(),
+                white.clone(),
+                white.clone(),
+                green.clone(),
+                red,
+            ];
             for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
                 for v0 in (0..mesh.indices.len()).step_by(3) {
-                    geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, *material)));
+                    geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, material.clone())));
                 }
             }
             meshes.extend(wall_meshes);
@@ -251,7 +258,7 @@ impl Scene {
             ));
 
             for v0 in (0..mesh.indices.len()).step_by(3) {
-                geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, white)));
+                geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, white.clone())));
             }
             meshes.push(mesh);
         }
@@ -259,7 +266,7 @@ impl Scene {
         geometry.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            white,
+            white.clone(),
         )));
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);

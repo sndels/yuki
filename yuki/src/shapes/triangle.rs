@@ -3,7 +3,8 @@ use std::sync::Arc;
 use super::{mesh::Mesh, Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
-    math::{coordinate_system, Bounds3, Normal, Point2, Ray, Vec3},
+    materials::Material,
+    math::{coordinate_system, Bounds3, Normal, Point2, Ray},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -13,14 +14,14 @@ use crate::{
 pub struct Triangle {
     mesh: Arc<Mesh>,
     vertices: [usize; 3],
-    albedo: Vec3<f32>,
+    material: Arc<dyn Material>,
 }
 
 impl Triangle {
     /// Creates a new `Triangle`.
     /// `first_vertex` is the index of the first vertex index in `mesh`'s index list.
     /// Expects counter clockwise winding
-    pub fn new(mesh: Arc<Mesh>, first_vertex: usize, albedo: Vec3<f32>) -> Self {
+    pub fn new(mesh: Arc<Mesh>, first_vertex: usize, material: Arc<dyn Material>) -> Self {
         let vertices = [
             mesh.indices[first_vertex],
             mesh.indices[first_vertex + 1],
@@ -30,7 +31,7 @@ impl Triangle {
         Self {
             mesh,
             vertices,
-            albedo,
+            material,
         }
     }
 }
@@ -159,17 +160,17 @@ impl Shape for Triangle {
         // vertex positions.
         // NOTE: That has to change if/when animations are implemented and vertices are transformed here.
 
-        Some(Hit {
-            t,
-            si: SurfaceInteraction {
-                p: ray.point(t),
-                dpdu,
-                dpdv,
-                wo: -ray.d,
-                n,
-                albedo: self.albedo,
-            },
-        })
+        let mut si = SurfaceInteraction {
+            p: ray.point(t),
+            dpdu,
+            dpdv,
+            wo: -ray.d,
+            n,
+            bsdf: None,
+        };
+        si.bsdf = Some(self.material.compute_scattering_functions(&si));
+
+        Some(Hit { t, si })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {
