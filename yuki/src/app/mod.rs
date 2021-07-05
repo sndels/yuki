@@ -55,7 +55,8 @@ impl Window {
         let window_builder = WindowBuilder::new()
             .with_title(title.to_owned())
             .with_inner_size(LogicalSize::new(resolution.0 as f64, resolution.1 as f64));
-        let context_builder = glutin::ContextBuilder::new();
+        // Vsync is an easy way to limit framerate to a sane range
+        let context_builder = glutin::ContextBuilder::new().with_vsync(true);
         let display = expect!(
             glium::Display::new(window_builder, context_builder, &event_loop),
             "Failed to initialize glium display"
