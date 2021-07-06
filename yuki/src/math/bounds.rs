@@ -176,23 +176,24 @@ where
 {
     /// Checks if `ray` hits this `Bounds3`.
     ///
-    /// `inv_dir` and `dir_is_neg` precomputed from `ray` are supplied an optimization.
-    pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>, dir_is_neg: [bool; 3]) -> bool {
-        // X-slabs test
-        let mut t0 = (self[dir_is_neg[0] as usize].x - ray.o.x) * inv_dir.x;
-        let mut t1 = (self[1 - (dir_is_neg[0] as usize)].x - ray.o.x) * inv_dir.x;
+    /// Precomputed `inv_dir` is supplied as an optimization.
+    pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>) -> bool {
+        // Adapted from slab test used in OptiX and Embree as listed in
+        // A Ray-Box Intersection Algorithm and Efficient Dynamic Voxel Rendering
+        // by Alexander Majercik et. al.
 
-        // Y,Z -slabs test
-        for i in 1..3 {
-            let ti0 = (self[dir_is_neg[i] as usize][i] - ray.o[i]) * inv_dir[i];
-            let ti1 = (self[1 - (dir_is_neg[i] as usize)][i] - ray.o[i]) * inv_dir[i];
-            if t0 > ti1 || ti0 > t1 {
-                return false;
-            }
-            t0 = t0.min(ti0);
-            t1 = t1.min(ti1);
+        // TODO: Implement component-wise multiply for vec3 type
+        fn mul_vec3<V: FloatValueType>(v0: Vec3<V>, v1: Vec3<V>) -> Vec3<V> {
+            Vec3::new(v0.x * v1.x, v0.y * v1.y, v0.z * v1.z)
         }
 
-        return t0 < ray.t_max && t1 > T::zero();
+        let t0 = mul_vec3(self.p_min - ray.o, inv_dir);
+        let t1 = mul_vec3(self.p_max - ray.o, inv_dir);
+
+        // TODO: Ray tmin
+        let tmin = t0.min(t1).max_comp().max(T::zero());
+        let tmax = t0.max(t1).min_comp().min(ray.t_max);
+
+        tmin <= tmax
     }
 }
