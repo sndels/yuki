@@ -10,6 +10,7 @@ use glutin::{
     window::WindowBuilder,
 };
 use std::{
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -22,7 +23,7 @@ use crate::{
     expect,
     film::{Film, FilmSettings},
     integrators::IntegratorType,
-    math::Vec2,
+    math::{Vec2, Vec3},
     renderer::Renderer,
     samplers::SamplerSettings,
     scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
@@ -254,58 +255,33 @@ impl Window {
                     }
 
                     if frame_ui.write_exr {
-                        match std::env::current_dir() {
-                            Ok(mut path) => {
-                                let now = chrono::Local::now();
-                                let timestamp = format!(
-                                    "{:04}{:02}{:02}_{:02}{:02}{:02}",
-                                    now.year(),
-                                    now.month(),
-                                    now.day(),
-                                    now.hour(),
-                                    now.minute(),
-                                    now.second()
-                                );
-                                let filename = format!("{}_{}.exr", scene.name, timestamp);
-                                path.push(filename);
-
-                                {
-                                    yuki_trace!("Dump EXR: Waiting for lock on film");
+                        match exr_path(&scene) {
+                            Ok(path) => {
+                                let (w, h, pixels) = {
+                                    yuki_trace!("Write EXR: Waiting for lock on film");
                                     let film = film.lock().unwrap();
-                                    yuki_trace!("Dump EXR: Acquired film");
+                                    yuki_trace!("Write EXR: Acquired film");
 
                                     let (w, h) = {
                                         let Vec2 { x, y } = film.res();
                                         (x as usize, y as usize)
                                     };
 
-                                    yuki_info!("Writing out EXR");
-                                    match exr::prelude::write_rgb_file(&path, w, h, |x, y| {
-                                        let px = film.pixels()[y * w + x];
-                                        (px.x, px.y, px.z)
-                                    }) {
-                                        Ok(_) => {
-                                            yuki_info!(
-                                                "EXR written to '{}'",
-                                                path.to_string_lossy()
-                                            );
-                                            status_messages = Some(vec![format!("EXR written")]);
-                                        }
-                                        Err(why) => {
-                                            yuki_error!(
-                                                "Error writing EXR to '{}': {:?}",
-                                                path.to_string_lossy(),
-                                                why
-                                            );
-                                            status_messages =
-                                                Some(vec![format!("Error writing EXR")]);
-                                        }
+                                    let pixels = film.pixels().clone();
+
+                                    (w, h, pixels)
+                                };
+
+                                status_messages = Some(vec![match write_exr(w, h, pixels, path) {
+                                    Ok(_) => "EXR written".into(),
+                                    Err(why) => {
+                                        yuki_error!("{}", why);
+                                        "Error writing EXR".into()
                                     }
-                                }
-                                yuki_trace!("Dump EXR: Releasing film");
+                                }]);
                             }
                             Err(why) => {
-                                yuki_error!("Error getting current working directory: {:?}", why);
+                                yuki_error!("{}", why);
                             }
                         }
                     }
@@ -364,5 +340,53 @@ impl Window {
                 _ => {}
             }
         })
+    }
+}
+
+fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
+    match std::env::current_dir() {
+        Ok(mut path) => {
+            let now = chrono::Local::now();
+            let timestamp = format!(
+                "{:04}{:02}{:02}_{:02}{:02}{:02}",
+                now.year(),
+                now.month(),
+                now.day(),
+                now.hour(),
+                now.minute(),
+                now.second()
+            );
+            let filename = format!("{}_{}.exr", scene.name, timestamp);
+            path.push(filename);
+
+            Ok(path)
+        }
+        Err(why) => Err(format!(
+            "Error getting current working directory: {:?}",
+            why
+        )),
+    }
+}
+
+fn write_exr(
+    width: usize,
+    height: usize,
+    pixels: Vec<Vec3<f32>>,
+    path: PathBuf,
+) -> Result<(), String> {
+    yuki_info!("Writing out EXR");
+    match exr::prelude::write_rgb_file(&path, width, height, |x, y| {
+        let px = pixels[y * width + x];
+        (px.x, px.y, px.z)
+    }) {
+        Ok(_) => {
+            yuki_info!("EXR written to '{}'", path.to_string_lossy());
+            Ok(())
+        }
+        Err(why) => Err(format!(
+            "Error writing EXR to '{}': {:?}",
+            path.to_string_lossy(),
+            why
+        )),
     }
 }
