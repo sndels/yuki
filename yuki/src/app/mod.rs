@@ -260,7 +260,7 @@ impl Window {
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
                     let tone_mapped_film = expect!(
-                        tone_map_film.draw(&display, &film, &tone_map_type),
+                        tone_map_film.draw(&display, &film, &mut tone_map_type),
                         "Film tone map pass failed"
                     );
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);

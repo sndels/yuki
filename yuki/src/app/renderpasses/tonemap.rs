@@ -5,18 +5,40 @@ use strum::{EnumString, EnumVariantNames, ToString};
 use crate::{
     film::Film,
     math::{Vec2, Vec3},
-    yuki_debug, yuki_trace,
+    yuki_debug, yuki_info, yuki_trace,
 };
 
 #[derive(EnumVariantNames, ToString, EnumString)]
 pub enum ToneMapType {
-    Filmic { exposure: f32 },
+    Filmic {
+        exposure: f32,
+    },
+    Heatmap {
+        // No bounds forces re-evaluation of tight bounds
+        bounds: Option<(f32, f32)>,
+        channel: HeatmapChannel,
+    },
+}
+
+#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
+pub enum HeatmapChannel {
+    Red = 0,
+    Green = 1,
+    Blue = 2,
+    Luminance = 3,
+}
+
+impl Default for HeatmapChannel {
+    fn default() -> Self {
+        HeatmapChannel::Red
+    }
 }
 
 pub struct ToneMapFilm {
     vertex_buffer: glium::VertexBuffer<Vertex>,
     index_buffer: glium::IndexBuffer<u16>,
     filmic_program: glium::Program,
+    heatmap_program: glium::Program,
     input: glium::Texture2d,
     output: glium::Texture2d,
 }
@@ -52,6 +74,9 @@ impl ToneMapFilm {
         let filmic_program = glium::Program::from_source(display, VS_CODE, FILMIC_FS_CODE, None)
             .map_err(NewError::ProgramCreationError)?;
 
+        let heatmap_program = glium::Program::from_source(display, VS_CODE, HEATMAP_FS_CODE, None)
+            .map_err(NewError::ProgramCreationError)?;
+
         macro_rules! create_tex {
             () => {
                 glium::Texture2d::empty_with_format(
@@ -71,6 +96,7 @@ impl ToneMapFilm {
             vertex_buffer,
             index_buffer,
             filmic_program,
+            heatmap_program,
             input,
             output,
         })
@@ -81,10 +107,11 @@ impl ToneMapFilm {
         &'a mut self,
         display: &glium::Display,
         film: &'b Mutex<Film>,
-        params: &ToneMapType,
+        params: &mut ToneMapType,
     ) -> Result<&'a glium::Texture2d, DrawError<'b>> {
         yuki_trace!("draw: Checking for texture update");
-        self.update_textures(display, film)
+        let film_dirty = self
+            .update_textures(display, film)
             .map_err(DrawError::UpdateTexturesError)?;
 
         let input_sampler = self
@@ -112,6 +139,54 @@ impl ToneMapFilm {
                     )
                     .map_err(DrawError::DrawError)?;
             }
+            ToneMapType::Heatmap { bounds, channel } => {
+                let (min, max) = {
+                    if film_dirty || bounds.is_none() {
+                        yuki_debug!("draw: Dirty film, re-evaluating heatmap min, max");
+                        yuki_trace!("draw: Waiting for lock on film (Heatmap)");
+                        let film = film.lock().map_err(DrawError::FilmPoisonError)?;
+                        yuki_trace!("draw: Acquired film (Heatmap)");
+
+                        let px_accessor: Box<dyn Fn(Vec3<f32>) -> f32> = match &channel {
+                            HeatmapChannel::Red | HeatmapChannel::Green | HeatmapChannel::Blue => {
+                                Box::new(|px: Vec3<f32>| px[*channel as usize])
+                            }
+                            HeatmapChannel::Luminance => Box::new(|px: Vec3<f32>| {
+                                0.2126 * px[0] + 0.7152 * px[1] + 0.0722 * px[2]
+                            }),
+                        };
+
+                        // TODO: This is slow for large films. Do we care?
+                        film.pixels()
+                            .iter()
+                            .fold((f32::MAX, f32::MIN), |(min, max), &px| {
+                                let v = px_accessor(px);
+                                (min.min(v), max.max(v))
+                            })
+                    } else {
+                        bounds.unwrap()
+                    }
+                };
+                *bounds = Some((min, max));
+
+                let uniforms = glium::uniform! {
+                    input_texture: input_sampler,
+                    min_val: min,
+                    max_val: max,
+                    channel: *channel as u32,
+                };
+
+                self.output
+                    .as_surface()
+                    .draw(
+                        &self.vertex_buffer,
+                        &self.index_buffer,
+                        &self.heatmap_program,
+                        &uniforms,
+                        &Default::default(),
+                    )
+                    .map_err(DrawError::DrawError)?;
+            }
         }
 
         Ok(&self.output)
@@ -122,13 +197,14 @@ impl ToneMapFilm {
         &mut self,
         display: &glium::Display,
         film: &'a Mutex<Film>,
-    ) -> Result<(), UpdateTexturesError<'a>> {
+    ) -> Result<bool, UpdateTexturesError<'a>> {
         yuki_trace!("update_film_texture: Begin");
         yuki_trace!("update_film_texture: Waiting for lock on film");
         let mut film = film.lock().map_err(UpdateTexturesError::FilmPoisonError)?;
         yuki_trace!("update_film_texture: Acquired film");
 
-        if film.dirty() {
+        let film_dirty = film.dirty();
+        if film_dirty {
             yuki_debug!("update_film_texture: Film is dirty");
             // We could update only the tiles that have changed but that's more work and scaffolding
             // than it's worth especially with marked tiles. This is fast enough at small resolutions.
@@ -158,7 +234,7 @@ impl ToneMapFilm {
         }
 
         yuki_trace!("update_film_texture: Releasing film");
-        Ok(())
+        Ok(film_dirty)
     }
 }
 const FILM_FORMAT: glium::texture::UncompressedFloatFormat =
@@ -256,6 +332,43 @@ void main() {
 }
 "#;
 
+const HEATMAP_FS_CODE: &'static str = r#"
+#version 410 core
+
+uniform sampler2D input_texture;
+
+uniform float min_val;
+uniform float max_val;
+uniform uint channel;
+
+in vec2 frag_uv;
+
+out vec3 output_color;
+
+#define saturate(v) clamp(v, 0, 1)
+
+const vec3 LOW_COLOR = vec3(0,0,1);
+const vec3 MID_COLOR = vec3(0,1,0);
+const vec3 HIGH_COLOR = vec3(1,0,0);
+
+void main() {
+    float value = 0;
+    if (channel > 0 && channel < 3) {
+        value = texture(input_texture, frag_uv)[channel];
+    } else {
+        // Luminance
+        value = dot(texture(input_texture, frag_uv).rgb, vec3(0.2126, 0.7152, 0.0722));
+    }
+    float scaled_value = (value - min_val) / (max_val - min_val);
+
+    // Linear gradient B->G->R
+    output_color = mix(
+        mix(LOW_COLOR, MID_COLOR, saturate(scaled_value * 2)),
+        HIGH_COLOR,
+        saturate(scaled_value * 2 - 1));
+}
+"#;
+
 #[derive(Debug)]
 pub enum NewError {
     VertexBufferCreationError(glium::vertex::BufferCreationError),
@@ -268,6 +381,7 @@ pub enum NewError {
 pub enum DrawError<'a> {
     DrawError(glium::DrawError),
     UpdateTexturesError(UpdateTexturesError<'a>),
+    FilmPoisonError(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
 }
 
 #[derive(Debug)]

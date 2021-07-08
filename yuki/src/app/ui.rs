@@ -5,8 +5,10 @@ use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::{convert::TryFrom, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
-use strum::VariantNames;
+use std::{
+    convert::TryFrom, path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration,
+};
+use strum::{EnumVariantNames, ToString, VariantNames};
 use tinyfiledialogs::open_file_dialog;
 
 use super::renderpasses::ToneMapType;
@@ -493,29 +495,12 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
 }
 
 fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
-    let tone_map_names = ToneMapType::VARIANTS
-        .iter()
-        .map(|&n| imgui::ImString::new(n))
-        .collect::<Vec<imgui::ImString>>();
-    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
-    let im_str_tone_map_names = tone_map_names
-        .iter()
-        .map(|n| n.as_ref())
-        .collect::<Vec<&imgui::ImStr>>();
-    let mut current_tone_map = ToneMapType::VARIANTS
-        .iter()
-        .position(|&n| n == &params.to_string())
-        .unwrap();
-    let changed = imgui::ComboBox::new(im_str!("Tone map")).build_simple_string(
-        &ui,
-        &mut current_tone_map,
-        &im_str_tone_map_names,
-    );
+    let changed = enum_combo_box(ui, im_str!("Tone map"), params);
 
     if changed {
-        *params = ToneMapType::from_str(ToneMapType::VARIANTS[current_tone_map]).unwrap();
         match params {
             ToneMapType::Filmic { exposure } => *exposure = 1.0,
+            ToneMapType::Heatmap { .. } => (),
         }
     }
 
@@ -531,6 +516,62 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
                 .build(&ui, exposure);
             width.pop(&ui);
         }
+        ToneMapType::Heatmap { bounds, channel } => {
+            let changed = enum_combo_box(ui, im_str!("Channel"), channel);
+            if changed {
+                *bounds = None;
+            }
+
+            if let Some((min, max)) = bounds {
+                let speed = ((*max - *min) / 100.0).max(0.001);
+                let width = ui.push_item_width(118.0);
+                imgui::Drag::new(im_str!("Min"))
+                    .range(0.0..=(*max - 0.001).max(0.0))
+                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                    .speed(speed)
+                    .display_format(im_str!("%.3f"))
+                    .build(&ui, min);
+                ui.same_line(0.0);
+                imgui::Drag::new(im_str!("Max"))
+                    .range((*min + 0.001)..=f32::MAX)
+                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                    .speed(speed)
+                    .display_format(im_str!("%.3f"))
+                    .build(&ui, max);
+                width.pop(&ui);
+            }
+        }
     }
     ui.unindent();
+}
+
+// Generates a combo box for `value` and returns true if it changed.
+fn enum_combo_box<T>(ui: &imgui::Ui<'_>, name: &ImStr, value: &mut T) -> bool
+where
+    T: VariantNames + ToString + FromStr,
+    T::Err: std::fmt::Debug,
+{
+    let t_names = T::VARIANTS
+        .iter()
+        .map(|&n| imgui::ImString::new(n))
+        .collect::<Vec<imgui::ImString>>();
+    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
+    let im_str_t_names = t_names
+        .iter()
+        .map(|n| n.as_ref())
+        .collect::<Vec<&imgui::ImStr>>();
+
+    let mut current_t = T::VARIANTS
+        .iter()
+        .position(|&n| n == &value.to_string())
+        .unwrap();
+
+    let changed =
+        imgui::ComboBox::new(name).build_simple_string(&ui, &mut current_t, &im_str_t_names);
+
+    if changed {
+        *value = T::from_str(T::VARIANTS[current_t]).unwrap();
+    }
+
+    changed
 }
