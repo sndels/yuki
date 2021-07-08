@@ -10,6 +10,7 @@ use glutin::{
     window::WindowBuilder,
 };
 use std::{
+    borrow::Cow,
     path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
@@ -17,7 +18,7 @@ use std::{
 
 use self::{
     renderpasses::{ScaleOutput, ToneMapFilm},
-    ui::UI,
+    ui::{WriteEXR, UI},
 };
 use crate::{
     expect,
@@ -254,38 +255,6 @@ impl Window {
                         }
                     }
 
-                    if frame_ui.write_exr {
-                        match exr_path(&scene) {
-                            Ok(path) => {
-                                let (w, h, pixels) = {
-                                    yuki_trace!("Write EXR: Waiting for lock on film");
-                                    let film = film.lock().unwrap();
-                                    yuki_trace!("Write EXR: Acquired film");
-
-                                    let (w, h) = {
-                                        let Vec2 { x, y } = film.res();
-                                        (x as usize, y as usize)
-                                    };
-
-                                    let pixels = film.pixels().clone();
-
-                                    (w, h, pixels)
-                                };
-
-                                status_messages = Some(vec![match write_exr(w, h, pixels, path) {
-                                    Ok(_) => "EXR written".into(),
-                                    Err(why) => {
-                                        yuki_error!("{}", why);
-                                        "Error writing EXR".into()
-                                    }
-                                }]);
-                            }
-                            Err(why) => {
-                                yuki_error!("{}", why);
-                            }
-                        }
-                    }
-
                     // Draw frame
                     let mut render_target = display.draw();
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
@@ -304,6 +273,52 @@ impl Window {
 
                     let spent_millis = (redraw_start.elapsed().as_micros() as f32) * 1e-3;
                     yuki_debug!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
+
+                    // Handle after draw so we have the mapped output texture
+                    if let Some(output) = &frame_ui.write_exr {
+                        match exr_path(&scene) {
+                            Ok(path) => {
+                                let (w, h, pixels) = match output {
+                                    WriteEXR::Raw => {
+                                        yuki_trace!("Write EXR: Waiting for lock on film");
+                                        let film = film.lock().unwrap();
+                                        yuki_trace!("Write EXR: Acquired film");
+
+                                        let (w, h) = {
+                                            let Vec2 { x, y } = film.res();
+                                            (x as usize, y as usize)
+                                        };
+
+                                        let pixels = film.pixels().clone();
+
+                                        (w, h, pixels)
+                                    }
+
+                                    WriteEXR::Mapped => {
+                                        let w = tone_mapped_film.width() as usize;
+                                        let h = tone_mapped_film.height() as usize;
+                                        // TODO: This will explode if mapped texture format is not f32f32f32
+                                        let pixels = unsafe {
+                                            tone_mapped_film
+                                                .unchecked_read::<Vec<Vec3<f32>>, Vec3<f32>>()
+                                        };
+                                        (w, h, pixels)
+                                    }
+                                };
+
+                                status_messages = Some(vec![match write_exr(w, h, pixels, path) {
+                                    Ok(_) => "EXR written".into(),
+                                    Err(why) => {
+                                        yuki_error!("{}", why);
+                                        "Error writing EXR".into()
+                                    }
+                                }]);
+                            }
+                            Err(why) => {
+                                yuki_error!("{}", why);
+                            }
+                        }
+                    }
                 }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
@@ -388,5 +403,17 @@ fn write_exr(
             path.to_string_lossy(),
             why
         )),
+    }
+}
+
+impl glium::texture::Texture2dDataSink<Vec3<f32>> for Vec<Vec3<f32>> {
+    fn from_raw(data: Cow<'_, [Vec3<f32>]>, _: u32, _: u32) -> Self {
+        data.into()
+    }
+}
+
+unsafe impl glium::texture::PixelValue for Vec3<f32> {
+    fn get_format() -> glium::texture::ClientFormat {
+        glium::texture::ClientFormat::F32F32F32
     }
 }

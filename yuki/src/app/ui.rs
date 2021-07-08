@@ -118,7 +118,7 @@ impl UI {
 
         let ui = self.context.frame();
         let mut render_triggered = false;
-        let mut write_exr = false;
+        let mut write_exr = None;
         let mut scene_path = None;
 
         imgui::Window::new(im_str!("Settings"))
@@ -150,8 +150,13 @@ impl UI {
 
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
                 if !render_in_progress {
+                    if ui.button(im_str!("Write raw EXR"), [100.0, 20.0]) {
+                        write_exr = Some(WriteEXR::Raw);
+                    }
                     ui.same_line(0.0);
-                    write_exr |= ui.button(im_str!("Write EXR"), [75.0, 20.0]);
+                    if ui.button(im_str!("Write mapped EXR"), [120.0, 20.0]) {
+                        write_exr = Some(WriteEXR::Mapped)
+                    }
                 }
                 ui.spacing();
 
@@ -188,13 +193,18 @@ impl UI {
     }
 }
 
+pub enum WriteEXR {
+    Raw,
+    Mapped,
+}
+
 /// Kind of a closure that gets around having to store imgui::UI within UI during a frame
 pub struct FrameUI<'a> {
     platform: &'a mut WinitPlatform,
     renderer: &'a mut Renderer,
     ui: Option<imgui::Ui<'a>>,
     pub render_triggered: bool,
-    pub write_exr: bool,
+    pub write_exr: Option<WriteEXR>,
     pub scene_path: Option<PathBuf>,
     pub any_item_active: bool,
 }
