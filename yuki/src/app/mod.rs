@@ -17,7 +17,7 @@ use std::{
 };
 
 use self::{
-    renderpasses::{ScaleOutput, ToneMapFilm},
+    renderpasses::{ScaleOutput, ToneMapFilm, ToneMapType},
     ui::{WriteEXR, UI},
 };
 use crate::{
@@ -114,8 +114,8 @@ impl Window {
             symmetric_dimensions: true,
             jitter_samples: false,
         };
-        let mut exposure = 1.0;
         let mut scene_integrator = IntegratorType::Whitted;
+        let mut tone_map_type = ToneMapType::Filmic { exposure: 1.0 };
 
         let mut match_logical_cores = true;
 
@@ -156,10 +156,10 @@ impl Window {
                     let mut frame_ui = ui.generate_frame(
                         &window,
                         &mut film_settings,
-                        &mut exposure,
                         &mut sampler_settings,
                         &mut scene_params,
                         &mut scene_integrator,
+                        &mut tone_map_type,
                         &mut load_settings,
                         &mut match_logical_cores,
                         scene.clone(),
@@ -260,7 +260,7 @@ impl Window {
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
                     let tone_mapped_film = expect!(
-                        tone_map_film.draw(&display, &film, exposure),
+                        tone_map_film.draw(&display, &film, &tone_map_type),
                         "Film tone map pass failed"
                     );
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);

@@ -1,5 +1,6 @@
 use glium::Surface;
 use std::{borrow::Cow, sync::Mutex};
+use strum::{EnumString, EnumVariantNames, ToString};
 
 use crate::{
     film::Film,
@@ -7,10 +8,15 @@ use crate::{
     yuki_debug, yuki_trace,
 };
 
+#[derive(EnumVariantNames, ToString, EnumString)]
+pub enum ToneMapType {
+    Filmic { exposure: f32 },
+}
+
 pub struct ToneMapFilm {
     vertex_buffer: glium::VertexBuffer<Vertex>,
     index_buffer: glium::IndexBuffer<u16>,
-    program: glium::Program,
+    filmic_program: glium::Program,
     input: glium::Texture2d,
     output: glium::Texture2d,
 }
@@ -43,7 +49,7 @@ impl ToneMapFilm {
         )
         .map_err(NewError::IndexBufferCreationError)?;
 
-        let program = glium::Program::from_source(display, VS_CODE, FS_CODE, None)
+        let filmic_program = glium::Program::from_source(display, VS_CODE, FILMIC_FS_CODE, None)
             .map_err(NewError::ProgramCreationError)?;
 
         macro_rules! create_tex {
@@ -64,7 +70,7 @@ impl ToneMapFilm {
         Ok(Self {
             vertex_buffer,
             index_buffer,
-            program,
+            filmic_program,
             input,
             output,
         })
@@ -75,30 +81,38 @@ impl ToneMapFilm {
         &'a mut self,
         display: &glium::Display,
         film: &'b Mutex<Film>,
-        exposure: f32,
+        params: &ToneMapType,
     ) -> Result<&'a glium::Texture2d, DrawError<'b>> {
         yuki_trace!("draw: Checking for texture update");
         self.update_textures(display, film)
             .map_err(DrawError::UpdateTexturesError)?;
 
-        let uniforms = glium::uniform! {
-                input_texture: self.input.sampled()
-                    .wrap_function(glium::uniforms::SamplerWrapFunction::BorderClamp)
-                    .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
-                    .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
-                exposure: exposure,
-        };
+        let input_sampler = self
+            .input
+            .sampled()
+            .wrap_function(glium::uniforms::SamplerWrapFunction::BorderClamp)
+            .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
+            .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest);
 
-        self.output
-            .as_surface()
-            .draw(
-                &self.vertex_buffer,
-                &self.index_buffer,
-                &self.program,
-                &uniforms,
-                &Default::default(),
-            )
-            .map_err(DrawError::DrawError)?;
+        match params {
+            ToneMapType::Filmic { exposure } => {
+                let uniforms = glium::uniform! {
+                    input_texture: input_sampler,
+                        exposure: *exposure,
+                };
+
+                self.output
+                    .as_surface()
+                    .draw(
+                        &self.vertex_buffer,
+                        &self.index_buffer,
+                        &self.filmic_program,
+                        &uniforms,
+                        &Default::default(),
+                    )
+                    .map_err(DrawError::DrawError)?;
+            }
+        }
 
         Ok(&self.output)
     }
@@ -185,7 +199,7 @@ void main() {
 }
 "#;
 
-const FS_CODE: &'static str = r#"
+const FILMIC_FS_CODE: &'static str = r#"
 #version 410 core
 
 uniform sampler2D input_texture;

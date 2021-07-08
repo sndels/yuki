@@ -5,9 +5,11 @@ use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::{convert::TryFrom, path::PathBuf, sync::Arc, time::Duration};
+use std::{convert::TryFrom, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
+
+use super::renderpasses::ToneMapType;
 
 use crate::{
     camera::FoV,
@@ -96,10 +98,10 @@ impl UI {
         &mut self,
         window: &glutin::window::Window,
         film_settings: &mut FilmSettings,
-        exposure: &mut f32,
         sampler_settings: &mut SamplerSettings,
         scene_params: &mut DynamicSceneParameters,
         scene_integrator: &mut IntegratorType,
+        tone_map_type: &mut ToneMapType,
         load_settings: &mut SceneLoadSettings,
         match_logical_cores: &mut bool,
         scene: Arc<Scene>,
@@ -127,7 +129,7 @@ impl UI {
             .resizable(false)
             .movable(false)
             .build(&ui, || {
-                render_triggered |= generate_film_settings(&ui, film_settings, exposure);
+                render_triggered |= generate_film_settings(&ui, film_settings);
                 ui.spacing();
 
                 render_triggered |= generate_sampler_settings(&ui, sampler_settings);
@@ -143,6 +145,9 @@ impl UI {
                 ui.spacing();
 
                 render_triggered |= generate_integrator_settings(&ui, scene_integrator);
+                ui.spacing();
+
+                generate_tone_map_settings(&ui, tone_map_type);
                 ui.spacing();
 
                 ui.checkbox(im_str!("Match logical cores"), match_logical_cores);
@@ -271,11 +276,7 @@ fn vec2_u16_picker(
 }
 
 /// Returns `true` if film_settings was changed.
-fn generate_film_settings(
-    ui: &imgui::Ui<'_>,
-    film_settings: &mut FilmSettings,
-    exposure: &mut f32,
-) -> bool {
+fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) -> bool {
     let mut changed = false;
 
     imgui::TreeNode::new(im_str!("Film"))
@@ -300,17 +301,6 @@ fn generate_film_settings(
                     MIN_RES,
                     TILE_STEP as f32,
                 );
-                width.pop(&ui);
-            }
-
-            {
-                let width = ui.push_item_width(118.0);
-                imgui::Drag::new(im_str!("Exposure"))
-                    .range(0.0..=f32::MAX)
-                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                    .speed(0.001)
-                    .display_format(im_str!("%.3f"))
-                    .build(&ui, exposure);
                 width.pop(&ui);
             }
 
@@ -500,4 +490,47 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
     width.pop(&ui);
 
     changed
+}
+
+fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
+    let tone_map_names = ToneMapType::VARIANTS
+        .iter()
+        .map(|&n| imgui::ImString::new(n))
+        .collect::<Vec<imgui::ImString>>();
+    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
+    let im_str_tone_map_names = tone_map_names
+        .iter()
+        .map(|n| n.as_ref())
+        .collect::<Vec<&imgui::ImStr>>();
+    let mut current_tone_map = ToneMapType::VARIANTS
+        .iter()
+        .position(|&n| n == &params.to_string())
+        .unwrap();
+    let changed = imgui::ComboBox::new(im_str!("Tone map")).build_simple_string(
+        &ui,
+        &mut current_tone_map,
+        &im_str_tone_map_names,
+    );
+
+    if changed {
+        *params = ToneMapType::from_str(ToneMapType::VARIANTS[current_tone_map]).unwrap();
+        match params {
+            ToneMapType::Filmic { exposure } => *exposure = 1.0,
+        }
+    }
+
+    ui.indent();
+    match params {
+        ToneMapType::Filmic { exposure } => {
+            let width = ui.push_item_width(118.0);
+            imgui::Drag::new(im_str!("Exposure"))
+                .range(0.0..=f32::MAX)
+                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                .speed(0.001)
+                .display_format(im_str!("%.3f"))
+                .build(&ui, exposure);
+            width.pop(&ui);
+        }
+    }
+    ui.unindent();
 }
