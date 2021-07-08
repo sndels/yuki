@@ -1,7 +1,7 @@
 use crate::{
     camera::FoV,
     find_attr,
-    math::{Transform, Vec3},
+    math::{transforms::scale, Transform, Vec3},
     parse_element,
     scene::CameraOrientation,
     yuki_error, yuki_info, yuki_trace,
@@ -70,6 +70,9 @@ pub fn parse<T: std::io::Read>(
         Ok(())
     });
 
+    // Mitsuba's +X is to the left of +Z, ours to the right of it
+    transform = &scale(-1.0, 1.0, 1.0) * &transform;
+
     let (cam_pos, cam_euler, cam_scale) = match transform.m().decompose() {
         Ok(result) => result,
         Err(e) => {
@@ -95,9 +98,10 @@ pub fn parse<T: std::io::Read>(
         CameraOrientation::Pose {
             cam_pos,
             cam_euler_deg: Vec3::new(
-                // Mitsuba's +X is to the right, ours to the left
+                // Compensate for the flipped X-axis
+                // TODO: Wrong handedness in decompose?
                 -cam_euler.x.to_degrees(),
-                cam_euler.y.to_degrees(),
+                -cam_euler.y.to_degrees(),
                 cam_euler.z.to_degrees(),
             ),
         },

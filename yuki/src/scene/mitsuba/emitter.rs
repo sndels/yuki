@@ -106,6 +106,9 @@ fn parse_point_light<T: std::io::Read>(
         Ok(())
     });
 
+    // Mitsuba's +X is to the left of +Z, ours to the right of it
+    position.x = -position.x;
+
     Ok(Arc::new(PointLight::new(
         &translation(position.into()),
         intensity,
@@ -150,7 +153,7 @@ fn parse_spot_light<T: std::io::Read>(
     });
 
     // Mitsuba's +X is to the left of +Z, ours to the right of it
-    light_to_world = &scale(-1.0, 1.0, 1.0) * &light_to_world;
+    light_to_world = &light_to_world * &scale(-1.0, 1.0, 1.0);
 
     Ok(Arc::new(SpotLight::new(
         &light_to_world,
