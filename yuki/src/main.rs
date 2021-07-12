@@ -50,6 +50,8 @@ fn main() {
         yuki_error!("{}\n", info);
     }));
 
-    let window = app::Window::new("yuki", (1920, 1080));
+    let settings = app::InitialSettings::default();
+
+    let window = app::Window::new("yuki", (1920, 1080), settings);
     window.main_loop();
 }

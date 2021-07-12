@@ -41,17 +41,45 @@ pub struct Window {
     // Rendering
     film_settings: FilmSettings,
     film: Arc<Mutex<Film>>,
+    scene_integrator: IntegratorType,
+    sampler_settings: SamplerSettings,
 
     // Output
+    tone_map_type: ToneMapType,
     tone_map_film: ToneMapFilm,
 
     // Scene
+    load_settings: SceneLoadSettings,
     scene: Arc<Scene>,
     scene_params: DynamicSceneParameters,
 }
 
+pub struct InitialSettings {
+    pub film_settings: FilmSettings,
+    pub sampler_settings: SamplerSettings,
+    pub scene_integrator: IntegratorType,
+    pub tone_map: ToneMapType,
+    pub load_settings: SceneLoadSettings,
+}
+
+impl Default for InitialSettings {
+    fn default() -> Self {
+        Self {
+            film_settings: FilmSettings::default(),
+            sampler_settings: SamplerSettings::StratifiedSampler {
+                pixel_samples: Vec2::new(1, 1),
+                symmetric_dimensions: true,
+                jitter_samples: false,
+            },
+            scene_integrator: IntegratorType::Whitted,
+            tone_map: ToneMapType::Filmic { exposure: 1.0 },
+            load_settings: SceneLoadSettings::default(),
+        }
+    }
+}
+
 impl Window {
-    pub fn new(title: &str, resolution: (u16, u16)) -> Window {
+    pub fn new(title: &str, resolution: (u16, u16), settings: InitialSettings) -> Window {
         // Create window and gl context
         let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
@@ -69,8 +97,6 @@ impl Window {
         // Film
         let film = Arc::new(Mutex::new(Film::default()));
 
-        let film_settings = FilmSettings::default();
-
         let tone_map_film = expect!(
             ToneMapFilm::new(&display),
             "Failed to create tone map render pass"
@@ -83,9 +109,13 @@ impl Window {
             display,
             ui,
             tone_map_film,
-            film_settings,
+            film_settings: settings.film_settings,
+            scene_integrator: settings.scene_integrator,
+            sampler_settings: settings.sampler_settings,
             film,
             scene: Arc::new(scene),
+            tone_map_type: settings.tone_map,
+            load_settings: settings.load_settings,
             scene_params,
         }
     }
@@ -97,8 +127,12 @@ impl Window {
             mut ui,
             mut tone_map_film,
             mut film_settings,
+            mut scene_integrator,
+            mut sampler_settings,
             film,
             mut scene,
+            mut tone_map_type,
+            mut load_settings,
             mut scene_params,
         } = self;
 
@@ -108,14 +142,6 @@ impl Window {
         let mut any_item_active = false;
         let mut renderer = Renderer::new();
         let mut status_messages: Option<Vec<String>> = None;
-        let mut load_settings = SceneLoadSettings::default();
-        let mut sampler_settings = SamplerSettings::StratifiedSampler {
-            pixel_samples: Vec2::new(1, 1),
-            symmetric_dimensions: true,
-            jitter_samples: false,
-        };
-        let mut scene_integrator = IntegratorType::Whitted;
-        let mut tone_map_type = ToneMapType::Filmic { exposure: 1.0 };
 
         let mut match_logical_cores = true;
 
