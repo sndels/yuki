@@ -18,18 +18,15 @@ use crate::{
 
 use self::{common::ParseResult, emitter::Emitter};
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use xml::{
     attribute::OwnedAttribute,
     reader::{EventReader, XmlEvent},
 };
 
-pub fn load(
-    path: &PathBuf,
-    settings: SceneLoadSettings,
-) -> ParseResult<(Scene, DynamicSceneParameters)> {
-    let dir_path = path.parent().unwrap().to_path_buf();
-    let file = std::fs::File::open(path.to_str().unwrap())?;
+pub fn load(settings: SceneLoadSettings) -> ParseResult<(Scene, DynamicSceneParameters)> {
+    let dir_path = settings.path.parent().unwrap().to_path_buf();
+    let file = std::fs::File::open(settings.path.to_str().unwrap())?;
     let file_buf = std::io::BufReader::new(file);
 
     let mut meshes = Vec::new();
@@ -168,9 +165,8 @@ pub fn load(
 
     Ok((
         Scene {
-            name: path.file_stem().unwrap().to_str().unwrap().into(),
-            path: Some(path.clone()),
-            settings: SceneLoadSettings::default(),
+            name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
+            load_settings: settings,
             meshes,
             geometry: geometry_arc,
             bvh: bvh,

@@ -167,17 +167,21 @@ impl Window {
                         &status_messages,
                     );
                     render_triggered |= frame_ui.render_triggered;
-                    let new_scene_path = frame_ui.scene_path.clone();
                     any_item_active = frame_ui.any_item_active;
 
-                    if let Some(path) = new_scene_path {
-                        match path.extension() {
+                    if load_settings.path.exists() {
+                        match load_settings.path.extension() {
                             Some(ext) => match ext.to_str().unwrap() {
-                                "ply" => match Scene::ply(&path, load_settings) {
+                                "ply" => match Scene::ply(load_settings.clone()) {
                                     Ok((new_scene, new_scene_params, total_secs)) => {
                                         yuki_info!(
                                             "PLY loaded from {}",
-                                            path.file_name().unwrap().to_str().unwrap()
+                                            load_settings
+                                                .path
+                                                .file_name()
+                                                .unwrap()
+                                                .to_str()
+                                                .unwrap()
                                         );
 
                                         scene = Arc::new(new_scene);
@@ -192,11 +196,16 @@ impl Window {
                                         status_messages = Some(vec!["Scene loading failed".into()]);
                                     }
                                 },
-                                "xml" => match Scene::mitsuba(&path, load_settings) {
+                                "xml" => match Scene::mitsuba(load_settings.clone()) {
                                     Ok((new_scene, new_scene_params, total_secs)) => {
                                         yuki_info!(
                                             "Mitsuba 2.0 scene loaded from {}",
-                                            path.file_name().unwrap().to_str().unwrap()
+                                            load_settings
+                                                .path
+                                                .file_name()
+                                                .unwrap()
+                                                .to_str()
+                                                .unwrap()
                                         );
 
                                         scene = Arc::new(new_scene);
@@ -221,6 +230,7 @@ impl Window {
                                 yuki_error!("Expected a file with an extension");
                             }
                         }
+                        load_settings.path.clear();
                     }
 
                     if render_triggered {

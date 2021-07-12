@@ -123,7 +123,6 @@ impl UI {
         let ui = self.context.frame();
         let mut render_triggered = false;
         let mut write_exr = None;
-        let mut scene_path = None;
 
         imgui::Window::new(im_str!("Settings"))
             .position([0.0, 0.0], imgui::Condition::Always)
@@ -137,13 +136,8 @@ impl UI {
                 render_triggered |= generate_sampler_settings(&ui, sampler_settings);
                 ui.spacing();
 
-                render_triggered |= generate_scene_settings(
-                    &ui,
-                    &scene,
-                    scene_params,
-                    load_settings,
-                    &mut scene_path,
-                );
+                render_triggered |=
+                    generate_scene_settings(&ui, &scene, scene_params, load_settings);
                 ui.spacing();
 
                 render_triggered |= generate_integrator_settings(&ui, scene_integrator);
@@ -173,7 +167,7 @@ impl UI {
                 ui.text(im_str!("Shape count: {}", scene.geometry.len()));
                 ui.text(im_str!(
                     "Shapes in BVH node: {}",
-                    (scene.settings.max_shapes_in_node as usize).min(scene.geometry.len())
+                    (scene.load_settings.max_shapes_in_node as usize).min(scene.geometry.len())
                 ));
                 ui.spacing();
 
@@ -194,7 +188,6 @@ impl UI {
             ui: Some(ui),
             render_triggered,
             write_exr,
-            scene_path,
             any_item_active,
         }
     }
@@ -212,7 +205,6 @@ pub struct FrameUI<'a> {
     ui: Option<imgui::Ui<'a>>,
     pub render_triggered: bool,
     pub write_exr: Option<WriteEXR>,
-    pub scene_path: Option<PathBuf>,
     pub any_item_active: bool,
 }
 
@@ -370,7 +362,6 @@ fn generate_scene_settings(
     scene: &Scene,
     params: &mut DynamicSceneParameters,
     load_settings: &mut SceneLoadSettings,
-    scene_path: &mut Option<PathBuf>,
 ) -> bool {
     let mut changed = false;
     imgui::TreeNode::new(im_str!("Scene"))
@@ -444,24 +435,21 @@ fn generate_scene_settings(
             ui.spacing();
 
             if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
-                let open_path = if let Some(path) = &scene.path {
-                    path.to_str().unwrap()
-                } else {
-                    ""
-                };
-                *scene_path = if let Some(path) = open_file_dialog(
+                let open_path = &scene.load_settings.path.to_str().unwrap();
+                let path = if let Some(path) = open_file_dialog(
                     "Open scene",
                     open_path,
                     Some((&["*.ply", "*.xml"], "Supported scene formats")),
                 ) {
-                    Some(PathBuf::from(path))
+                    PathBuf::from(path)
                 } else {
-                    None
+                    PathBuf::new()
                 };
+                (*load_settings).path = path;
             }
             ui.same_line(0.0);
             if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
-                *scene_path = scene.path.clone();
+                (*load_settings).path = scene.load_settings.path.clone();
             }
         });
 

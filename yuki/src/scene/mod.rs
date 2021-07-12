@@ -13,14 +13,16 @@ use crate::{
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct SceneLoadSettings {
+    pub path: PathBuf,
     pub max_shapes_in_node: u16,
 }
 
 impl SceneLoadSettings {
     pub fn default() -> Self {
         Self {
+            path: PathBuf::new(),
             max_shapes_in_node: 1,
         }
     }
@@ -56,8 +58,7 @@ impl DynamicSceneParameters {
 
 pub struct Scene {
     pub name: String,
-    pub path: Option<PathBuf>,
-    pub settings: SceneLoadSettings,
+    pub load_settings: SceneLoadSettings,
     pub meshes: Vec<Arc<Mesh>>,
     pub geometry: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
@@ -71,13 +72,10 @@ impl Scene {
     /// Loads a Mitsuba 2 scene
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn mitsuba(
-        path: &PathBuf,
-        settings: SceneLoadSettings,
-    ) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn mitsuba(settings: SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (scene, dynamic_params) = mitsuba::load(path, settings)?;
+        let (scene, dynamic_params) = mitsuba::load(settings)?;
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
@@ -91,13 +89,11 @@ impl Scene {
     /// on it at an angle.
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn ply(
-        path: &PathBuf,
-        settings: SceneLoadSettings,
-    ) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn ply(settings: SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (mesh, geometry) = ply::load(path, Arc::new(Matte::new(Vec3::from(1.0))), None)?;
+        let (mesh, geometry) =
+            ply::load(&settings.path, Arc::new(Matte::new(Vec3::from(1.0))), None)?;
 
         let meshes = vec![mesh];
 
@@ -122,9 +118,8 @@ impl Scene {
 
         Ok((
             Self {
-                name: path.file_stem().unwrap().to_str().unwrap().into(),
-                path: Some(path.clone()),
-                settings,
+                name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
+                load_settings: settings,
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
@@ -283,8 +278,7 @@ impl Scene {
         (
             Scene {
                 name: "Cornell Box".into(),
-                path: None,
-                settings: SceneLoadSettings::default(),
+                load_settings: SceneLoadSettings::default(),
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
