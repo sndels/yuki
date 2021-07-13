@@ -76,7 +76,7 @@ pub fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
 pub fn write_exr(
     width: usize,
     height: usize,
-    pixels: Vec<Vec3<f32>>,
+    pixels: &Vec<Vec3<f32>>,
     path: PathBuf,
 ) -> Result<(), String> {
     yuki_info!("Writing out EXR");

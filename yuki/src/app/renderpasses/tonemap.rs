@@ -44,9 +44,9 @@ pub struct ToneMapFilm {
 }
 
 impl ToneMapFilm {
-    pub fn new(display: &glium::Display) -> Result<Self, NewError> {
+    pub fn new<T: glium::backend::Facade>(backend: &T) -> Result<Self, NewError> {
         let vertex_buffer = glium::VertexBuffer::new(
-            display,
+            backend,
             &[
                 Vertex {
                     position: [-3.0, -1.0],
@@ -65,22 +65,22 @@ impl ToneMapFilm {
         .map_err(NewError::VertexBufferCreationError)?;
 
         let index_buffer = glium::IndexBuffer::new(
-            display,
+            backend,
             glium::index::PrimitiveType::TrianglesList,
             &[0u16, 1, 2],
         )
         .map_err(NewError::IndexBufferCreationError)?;
 
-        let filmic_program = glium::Program::from_source(display, VS_CODE, FILMIC_FS_CODE, None)
+        let filmic_program = glium::Program::from_source(backend, VS_CODE, FILMIC_FS_CODE, None)
             .map_err(NewError::ProgramCreationError)?;
 
-        let heatmap_program = glium::Program::from_source(display, VS_CODE, HEATMAP_FS_CODE, None)
+        let heatmap_program = glium::Program::from_source(backend, VS_CODE, HEATMAP_FS_CODE, None)
             .map_err(NewError::ProgramCreationError)?;
 
         macro_rules! create_tex {
             () => {
                 glium::Texture2d::empty_with_format(
-                    display,
+                    backend,
                     FILM_FORMAT,
                     glium::texture::MipmapsOption::NoMipmap,
                     16 as u32,
@@ -103,15 +103,15 @@ impl ToneMapFilm {
     }
 
     #[must_use]
-    pub fn draw<'a, 'b>(
+    pub fn draw<'a, 'b, T: glium::backend::Facade>(
         &'a mut self,
-        display: &glium::Display,
+        backend: &T,
         film: &'b Mutex<Film>,
         params: &mut ToneMapType,
     ) -> Result<&'a glium::Texture2d, DrawError<'b>> {
         yuki_trace!("draw: Checking for texture update");
         let film_dirty = self
-            .update_textures(display, film)
+            .update_textures(backend, film)
             .map_err(DrawError::UpdateTexturesError)?;
 
         let input_sampler = self
@@ -193,9 +193,9 @@ impl ToneMapFilm {
     }
 
     #[must_use]
-    fn update_textures<'a>(
+    fn update_textures<'a, T: glium::backend::Facade>(
         &mut self,
-        display: &glium::Display,
+        backend: &T,
         film: &'a Mutex<Film>,
     ) -> Result<bool, UpdateTexturesError<'a>> {
         yuki_trace!("update_film_texture: Begin");
@@ -209,7 +209,7 @@ impl ToneMapFilm {
             // We could update only the tiles that have changed but that's more work and scaffolding
             // than it's worth especially with marked tiles. This is fast enough at small resolutions.
             self.input = glium::Texture2d::with_format(
-                display,
+                backend,
                 &*film,
                 FILM_FORMAT,
                 glium::texture::MipmapsOption::NoMipmap,
@@ -220,7 +220,7 @@ impl ToneMapFilm {
                 || self.input.height() != self.output.height()
             {
                 self.output = glium::Texture2d::empty_with_format(
-                    display,
+                    backend,
                     FILM_FORMAT,
                     glium::texture::MipmapsOption::NoMipmap,
                     self.input.width(),

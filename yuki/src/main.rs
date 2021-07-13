@@ -26,6 +26,7 @@ USAGE:
 FLAGS:
   -h, --help               Prints help information
 OPTIONS:
+  --out=FILE               Path for EXR output
   --scene=FILE             Path to scene file to load
   --resolution=X,Y         Resolution to render at (default 640,480)
   --integrator=TYPE        Integrator to use
@@ -93,17 +94,22 @@ fn main() {
     }));
 
     match parse_settings() {
-        Ok(settings) => {
-            let window = app::Window::new("yuki", (1920, 1080), settings);
-            window.main_loop();
-        }
+        Ok((settings, out_path)) => match out_path {
+            Some(path) => {
+                app::headless::render(path, settings);
+            }
+            None => {
+                let window = app::Window::new("yuki", (1920, 1080), settings);
+                window.main_loop();
+            }
+        },
         Err(why) => {
             panic!("Parsing CLI arguments failed: {}", why);
         }
     };
 }
 
-fn parse_settings() -> Result<app::InitialSettings, pico_args::Error> {
+fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args::Error> {
     let mut pargs = pico_args::Arguments::from_env();
 
     // Help has a higher priority and should be handled separately.
@@ -113,6 +119,7 @@ fn parse_settings() -> Result<app::InitialSettings, pico_args::Error> {
     }
 
     let mut settings = app::InitialSettings::default();
+    let mut out_path = None;
 
     if let Some(scene_path) = pargs.opt_value_from_str::<&'static str, PathBuf>("--scene")? {
         settings.load_settings.path = if scene_path.has_root() {
@@ -122,6 +129,33 @@ fn parse_settings() -> Result<app::InitialSettings, pico_args::Error> {
                 .expect("Invalid working directory")
                 .join(scene_path)
         };
+    }
+
+    if let Some(path) = pargs.opt_value_from_str::<&'static str, PathBuf>("--out")? {
+        let extension = path
+            .extension()
+            .ok_or(pico_args::Error::ArgumentParsingFailed {
+                cause: "Path does not point to a file".into(),
+            })?
+            .to_string_lossy();
+        if extension != "exr" {
+            return Err(pico_args::Error::ArgumentParsingFailed {
+                cause: format!(
+                    "EXR output should have extension '.exr', got '{}'",
+                    extension
+                ),
+            });
+        }
+
+        let full_path = if path.has_root() {
+            path
+        } else {
+            std::env::current_dir()
+                .expect("Invalid working directory")
+                .join(path)
+        };
+
+        out_path = Some(full_path);
     }
 
     if let Some(resolution) = pargs.opt_value_from_fn("--resolution", parse_resolution)? {
@@ -136,7 +170,7 @@ fn parse_settings() -> Result<app::InitialSettings, pico_args::Error> {
         settings.tone_map = tone_map;
     }
 
-    Ok(settings)
+    Ok((settings, out_path))
 }
 
 fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {

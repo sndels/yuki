@@ -268,13 +268,14 @@ impl Window {
                                     }
                                 };
 
-                                status_messages = Some(vec![match write_exr(w, h, pixels, path) {
-                                    Ok(_) => "EXR written".into(),
-                                    Err(why) => {
-                                        yuki_error!("{}", why);
-                                        "Error writing EXR".into()
-                                    }
-                                }]);
+                                status_messages =
+                                    Some(vec![match write_exr(w, h, &pixels, path) {
+                                        Ok(_) => "EXR written".into(),
+                                        Err(why) => {
+                                            yuki_error!("{}", why);
+                                            "Error writing EXR".into()
+                                        }
+                                    }]);
                             }
                             Err(why) => {
                                 yuki_error!("{}", why);

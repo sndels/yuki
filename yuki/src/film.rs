@@ -71,11 +71,11 @@ pub struct Film {
 }
 
 impl Film {
-    /// Creates an empty `Film`.
-    pub fn default() -> Self {
+    /// Creates a new `Film`.
+    pub fn new(res: Vec2<u16>) -> Self {
         Self {
-            res: Vec2::new(4, 4),
-            pixels: vec![Vec3::zeros(); 4 * 4],
+            res,
+            pixels: vec![Vec3::zeros(); (res.x as usize) * (res.y as usize)],
             dirty: true,
             generation: 0,
             cached_tiles: None,
@@ -219,6 +219,18 @@ impl Film {
             film_slice.copy_from_slice(tile_slice);
         }
         self.dirty = true;
+    }
+}
+
+impl Default for Film {
+    fn default() -> Self {
+        Self {
+            res: Vec2::new(4, 4),
+            pixels: vec![Vec3::zeros(); 4 * 4],
+            dirty: true,
+            generation: 0,
+            cached_tiles: None,
+        }
     }
 }
 
