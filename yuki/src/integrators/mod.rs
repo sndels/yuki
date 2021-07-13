@@ -8,8 +8,7 @@ pub use normals::NormalsIntegrator;
 pub use whitted::WhittedIntegrator;
 
 use base::IntegratorBase;
-use num_enum::TryFromPrimitive;
-use strum::EnumVariantNames;
+use strum::{EnumString, EnumVariantNames, ToString};
 
 use crate::{
     camera::{Camera, CameraSample},
@@ -21,7 +20,7 @@ use crate::{
 
 use std::sync::Arc;
 
-#[derive(Copy, Clone, EnumVariantNames, TryFromPrimitive)]
+#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
 #[repr(usize)]
 pub enum IntegratorType {
     Whitted,

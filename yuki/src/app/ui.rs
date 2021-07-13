@@ -471,24 +471,7 @@ fn generate_scene_settings(
 /// Returns `true` if the integrator was changed.
 fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
     let width = ui.push_item_width(140.0);
-
-    let integrator_names = IntegratorType::VARIANTS
-        .iter()
-        .map(|&n| imgui::ImString::new(n))
-        .collect::<Vec<imgui::ImString>>();
-    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
-    let im_str_integrator_names = integrator_names
-        .iter()
-        .map(|n| n.as_ref())
-        .collect::<Vec<&imgui::ImStr>>();
-    let mut current_integrator = *integrator as usize;
-    let changed = imgui::ComboBox::new(im_str!("Scene integrator")).build_simple_string(
-        &ui,
-        &mut current_integrator,
-        &im_str_integrator_names,
-    );
-    *integrator = IntegratorType::try_from(current_integrator).unwrap();
-
+    let changed = enum_combo_box(ui, im_str!("Scene integrator"), integrator);
     width.pop(&ui);
 
     changed
