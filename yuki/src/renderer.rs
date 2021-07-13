@@ -63,6 +63,34 @@ impl Renderer {
         }
     }
 
+    /// Waits for the render task to end and returns its result
+    pub fn wait_result(&mut self) -> Result<RenderResult, String> {
+        let task = std::mem::replace(&mut self.render_task, None);
+        self.task_ending = false;
+
+        if let Some(RenderTask {
+            tx_task,
+            rx_task,
+            handle,
+        }) = task
+        {
+            match rx_task.recv() {
+                Ok(result) => {
+                    yuki_trace!("wait_result: Waiting for the finished render job to exit");
+                    handle.join().unwrap();
+                    yuki_debug!("wait_result: Render job has finished");
+                    Ok(result)
+                }
+                Err(_) => {
+                    handle.join().unwrap();
+                    Err("Render task disconnected without notifying".into())
+                }
+            }
+        } else {
+            Err("No render task active".into())
+        }
+    }
+
     /// Checks if the render task is active.
     pub fn is_active(&self) -> bool {
         self.render_task.is_some()
