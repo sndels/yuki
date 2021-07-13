@@ -5,10 +5,8 @@ use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::{
-    convert::TryFrom, path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration,
-};
-use strum::{EnumVariantNames, ToString, VariantNames};
+use std::{path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration};
+use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
 use super::renderpasses::ToneMapType;

@@ -23,6 +23,12 @@
             "program": "${workspaceFolder}/target/release/yuki.exe",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
+            "args": [
+                // "--resolution=640,480",
+                // "--integrator=Whitted",
+                // "--tonemap=Filmic",
+                // "--scene=D:/git/yuki/res/conference/conference.xml",
+            ],
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": ""
@@ -34,6 +40,12 @@
             "program": "${workspaceFolder}/target/debug/yuki.exe",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
+            "args": [
+                // "--resolution=640,480",
+                // "--integrator=Whitted",
+                // "--tonemap=Filmic",
+                // "--scene=D:/git/yuki/res/conference/conference.xml",
+            ],
             "environment": [],
             "console": "integratedTerminal",
             "preLaunchTask": ""

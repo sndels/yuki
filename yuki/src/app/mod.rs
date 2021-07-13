@@ -1,6 +1,8 @@
 mod renderpasses;
 mod ui;
 
+pub use renderpasses::ToneMapType;
+
 use chrono::{Datelike, Timelike};
 use glium::Surface;
 use glutin::{
@@ -17,7 +19,7 @@ use std::{
 };
 
 use self::{
-    renderpasses::{ScaleOutput, ToneMapFilm, ToneMapType},
+    renderpasses::{ScaleOutput, ToneMapFilm},
     ui::{WriteEXR, UI},
 };
 use crate::{
