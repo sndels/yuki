@@ -67,7 +67,29 @@ fn main() {
 
     // Let's catch panic messages ourselves and output everywhere
     std::panic::set_hook(Box::new(|info| {
-        yuki_error!("{}\n", info);
+        let location_str = match info.location() {
+            Some(location) => {
+                format!("{}:{}", location.file(), location.line())
+            }
+            None => {
+                yuki_error!("No location for panic!");
+                "".into()
+            }
+        };
+        let payload = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => s,
+                None => "Panic payload is not &'static str or String",
+            },
+        };
+
+        let msg = format!("{}\n{}", location_str, payload);
+
+        yuki_error!("{}", msg);
+        if let Err(why) = msgbox::create("Panic!", &msg, msgbox::IconType::Error) {
+            yuki_error!("Failed to create popup window: '{}'", why);
+        };
     }));
 
     match parse_settings() {
@@ -76,7 +98,7 @@ fn main() {
             window.main_loop();
         }
         Err(why) => {
-            yuki_error!("Parsing CLI arguments failed: {}", why);
+            panic!("Parsing CLI arguments failed: {}", why);
         }
     };
 }
