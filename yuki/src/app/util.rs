@@ -1,7 +1,52 @@
 use chrono::{Datelike, Timelike};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
-use crate::{math::Vec3, scene::Scene, yuki_info};
+use crate::{
+    math::Vec3,
+    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    yuki_info,
+};
+
+pub fn try_load_scene(
+    settings: &SceneLoadSettings,
+) -> Result<(Arc<Scene>, DynamicSceneParameters, f32), String> {
+    if settings.path.exists() {
+        match settings.path.extension() {
+            Some(ext) => match ext.to_str().unwrap() {
+                "ply" => match Scene::ply(settings) {
+                    Ok((scene, scene_params, total_secs)) => {
+                        yuki_info!(
+                            "PLY loaded from {}",
+                            settings.path.file_name().unwrap().to_str().unwrap()
+                        );
+                        Ok((Arc::new(scene), scene_params, total_secs))
+                    }
+                    Err(why) => Err(format!("Loading PLY failed: {}", why)),
+                },
+                "xml" => match Scene::mitsuba(settings) {
+                    Ok((scene, scene_params, total_secs)) => {
+                        yuki_info!(
+                            "Mitsuba 2.0 scene loaded from {}",
+                            settings.path.file_name().unwrap().to_str().unwrap()
+                        );
+                        Ok((Arc::new(scene), scene_params, total_secs))
+                    }
+                    Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
+                },
+                _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
+            },
+            None => Err(format!("Expected a file with an extension")),
+        }
+    } else if settings.path.as_os_str().is_empty() {
+        let (scene, scene_params, total_secs) = Scene::cornell();
+        Ok((Arc::new(scene), scene_params, total_secs))
+    } else {
+        Err(format!(
+            "Scene does not exist '{}'",
+            settings.path.to_string_lossy()
+        ))
+    }
+}
 
 pub fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
     match std::env::current_dir() {

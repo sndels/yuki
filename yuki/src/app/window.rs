@@ -14,7 +14,7 @@ use std::{
 use super::{
     renderpasses::{ScaleOutput, ToneMapFilm},
     ui::{WriteEXR, UI},
-    util::{exr_path, write_exr},
+    util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
 };
 use crate::{
@@ -75,7 +75,8 @@ impl Window {
             "Failed to create tone map render pass"
         );
 
-        let (scene, scene_params) = Scene::cornell();
+        // Init with cornell here so scene is loaded on first frame and ui gets load time through the normal logic
+        let (scene, scene_params, _) = Scene::cornell();
 
         Window {
             event_loop,
@@ -169,67 +170,19 @@ impl Window {
                     any_item_active = frame_ui.any_item_active;
 
                     if load_settings.path.exists() {
-                        match load_settings.path.extension() {
-                            Some(ext) => match ext.to_str().unwrap() {
-                                "ply" => match Scene::ply(load_settings.clone()) {
-                                    Ok((new_scene, new_scene_params, total_secs)) => {
-                                        yuki_info!(
-                                            "PLY loaded from {}",
-                                            load_settings
-                                                .path
-                                                .file_name()
-                                                .unwrap()
-                                                .to_str()
-                                                .unwrap()
-                                        );
-
-                                        scene = Arc::new(new_scene);
-                                        scene_params = new_scene_params;
-                                        status_messages = Some(vec![format!(
-                                            "Scene loaded in {:.2}s",
-                                            total_secs
-                                        )]);
-                                    }
-                                    Err(why) => {
-                                        yuki_error!("Loading PLY failed: {}", why);
-                                        status_messages = Some(vec!["Scene loading failed".into()]);
-                                    }
-                                },
-                                "xml" => match Scene::mitsuba(load_settings.clone()) {
-                                    Ok((new_scene, new_scene_params, total_secs)) => {
-                                        yuki_info!(
-                                            "Mitsuba 2.0 scene loaded from {}",
-                                            load_settings
-                                                .path
-                                                .file_name()
-                                                .unwrap()
-                                                .to_str()
-                                                .unwrap()
-                                        );
-
-                                        scene = Arc::new(new_scene);
-                                        scene_params = new_scene_params;
-                                        status_messages = Some(vec![format!(
-                                            "Scene loaded in {:.2}s",
-                                            total_secs
-                                        )]);
-                                    }
-                                    Err(why) => {
-                                        yuki_error!("Loading Mitsuba 2.0 scene failed: {}", why);
-                                        status_messages = Some(vec!["Scene loading failed".into()]);
-                                    }
-                                },
-                                _ => {
-                                    // TODO: Why can't this be a oneline "comma"-branch?
-                                    yuki_error!("Unknown extension '{}'", ext.to_str().unwrap());
-                                }
-                            },
-                            None => {
-                                // TODO: Why can't this be a oneline "comma"-branch?
-                                yuki_error!("Expected a file with an extension");
+                        match try_load_scene(&load_settings) {
+                            Ok((new_scene, new_scene_params, total_secs)) => {
+                                scene = new_scene;
+                                scene_params = new_scene_params;
+                                status_messages =
+                                    Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
+                                load_settings.path.clear();
+                            }
+                            Err(why) => {
+                                yuki_error!("Scene loading failed: {}", why);
+                                status_messages = Some(vec!["Scene loading failed".into()]);
                             }
                         }
-                        load_settings.path.clear();
                     }
 
                     if render_triggered {

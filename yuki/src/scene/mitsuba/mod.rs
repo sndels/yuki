@@ -24,7 +24,7 @@ use xml::{
     reader::{EventReader, XmlEvent},
 };
 
-pub fn load(settings: SceneLoadSettings) -> ParseResult<(Scene, DynamicSceneParameters)> {
+pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicSceneParameters)> {
     let dir_path = settings.path.parent().unwrap().to_path_buf();
     let file = std::fs::File::open(settings.path.to_str().unwrap())?;
     let file_buf = std::io::BufReader::new(file);
@@ -166,7 +166,7 @@ pub fn load(settings: SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePara
     Ok((
         Scene {
             name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
-            load_settings: settings,
+            load_settings: settings.clone(),
             meshes,
             geometry: geometry_arc,
             bvh: bvh,

@@ -72,10 +72,10 @@ impl Scene {
     /// Loads a Mitsuba 2 scene
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn mitsuba(settings: SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn mitsuba(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (scene, dynamic_params) = mitsuba::load(settings)?;
+        let (scene, dynamic_params) = mitsuba::load(&settings)?;
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
@@ -89,7 +89,7 @@ impl Scene {
     /// on it at an angle.
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn ply(settings: SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
         let (mesh, geometry) =
@@ -119,7 +119,7 @@ impl Scene {
         Ok((
             Self {
                 name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
-                load_settings: settings,
+                load_settings: settings.clone(),
                 meshes,
                 geometry: geometry_arc,
                 bvh: bvh,
@@ -139,7 +139,9 @@ impl Scene {
 
     /// Constructs the Cornell box holding a tall box and a sphere
     // Lifted from http://www.graphics.cornell.edu/online/box/data.html
-    pub fn cornell() -> (Scene, DynamicSceneParameters) {
+    pub fn cornell() -> (Scene, DynamicSceneParameters, f32) {
+        let load_start = Instant::now();
+
         // Original uses a right-handed coordinate system so flip z
         let handedness_swap = Transform::new([
             [1.0, 0.0, 0.0, 0.0],
@@ -275,6 +277,8 @@ impl Scene {
         let cam_target = Point3::new(278.0, 273.0, -260.0);
         let cam_fov = FoV::X(40.0);
 
+        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+
         (
             Scene {
                 name: "Cornell Box".into(),
@@ -292,6 +296,7 @@ impl Scene {
                 },
                 cam_fov,
             },
+            total_secs,
         )
     }
 }
