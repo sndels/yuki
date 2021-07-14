@@ -30,7 +30,7 @@ impl Default for InitialSettings {
                 jitter_samples: false,
             },
             scene_integrator: IntegratorType::Whitted,
-            tone_map: ToneMapType::Filmic { exposure: 1.0 },
+            tone_map: ToneMapType::default(),
             load_settings: SceneLoadSettings::default(),
         }
     }

@@ -468,6 +468,7 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
 
     if changed {
         match params {
+            ToneMapType::Raw => (),
             ToneMapType::Filmic { exposure } => *exposure = 1.0,
             ToneMapType::Heatmap { .. } => (),
         }
@@ -475,6 +476,7 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
 
     ui.indent();
     match params {
+        ToneMapType::Raw => (),
         ToneMapType::Filmic { exposure } => {
             let width = ui.push_item_width(118.0);
             imgui::Drag::new(im_str!("Exposure"))

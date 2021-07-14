@@ -193,6 +193,7 @@ fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
     let mut tonemap = parse_enum(strs[0], "Unknown tonemap type")?;
 
     match &mut tonemap {
+        ToneMapType::Raw => (),
         ToneMapType::Filmic { ref mut exposure } => {
             *exposure = parse_num(strs[1], "Invalid filmic exposure")?;
         }

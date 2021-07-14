@@ -8,8 +8,9 @@ use crate::{
     yuki_debug, yuki_info, yuki_trace,
 };
 
-#[derive(EnumVariantNames, ToString, EnumString)]
+#[derive(EnumVariantNames, ToString, EnumString, PartialEq)]
 pub enum ToneMapType {
+    Raw,
     Filmic {
         exposure: f32,
     },
@@ -20,7 +21,13 @@ pub enum ToneMapType {
     },
 }
 
-#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
+impl Default for ToneMapType {
+    fn default() -> Self {
+        ToneMapType::Filmic { exposure: 1.0 }
+    }
+}
+
+#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString, PartialEq)]
 pub enum HeatmapChannel {
     Red = 0,
     Green = 1,
@@ -120,7 +127,8 @@ impl ToneMapFilm {
             .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
             .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest);
 
-        match params {
+        let output = match params {
+            ToneMapType::Raw => &self.input,
             ToneMapType::Filmic { exposure } => {
                 let uniforms = glium::uniform! {
                     input_texture: input_sampler,
@@ -137,6 +145,8 @@ impl ToneMapFilm {
                         &Default::default(),
                     )
                     .map_err(DrawError::DrawError)?;
+
+                &self.output
             }
             ToneMapType::Heatmap { bounds, channel } => {
                 let (min, max) = bounds.expect("Missing Heatmap bounds");
@@ -158,10 +168,12 @@ impl ToneMapFilm {
                         &Default::default(),
                     )
                     .map_err(DrawError::DrawError)?;
-            }
-        }
 
-        Ok(&self.output)
+                &self.output
+            }
+        };
+
+        Ok(output)
     }
 
     #[must_use]
