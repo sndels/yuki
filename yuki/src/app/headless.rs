@@ -1,5 +1,5 @@
 use super::{
-    renderpasses::ToneMapFilm,
+    renderpasses::{find_min_max, ToneMapFilm, ToneMapType},
     util::{try_load_scene, write_exr},
     InitialSettings,
 };
@@ -55,8 +55,22 @@ pub fn render(exr_path: PathBuf, mut settings: InitialSettings) {
                 ToneMapFilm::new(&backend),
                 "Failed to create tone map render pass"
             );
+
+            if let ToneMapType::Heatmap {
+                ref mut bounds,
+                channel,
+            } = settings.tone_map
+            {
+                if bounds.is_none() {
+                    *bounds = Some(expect!(
+                        find_min_max(&film, channel),
+                        "Failed to find film min, max"
+                    ));
+                }
+            }
+
             let tone_mapped_film = expect!(
-                tone_map_film.draw(&backend, &film, &mut settings.tone_map),
+                tone_map_film.draw(&backend, &film, &settings.tone_map),
                 "Failed to tone map film"
             );
             // TODO: This will explode if mapped texture format is not f32f32f32

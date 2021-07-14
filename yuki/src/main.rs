@@ -33,6 +33,7 @@ OPTIONS:
   --tonemap=TYPE,ARGS,...  Tonemap to use along with its settings
                            Filmic,[EXPOSURE]\n
                            Heatmap,[CHANNEL],[MIN],[MAX]
+                           Heatmap,[CHANNEL]  This uses min, max of the output
 ";
 // TODO: Headless output with given EXR name, raw/tonemapped output
 
@@ -200,10 +201,16 @@ fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
             ref mut bounds,
         } => {
             *channel = parse_enum(strs[1], "Unknown heatmap channel")?;
-            *bounds = Some((
-                parse_num(strs[2], "Invalid heatmap min")?,
-                parse_num(strs[3], "Invalid heatmap max")?,
-            ));
+            if strs.len() == 4 {
+                *bounds = Some((
+                    parse_num(strs[2], "Invalid heatmap min")?,
+                    parse_num(strs[3], "Invalid heatmap max")?,
+                ));
+            } else if strs.len() > 2 {
+                return Err(pico_args::Error::ArgumentParsingFailed {
+                    cause: "Expected tone map type and 1 or 3 parameters".into(),
+                });
+            }
         }
     }
 

@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::{
-    renderpasses::{ScaleOutput, ToneMapFilm},
+    renderpasses::{find_min_max, ScaleOutput, ToneMapFilm},
     ui::{WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
@@ -221,8 +221,29 @@ impl Window {
                     let mut render_target = display.draw();
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
+                    if let ToneMapType::Heatmap {
+                        ref mut bounds,
+                        channel,
+                    } = tone_map_type
+                    {
+                        let film_dirty = {
+                            yuki_trace!("main_loop: Waiting for lock on film");
+                            let film = film.lock().unwrap();
+                            yuki_trace!("main_loop: Aqcuired film");
+                            let dirty = film.dirty();
+                            yuki_trace!("main_loop: Releasing film");
+                            dirty
+                        };
+                        if bounds.is_none() || film_dirty {
+                            *bounds = Some(expect!(
+                                find_min_max(&film, channel),
+                                "Failed to find film min, max"
+                            ));
+                        }
+                    }
+
                     let tone_mapped_film = expect!(
-                        tone_map_film.draw(&display, &film, &mut tone_map_type),
+                        tone_map_film.draw(&display, &film, &tone_map_type),
                         "Film tone map pass failed"
                     );
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);
