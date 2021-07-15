@@ -253,16 +253,10 @@ impl Drop for Renderer {
     }
 }
 
-fn launch_render<I: Integrator>(
-    to_parent: Sender<RenderResult>,
-    from_parent: Receiver<usize>,
-    scene: Arc<Scene>,
+pub fn create_camera(
     scene_params: &DynamicSceneParameters,
-    mut film: Arc<Mutex<Film>>,
-    sampler: Arc<dyn Sampler>,
-    film_settings: FilmSettings,
-    match_logical_cores: bool,
-) -> JoinHandle<()> {
+    film_settings: &FilmSettings,
+) -> Camera {
     let cam_to_world = match scene_params.cam_orientation {
         CameraOrientation::LookAt {
             cam_pos,
@@ -280,7 +274,20 @@ fn launch_render<I: Integrator>(
                 ))
         }
     };
-    let camera = Camera::new(&cam_to_world, scene_params.cam_fov, &film_settings);
+    Camera::new(&cam_to_world, scene_params.cam_fov, &film_settings)
+}
+
+fn launch_render<I: Integrator>(
+    to_parent: Sender<RenderResult>,
+    from_parent: Receiver<usize>,
+    scene: Arc<Scene>,
+    scene_params: &DynamicSceneParameters,
+    mut film: Arc<Mutex<Film>>,
+    sampler: Arc<dyn Sampler>,
+    film_settings: FilmSettings,
+    match_logical_cores: bool,
+) -> JoinHandle<()> {
+    let camera = create_camera(scene_params, &film_settings);
 
     std::thread::spawn(move || {
         yuki_debug!("Render: Begin");

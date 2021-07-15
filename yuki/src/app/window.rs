@@ -1,7 +1,7 @@
 use glium::Surface;
 use glutin::{
     dpi::LogicalSize,
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
@@ -18,13 +18,17 @@ use super::{
     InitialSettings, ToneMapType,
 };
 use crate::{
+    camera::{Camera, CameraSample},
     expect,
     film::{Film, FilmSettings},
     integrators::IntegratorType,
-    math::{Vec2, Vec3},
-    renderer::Renderer,
+    math::{
+        transforms::{look_at, rotation_euler, translation},
+        Point2, Vec2, Vec3,
+    },
+    renderer::{create_camera, Renderer},
     samplers::SamplerSettings,
-    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
     yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
 
@@ -114,8 +118,10 @@ impl Window {
 
         let mut render_triggered = false;
         let mut any_item_active = false;
+        let mut ui_hovered = false;
         let mut renderer = Renderer::new();
         let mut status_messages: Option<Vec<String>> = None;
+        let mut cursor_state = CursorState::default();
 
         let mut match_logical_cores = true;
 
@@ -168,6 +174,7 @@ impl Window {
                     );
                     render_triggered |= frame_ui.render_triggered;
                     any_item_active = frame_ui.any_item_active;
+                    ui_hovered = frame_ui.ui_hovered;
 
                     if load_settings.path.exists() {
                         match try_load_scene(&load_settings) {
@@ -263,18 +270,15 @@ impl Window {
                             Ok(path) => {
                                 let (w, h, pixels) = match output {
                                     WriteEXR::Raw => {
-                                        yuki_trace!("Write EXR: Waiting for lock on film");
+                                        yuki_trace!("draw: Waiting for lock on film");
                                         let film = film.lock().unwrap();
-                                        yuki_trace!("Write EXR: Acquired film");
+                                        yuki_trace!("draw: Acquired film");
 
-                                        let (w, h) = {
-                                            let Vec2 { x, y } = film.res();
-                                            (x as usize, y as usize)
-                                        };
-
+                                        let film_res = film.res();
                                         let pixels = film.pixels().clone();
 
-                                        (w, h, pixels)
+                                        yuki_trace!("draw: Releasing film");
+                                        (film_res.x as usize, film_res.y as usize, pixels)
                                     }
 
                                     WriteEXR::Mapped => {
@@ -334,11 +338,55 @@ impl Window {
                             }
                         }
                     }
+                    WindowEvent::ModifiersChanged(state) => cursor_state.ctrl_down = state.ctrl(),
+                    WindowEvent::CursorEntered { .. } => cursor_state.inside = true,
+                    WindowEvent::CursorLeft { .. } => cursor_state.inside = false,
+                    WindowEvent::CursorMoved { position, .. } => {
+                        cursor_state.position = Vec2::new(position.x, position.y);
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        if cursor_state.inside {
+                            if !any_item_active && !ui_hovered {
+                                // We only want to handle input if we're not on top of interacting with imgui
+
+                                // Ctrl+LClick fires debug ray on pixel
+                                if cursor_state.ctrl_down
+                                    && button == MouseButton::Left
+                                    && state == ElementState::Pressed
+                                {
+                                    launch_debug_ray(
+                                        &cursor_state,
+                                        &display,
+                                        &film,
+                                        &film_settings,
+                                        &scene,
+                                        &scene_params,
+                                    );
+                                }
+                            }
+                        }
+                    }
                     _ => {}
                 },
                 _ => {}
             }
         })
+    }
+}
+
+struct CursorState {
+    inside: bool,
+    position: Vec2<f64>,
+    ctrl_down: bool,
+}
+
+impl Default for CursorState {
+    fn default() -> Self {
+        Self {
+            inside: false,
+            position: Vec2::from(0.0),
+            ctrl_down: false,
+        }
     }
 }
 
@@ -351,5 +399,82 @@ impl glium::texture::Texture2dDataSink<Vec3<f32>> for Vec<Vec3<f32>> {
 unsafe impl glium::texture::PixelValue for Vec3<f32> {
     fn get_format() -> glium::texture::ClientFormat {
         glium::texture::ClientFormat::F32F32F32
+    }
+}
+
+fn launch_debug_ray(
+    cursor_state: &CursorState,
+    display: &glium::Display,
+    film: &Arc<Mutex<Film>>,
+    film_settings: &FilmSettings,
+    scene: &Arc<Scene>,
+    scene_params: &DynamicSceneParameters,
+) {
+    let window_px = cursor_state.position;
+    yuki_info!(
+        "main_loop: Debug ray initiated at window px ({},{})",
+        window_px.x,
+        window_px.y
+    );
+
+    let (film_w, film_h) = {
+        yuki_trace!("get_film_res: Waiting for lock on film");
+        let film = film.lock().unwrap();
+        yuki_trace!("get_film_res: Acquired film");
+
+        let Vec2 { x, y } = film.res();
+
+        yuki_trace!("get_film_res: Releasing film");
+        (x as f64, y as f64)
+    };
+    let film_aspect = film_w / film_h;
+
+    let (window_w, window_h) = {
+        let glutin::dpi::PhysicalSize { width, height } = display.gl_window().window().inner_size();
+        (width as f64, height as f64)
+    };
+    let window_aspect = window_w / window_h;
+
+    let film_px = if window_aspect < film_aspect {
+        let x = film_w * (window_px.x / window_w);
+
+        let film_scale = window_w / film_w;
+        let bottom_margin = (window_h - film_h * film_scale) / 2.0;
+
+        let y = (window_px.y - bottom_margin) / film_scale;
+
+        Vec2::new(x, y)
+    } else {
+        let y = film_h * (window_px.y / window_h);
+
+        let film_scale = window_h / film_h;
+        let left_margin = (window_w - film_w * film_scale) / 2.0;
+
+        let x = (window_px.x - left_margin) / film_scale;
+
+        Vec2::new(x, y)
+    };
+
+    if film_px.min_comp() >= 0.0 && film_px.x < (film_w as f64) && film_px.y < (film_h as f64) {
+        let film_px = Vec2::new(film_px.x as u16, film_px.y as u16);
+
+        yuki_info!(
+            "main_loop: Launching debug ray at film px ({},{})",
+            film_px.x,
+            film_px.y
+        );
+
+        let camera = create_camera(scene_params, film_settings);
+
+        // TODO: Use the active scene integrator instead, add evaluated rays as return data?
+        {
+            let p_film = Point2::new(film_px.x as f32, film_px.y as f32) + Vec2::new(0.5, 0.5);
+
+            let ray = camera.ray(CameraSample { p_film });
+
+            scene.bvh.intersect(ray);
+        }
+    } else {
+        yuki_info!("main_loop: Window px is outside the film");
     }
 }

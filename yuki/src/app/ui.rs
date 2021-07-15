@@ -121,6 +121,8 @@ impl UI {
         let ui = self.context.frame();
         let mut render_triggered = false;
         let mut write_exr = None;
+        // This should be collected for all windows
+        let mut ui_hovered = false;
 
         imgui::Window::new(im_str!("Settings"))
             .position([0.0, 0.0], imgui::Condition::Always)
@@ -128,6 +130,8 @@ impl UI {
             .resizable(false)
             .movable(false)
             .build(&ui, || {
+                ui_hovered = ui.is_window_hovered();
+
                 render_triggered |= generate_film_settings(&ui, film_settings);
                 ui.spacing();
 
@@ -187,6 +191,7 @@ impl UI {
             render_triggered,
             write_exr,
             any_item_active,
+            ui_hovered,
         }
     }
 }
@@ -204,6 +209,7 @@ pub struct FrameUI<'a> {
     pub render_triggered: bool,
     pub write_exr: Option<WriteEXR>,
     pub any_item_active: bool,
+    pub ui_hovered: bool,
 }
 
 impl<'a> FrameUI<'a> {
