@@ -255,7 +255,7 @@ impl Window {
                     expect!(render_target.finish(), "Frame::finish() failed");
 
                     let spent_millis = (redraw_start.elapsed().as_micros() as f32) * 1e-3;
-                    yuki_debug!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
+                    yuki_trace!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
 
                     // Handle after draw so we have the mapped output texture
                     if let Some(output) = &frame_ui.write_exr {
