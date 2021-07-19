@@ -47,13 +47,13 @@ pub fn parse<T: std::io::Read>(
             }
             "translate" => {
                 let p: Vec<f32> = find_attr!(&attributes, "value")
-                    .split(" ")
+                    .split(' ')
                     .map(|v| v.parse::<f32>().unwrap())
                     .collect();
                 transform = &translation(Vec3::new(p[0], p[1], p[2])) * &transform;
             }
             "scale" => {
-                let p_strs: Vec<&str> = find_attr!(&attributes, "value").split(" ").collect();
+                let p_strs: Vec<&str> = find_attr!(&attributes, "value").split(' ').collect();
                 let p: Vec<f32> = match p_strs.len() {
                     1 => {
                         let v = p_strs[0].parse::<f32>().unwrap();
@@ -67,7 +67,7 @@ pub fn parse<T: std::io::Read>(
             "matrix" => {
                 // TODO: map with ? possible?
                 let values: Vec<f32> = find_attr!(&attributes, "value")
-                    .split(" ")
+                    .split(' ')
                     .map(|v| v.parse().unwrap())
                     .collect();
                 transform = &Transform::new_m(values.into()) * &transform;

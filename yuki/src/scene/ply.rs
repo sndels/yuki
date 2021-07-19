@@ -9,11 +9,10 @@ use crate::{
     yuki_error, yuki_info,
 };
 
-use ply_rs;
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Instant};
+use std::{collections::HashSet, path::Path, sync::Arc, time::Instant};
 
 pub fn load(
-    path: &PathBuf,
+    path: &Path,
     material: Arc<dyn Material>,
     transform: Option<Transform<f32>>,
 ) -> Result<(Arc<Mesh>, Vec<Arc<dyn Shape>>)> {
@@ -107,7 +106,7 @@ pub fn load(
         (triangles_start.elapsed().as_micros() as f32) * 1e-6
     );
 
-    return Ok((mesh, geometry));
+    Ok((mesh, geometry))
 }
 
 struct PlyContent {
@@ -205,14 +204,13 @@ impl ply_rs::ply::PropertyAccess for Vertex {
     }
 
     fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
-        match property {
-            ply_rs::ply::Property::Float(v) => match key.as_str() {
+        if let ply_rs::ply::Property::Float(v) = property {
+            match key.as_str() {
                 "x" => self.x = v,
                 "y" => self.y = v,
                 "z" => self.z = v,
                 _ => (),
-            },
-            _ => (),
+            }
         }
     }
 }

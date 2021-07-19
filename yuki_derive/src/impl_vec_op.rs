@@ -3,7 +3,7 @@ use quote::quote;
 use syn::{DeriveInput, Ident};
 
 use crate::common::{
-    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, TraitInfo,
+    add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, ParsedGenerics, TraitInfo,
 };
 
 pub fn vec_op(
@@ -26,8 +26,13 @@ pub fn vec_op(
 
     let generics = add_trait_bound(&item.generics, quote!(#trait_ident));
 
-    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
-        Ok((g, i, t, w)) => (g, i, t, w),
+    let ParsedGenerics {
+        impl_generics,
+        type_generics,
+        where_clause,
+        ..
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
         Err(errors) => {
             return combined_error(&format!("vec_op '{}'", op_trait), item.ident.span(), errors)
                 .to_compile_error();
@@ -42,7 +47,7 @@ pub fn vec_op(
         &item.data,
         trait_ident,
         op_ident,
-        &type_ident,
+        type_ident,
         other_tokens,
         output,
         impl_generics,

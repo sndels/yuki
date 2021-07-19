@@ -3,22 +3,26 @@ use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
 use crate::{
-    common::{abs_impl, combined_error, parse_generics, per_component_tokens},
+    common::{abs_impl, combined_error, parse_generics, per_component_tokens, ParsedGenerics},
     impl_vec_like::{vec_like_impl, vec_normal_members_impl},
 };
 
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;
 
-    let (generic_param, impl_generics, type_generics, where_clause) =
-        match parse_generics(&item.generics) {
-            Ok((g, i, t, w)) => (g, i, t, w),
-            Err(errors) => {
-                return combined_error("Impl Vec", item.ident.span(), errors).to_compile_error();
-            }
-        };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = match parse_generics(&item.generics) {
+        Ok(v) => v,
+        Err(errors) => {
+            return combined_error("Impl Vec", item.ident.span(), errors).to_compile_error();
+        }
+    };
 
-    let member_ops = vec_normal_members_impl(&item.data, &vec_type, &generic_param);
+    let member_ops = vec_normal_members_impl(&item.data, vec_type, &generic_param);
 
     let from_args = per_component_tokens(
         &item.data,

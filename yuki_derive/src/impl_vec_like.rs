@@ -80,16 +80,24 @@ pub fn vec_like_impl(
         }
     };
 
-    let new_doc = format! { "Creates a new `{0}`.", str_type};
-    let zeros_doc = format! { "Creates a new `{0}` filled with `0`s.", str_type};
-    let ones_doc = format! { "Creates a new `{0}` filled with `1`s.", str_type};
-    let has_nans_doc = format! { "Checks if this `{0}` contains NaNs.", str_type};
-    let array_doc = format! { "Returns a reference to this `{0}` as an array.", str_type};
-    let array_mut_doc =
-        format! { "Returns a mutable reference to this `{0}` as an array.", str_type};
-    let min_doc = format! { "Returns a new `{0}` with the component-wise minimum of this `{0}` and another `{0}`.", str_type};
-    let max_doc = format! { "Returns a new `{0}` with the component-wise maximum of this `{0}` and another `{0}`.", str_type};
-    let permuted_doc = format! { "Returns a new `{0}` with a permutation of this `{0}`. The arguments define what index in this `{0}` to map for each component in the new `{0}`.", str_type};
+    let new_doc = format!("Creates a new `{0}`.", str_type);
+    let zeros_doc = format!("Creates a new `{0}` filled with `0`s.", str_type);
+    let ones_doc = format!("Creates a new `{0}` filled with `1`s.", str_type);
+    let has_nans_doc = format!("Checks if this `{0}` contains NaNs.", str_type);
+    let array_doc = format!("Returns a reference to this `{0}` as an array.", str_type);
+    let array_mut_doc = format!(
+        "Returns a mutable reference to this `{0}` as an array.",
+        str_type
+    );
+    let min_doc = format!(
+        "Returns a new `{0}` with the component-wise minimum of this `{0}` and another `{0}`.",
+        str_type
+    );
+    let max_doc = format!(
+        "Returns a new `{0}` with the component-wise maximum of this `{0}` and another `{0}`.",
+        str_type
+    );
+    let permuted_doc = format!( "Returns a new `{0}` with a permutation of this `{0}`. The arguments define what index in this `{0}` to map for each component in the new `{0}`.", str_type);
 
     quote! {
         impl #impl_generics #vec_type #type_generics
@@ -119,6 +127,8 @@ pub fn vec_like_impl(
                 }
             }
 
+            // This is generic so no is_nan() available
+            #[allow(eq_op)]
             #[doc = #has_nans_doc]
             #[inline]
             pub fn has_nans(&self) -> bool {
@@ -186,17 +196,19 @@ pub fn vec_normal_members_impl(
     generic_param: &Ident,
 ) -> TokenStream {
     let dot_ret = per_component_tokens(
-        &data,
+        data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => self.#c * other.#c),
         &|recurse| quote!( #generic_param::zero() #(+ #recurse)*),
     );
 
     let str_type = vec_type.to_string();
-    let dot_doc =
-        format! { "Calculates the dot product of this `{0}` and another `{0}`.", str_type};
-    let len_sqr_doc = format! { "Calculates the squared length of this `{0}`.", str_type};
-    let len_doc = format! { "Calculates the length of this `{0}`.", str_type};
-    let normalized_doc = format! { "Returns a new `{0}` with this `{0}` normalized.", str_type};
+    let dot_doc = format!(
+        "Calculates the dot product of this `{0}` and another `{0}`.",
+        str_type
+    );
+    let len_sqr_doc = format!("Calculates the squared length of this `{0}`.", str_type);
+    let len_doc = format!("Calculates the length of this `{0}`.", str_type);
+    let normalized_doc = format!("Returns a new `{0}` with this `{0}` normalized.", str_type);
 
     quote! {
         #[doc = #dot_doc]

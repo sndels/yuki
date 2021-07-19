@@ -111,7 +111,7 @@ impl BoundingVolumeHierarchy {
                         } else {
                             to_visit_stack[to_visit_index] = second_child_index as usize;
                             to_visit_index += 1;
-                            current_node_index = current_node_index + 1;
+                            current_node_index += 1;
                         }
                     }
                     NodeContent::Leaf {

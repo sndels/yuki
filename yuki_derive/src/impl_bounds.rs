@@ -3,19 +3,23 @@ use quote::quote;
 use std::vec::IntoIter;
 use syn::{DeriveInput, Ident};
 
-use crate::common::{add_trait_bound, combined_error, parse_generics};
+use crate::common::{add_trait_bound, combined_error, parse_generics, ParsedGenerics};
 
 pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
     let bounds_ident = &item.ident;
 
     let generics = add_trait_bound(&item.generics, quote!(num::cast::ToPrimitive));
-    let (generic_param, impl_generics, type_generics, where_clause) =
-        match parse_generics(&generics) {
-            Ok((g, i, t, w)) => (g, i, t, w),
-            Err(errors) => {
-                return combined_error("Impl Point", item.ident.span(), errors).to_compile_error();
-            }
-        };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
+        Err(errors) => {
+            return combined_error("Impl Point", item.ident.span(), errors).to_compile_error();
+        }
+    };
 
     let bounds_str = bounds_ident.to_string();
     let component_count = match bounds_str.chars().last().unwrap().to_digit(10) {

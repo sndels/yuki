@@ -35,7 +35,7 @@ pub fn try_load_scene(
                 },
                 _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
             },
-            None => Err(format!("Expected a file with an extension")),
+            None => Err("Expected a file with an extension".into()),
         }
     } else if settings.path.as_os_str().is_empty() {
         let (scene, scene_params, total_secs) = Scene::cornell();
@@ -76,7 +76,7 @@ pub fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
 pub fn write_exr(
     width: usize,
     height: usize,
-    pixels: &Vec<Vec3<f32>>,
+    pixels: &[Vec3<f32>],
     path: PathBuf,
 ) -> Result<(), String> {
     yuki_info!("Writing out EXR");

@@ -5,7 +5,7 @@ use strum::{EnumString, EnumVariantNames, ToString};
 use crate::{
     film::Film,
     math::{Vec2, Vec3},
-    yuki_debug, yuki_info, yuki_trace,
+    yuki_debug, yuki_trace,
 };
 
 #[derive(EnumVariantNames, ToString, EnumString, PartialEq)]
@@ -69,20 +69,20 @@ impl ToneMapFilm {
                 },
             ],
         )
-        .map_err(NewError::VertexBufferCreationError)?;
+        .map_err(NewError::VertexBuffer)?;
 
         let index_buffer = glium::IndexBuffer::new(
             backend,
             glium::index::PrimitiveType::TrianglesList,
             &[0u16, 1, 2],
         )
-        .map_err(NewError::IndexBufferCreationError)?;
+        .map_err(NewError::IndexBuffer)?;
 
         let filmic_program = glium::Program::from_source(backend, VS_CODE, FILMIC_FS_CODE, None)
-            .map_err(NewError::ProgramCreationError)?;
+            .map_err(NewError::Program)?;
 
         let heatmap_program = glium::Program::from_source(backend, VS_CODE, HEATMAP_FS_CODE, None)
-            .map_err(NewError::ProgramCreationError)?;
+            .map_err(NewError::Program)?;
 
         macro_rules! create_tex {
             () => {
@@ -93,7 +93,7 @@ impl ToneMapFilm {
                     16 as u32,
                     16 as u32,
                 )
-                .map_err(NewError::TextureCreationError)?
+                .map_err(NewError::Texture)?
             };
         }
         let input = create_tex!();
@@ -109,7 +109,6 @@ impl ToneMapFilm {
         })
     }
 
-    #[must_use]
     pub fn draw<'a, 'b, T: glium::backend::Facade>(
         &'a mut self,
         backend: &T,
@@ -118,7 +117,7 @@ impl ToneMapFilm {
     ) -> Result<&'a glium::Texture2d, DrawError<'b>> {
         yuki_trace!("draw: Checking for texture update");
         self.update_textures(backend, film)
-            .map_err(DrawError::UpdateTexturesError)?;
+            .map_err(DrawError::UpdateTextures)?;
 
         let input_sampler = self
             .input
@@ -144,7 +143,7 @@ impl ToneMapFilm {
                         &uniforms,
                         &Default::default(),
                     )
-                    .map_err(DrawError::DrawError)?;
+                    .map_err(DrawError::Draw)?;
 
                 &self.output
             }
@@ -167,7 +166,7 @@ impl ToneMapFilm {
                         &uniforms,
                         &Default::default(),
                     )
-                    .map_err(DrawError::DrawError)?;
+                    .map_err(DrawError::Draw)?;
 
                 &self.output
             }
@@ -176,7 +175,6 @@ impl ToneMapFilm {
         Ok(output)
     }
 
-    #[must_use]
     fn update_textures<'a, T: glium::backend::Facade>(
         &mut self,
         backend: &T,
@@ -184,7 +182,7 @@ impl ToneMapFilm {
     ) -> Result<bool, UpdateTexturesError<'a>> {
         yuki_trace!("update_film_texture: Begin");
         yuki_trace!("update_film_texture: Waiting for lock on film");
-        let mut film = film.lock().map_err(UpdateTexturesError::FilmPoisonError)?;
+        let mut film = film.lock().map_err(UpdateTexturesError::FilmPoison)?;
         yuki_trace!("update_film_texture: Acquired film");
 
         let film_dirty = film.dirty();
@@ -198,7 +196,7 @@ impl ToneMapFilm {
                 FILM_FORMAT,
                 glium::texture::MipmapsOption::NoMipmap,
             )
-            .map_err(UpdateTexturesError::TextureCreationError)?;
+            .map_err(UpdateTexturesError::TextureCreation)?;
 
             if self.input.width() != self.output.width()
                 || self.input.height() != self.output.height()
@@ -210,7 +208,7 @@ impl ToneMapFilm {
                     self.input.width(),
                     self.input.height(),
                 )
-                .map_err(UpdateTexturesError::TextureCreationError)?
+                .map_err(UpdateTexturesError::TextureCreation)?
             }
 
             film.clear_dirty();
@@ -245,7 +243,7 @@ impl<'a> glium::texture::Texture2dDataSource<'a> for &'a Film {
     }
 }
 
-const VS_CODE: &'static str = r#"
+const VS_CODE: &str = r#"
 #version 410 core
 
 in vec2 position;
@@ -259,7 +257,7 @@ void main() {
 }
 "#;
 
-const FILMIC_FS_CODE: &'static str = r#"
+const FILMIC_FS_CODE: &str = r#"
 #version 410 core
 
 uniform sampler2D input_texture;
@@ -316,7 +314,7 @@ void main() {
 }
 "#;
 
-const HEATMAP_FS_CODE: &'static str = r#"
+const HEATMAP_FS_CODE: &str = r#"
 #version 410 core
 
 uniform sampler2D input_texture;
@@ -355,31 +353,28 @@ void main() {
 
 #[derive(Debug)]
 pub enum NewError {
-    VertexBufferCreationError(glium::vertex::BufferCreationError),
-    IndexBufferCreationError(glium::index::BufferCreationError),
-    ProgramCreationError(glium::ProgramCreationError),
-    TextureCreationError(glium::texture::TextureCreationError),
+    VertexBuffer(glium::vertex::BufferCreationError),
+    IndexBuffer(glium::index::BufferCreationError),
+    Program(glium::ProgramCreationError),
+    Texture(glium::texture::TextureCreationError),
 }
 
 #[derive(Debug)]
 pub enum DrawError<'a> {
-    DrawError(glium::DrawError),
-    UpdateTexturesError(UpdateTexturesError<'a>),
-    FilmPoisonError(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
+    Draw(glium::DrawError),
+    UpdateTextures(UpdateTexturesError<'a>),
+    FilmPoison(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
 }
 
 #[derive(Debug)]
 pub enum UpdateTexturesError<'a> {
-    FilmPoisonError(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
-    TextureCreationError(glium::texture::TextureCreationError),
+    FilmPoison(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
+    TextureCreation(glium::texture::TextureCreationError),
 }
 
-pub fn find_min_max<'a>(
-    film: &'a Mutex<Film>,
-    channel: HeatmapChannel,
-) -> Result<(f32, f32), DrawError<'a>> {
+pub fn find_min_max(film: &Mutex<Film>, channel: HeatmapChannel) -> Result<(f32, f32), DrawError> {
     yuki_trace!("find_min_max: Waiting for lock on film");
-    let film = film.lock().map_err(DrawError::FilmPoisonError)?;
+    let film = film.lock().map_err(DrawError::FilmPoison)?;
     yuki_trace!("find_min_max: Acquired film");
 
     let px_accessor: Box<dyn Fn(Vec3<f32>) -> f32> = match &channel {

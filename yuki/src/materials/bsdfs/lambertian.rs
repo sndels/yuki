@@ -16,6 +16,6 @@ impl Lambertian {
 
 impl BxDF for Lambertian {
     fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Vec3<f32> {
-        return self.reflectance * std::f32::consts::FRAC_1_PI;
+        self.reflectance * std::f32::consts::FRAC_1_PI
     }
 }

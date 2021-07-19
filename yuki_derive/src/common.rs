@@ -25,7 +25,7 @@ impl TraitInfo {
 
         let is_assign_op = trait_name.ends_with("Assign");
 
-        let trait_ident = Ident::new(&trait_name, Span::call_site());
+        let trait_ident = Ident::new(trait_name, Span::call_site());
 
         // This could be much cleaner but hey, it works
         let snake_case_op: String = trait_name.chars().fold(String::new(), |mut acc, c| {
@@ -62,10 +62,14 @@ pub fn add_trait_bound(generics: &Generics, trait_tokens: TokenStream) -> Generi
     ret
 }
 
-pub fn parse_generics<'a>(
-    generics: &'a Generics,
-) -> Result<(Ident, ImplGenerics, TypeGenerics, Option<&'a WhereClause>), Vec<(&str, Option<Span>)>>
-{
+pub struct ParsedGenerics<'a> {
+    pub generic_param: Ident,
+    pub impl_generics: ImplGenerics<'a>,
+    pub type_generics: TypeGenerics<'a>,
+    pub where_clause: Option<&'a WhereClause>,
+}
+
+pub fn parse_generics(generics: &Generics) -> Result<ParsedGenerics, Vec<(&str, Option<Span>)>> {
     // We expect a struct with the form
     // struct Type<T>
     // where
@@ -99,7 +103,12 @@ pub fn parse_generics<'a>(
 
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
-    Ok((generic_param, impl_generics, type_generics, where_clause))
+    Ok(ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    })
 }
 
 pub fn combined_error(
@@ -112,8 +121,7 @@ pub fn combined_error(
         .map(|&(err, span)| {
             syn::Error::new(span.unwrap_or(default_span), format!("{}: {}", prefix, err))
         })
-        .reduce(
-            |mut acc, err| {
+        .reduce(|mut acc, err| {
             acc.combine(err);
             acc
         })
@@ -215,8 +223,13 @@ pub fn impl_vec_op_tokens(
 pub fn abs_impl(vec_type: &Ident, item: &DeriveInput) -> TokenStream {
     let generics = add_trait_bound(&item.generics, quote! {num::traits::Signed});
 
-    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
-        Ok((g, i, t, w)) => (g, i, t, w),
+    let ParsedGenerics {
+        impl_generics,
+        type_generics,
+        where_clause,
+        ..
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
         Err(errors) => {
             return combined_error("Impl Point floor_ceil", item.ident.span(), errors)
                 .to_compile_error();
@@ -230,7 +243,10 @@ pub fn abs_impl(vec_type: &Ident, item: &DeriveInput) -> TokenStream {
     );
 
     let str_type = vec_type.to_string();
-    let abs_doc = format! { "Returns a new `{0}` with the absolute values of the components in this `{0}`.", str_type};
+    let abs_doc = format!(
+        "Returns a new `{0}` with the absolute values of the components in this `{0}`.",
+        str_type
+    );
 
     quote! {
         impl #impl_generics #vec_type #type_generics

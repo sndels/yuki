@@ -10,11 +10,15 @@ use crate::{
 
 use super::{common::ParseResult, transform};
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
 pub fn parse<T: std::io::Read>(
-    dir_path: &PathBuf,
+    dir_path: &Path,
     materials: &HashMap<String, Arc<dyn Material>>,
     attributes: Vec<OwnedAttribute>,
     parser: &mut EventReader<T>,
@@ -75,7 +79,7 @@ pub fn parse<T: std::io::Read>(
     // Mitsuba's +X is to the left of +Z, ours to the right of it
     transform = &transform * &scale(-1.0, 1.0, 1.0);
 
-    if let None = ply_abspath {
+    if ply_abspath.is_none() {
         return Err("Mesh with no ply".into());
     }
 

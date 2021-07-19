@@ -175,7 +175,7 @@ fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args
 }
 
 fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {
-    let strs = s.split(",").collect::<Vec<&str>>();
+    let strs = s.split(',').collect::<Vec<&str>>();
     if strs.len() != 2 {
         Err(pico_args::Error::ArgumentParsingFailed {
             cause: "Expected --resolution X,Y".into(),
@@ -188,7 +188,7 @@ fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {
 }
 
 fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
-    let strs = s.split(",").collect::<Vec<&str>>();
+    let strs = s.split(',').collect::<Vec<&str>>();
 
     let mut tonemap = parse_enum(strs[0], "Unknown tonemap type")?;
 
@@ -222,16 +222,17 @@ fn parse_num<T>(s: &str, err: &str) -> Result<T, pico_args::Error>
 where
     T: FromStr,
 {
-    s.parse().or(Err(pico_args::Error::ArgumentParsingFailed {
-        cause: format!("{} '{}'", err, s),
-    }))
+    s.parse()
+        .map_err(|_| pico_args::Error::ArgumentParsingFailed {
+            cause: format!("{} '{}'", err, s),
+        })
 }
 
 fn parse_enum<T>(s: &str, err: &str) -> Result<T, pico_args::Error>
 where
     T: FromStr,
 {
-    T::from_str(s).or(Err(pico_args::Error::ArgumentParsingFailed {
+    T::from_str(s).map_err(|_| pico_args::Error::ArgumentParsingFailed {
         cause: format!("{} '{}'", err, s),
-    }))
+    })
 }

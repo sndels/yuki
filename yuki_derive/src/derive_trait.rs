@@ -6,7 +6,8 @@ use syn::{
 };
 
 use crate::common::{
-    add_trait_bound, combined_error, parse_generics, per_component_tokens, TraitInfo,
+    add_trait_bound, combined_error, parse_generics, per_component_tokens, ParsedGenerics,
+    TraitInfo,
 };
 
 pub fn index(input: DeriveInput, name: &str) -> TokenStream {
@@ -16,14 +17,17 @@ pub fn index(input: DeriveInput, name: &str) -> TokenStream {
         ..
     } = TraitInfo::new(name);
 
-    let (generic_param, impl_generics, type_generics, where_clause) =
-        match parse_generics(&input.generics) {
-            Ok((g, i, t, w)) => (g, i, t, w),
-            Err(errors) => {
-                return combined_error("Derive'Index'", input.ident.span(), errors)
-                    .to_compile_error();
-            }
-        };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = match parse_generics(&input.generics) {
+        Ok(v) => v,
+        Err(errors) => {
+            return combined_error("Derive'Index'", input.ident.span(), errors).to_compile_error();
+        }
+    };
     let type_ident = &input.ident;
 
     let is_mutable_index = name.ends_with("Mut");
@@ -109,8 +113,8 @@ fn index_match_tokens(data: &Data, self_ref_tokens: &TokenStream) -> TokenStream
 pub fn approx(input: DeriveInput, name: &str) -> TokenStream {
     let trait_ident = Ident::new(name, Span::call_site());
 
-    let generic_param = match parse_generics(&input.generics) {
-        Ok((g, _, _, _)) => g,
+    let ParsedGenerics { generic_param, .. } = match parse_generics(&input.generics) {
+        Ok(v) => v,
         Err(errors) => {
             return combined_error(&format!("Derive '{}'", name), input.ident.span(), errors)
                 .to_compile_error();
@@ -119,14 +123,18 @@ pub fn approx(input: DeriveInput, name: &str) -> TokenStream {
 
     let generics = add_trait_bound(&input.generics, quote! { #trait_ident });
     let generics = add_trait_bound(&generics, quote! { AbsDiffEq<Epsilon = #generic_param> });
-    let (generic_param, impl_generics, type_generics, where_clause) =
-        match parse_generics(&generics) {
-            Ok((g, i, t, w)) => (g, i, t, w),
-            Err(errors) => {
-                return combined_error(&format!("Derive '{}'", name), input.ident.span(), errors)
-                    .to_compile_error();
-            }
-        };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
+        Err(errors) => {
+            return combined_error(&format!("Derive '{}'", name), input.ident.span(), errors)
+                .to_compile_error();
+        }
+    };
 
     match name {
         "AbsDiffEq" => abs_diff_eq(

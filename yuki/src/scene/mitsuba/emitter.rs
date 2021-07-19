@@ -21,20 +21,20 @@ pub enum Emitter {
 }
 
 pub fn parse<T: std::io::Read>(
-    attributes: &Vec<OwnedAttribute>,
+    attributes: &[OwnedAttribute],
     parser: &mut EventReader<T>,
     indent: String,
 ) -> ParseResult<Option<Emitter>> {
     let attr_type = find_attr!(attributes, "type");
     let ret = match attr_type.as_str() {
         "constant" => Some(Emitter::Background {
-            color: parse_constant_emitter(parser, indent.clone())?,
+            color: parse_constant_emitter(parser, indent)?,
         }),
         "point" => Some(Emitter::Light {
-            light: parse_point_light(parser, indent.clone())?,
+            light: parse_point_light(parser, indent)?,
         }),
         "spot" => Some(Emitter::Light {
-            light: parse_spot_light(parser, indent.clone())?,
+            light: parse_spot_light(parser, indent)?,
         }),
         _ => None,
     };

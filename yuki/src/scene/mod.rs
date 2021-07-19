@@ -75,7 +75,7 @@ impl Scene {
     pub fn mitsuba(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (scene, dynamic_params) = mitsuba::load(&settings)?;
+        let (scene, dynamic_params) = mitsuba::load(settings)?;
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
@@ -122,7 +122,7 @@ impl Scene {
                 load_settings: settings.clone(),
                 meshes,
                 geometry: geometry_arc,
-                bvh: bvh,
+                bvh,
                 lights: vec![light],
                 background: Vec3::from(0.0),
             },
@@ -219,13 +219,7 @@ impl Scene {
                 )),
             ];
 
-            let materials = [
-                white.clone(),
-                white.clone(),
-                white.clone(),
-                green.clone(),
-                red,
-            ];
+            let materials = [white.clone(), white.clone(), white.clone(), green, red];
             for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
                 for v0 in (0..mesh.indices.len()).step_by(3) {
                     geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, material.clone())));
@@ -263,7 +257,7 @@ impl Scene {
         geometry.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            white.clone(),
+            white,
         )));
 
         let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);
@@ -285,7 +279,7 @@ impl Scene {
                 load_settings: SceneLoadSettings::default(),
                 meshes,
                 geometry: geometry_arc,
-                bvh: bvh,
+                bvh,
                 lights: vec![light],
                 background: Vec3::from(0.0),
             },

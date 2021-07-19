@@ -4,7 +4,7 @@ use syn::{spanned::Spanned, DeriveInput, Field, Ident};
 
 use crate::common::{
     add_trait_bound, combined_error, impl_vec_op_tokens, parse_generics, per_component_tokens,
-    TraitInfo,
+    ParsedGenerics, TraitInfo,
 };
 
 pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
@@ -17,18 +17,22 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
 
     let generics = add_trait_bound(&input.generics, quote!(#trait_ident));
 
-    let (generic_param, impl_generics, type_generics, where_clause) =
-        match parse_generics(&generics) {
-            Ok((g, i, t, w)) => (g, i, t, w),
-            Err(errors) => {
-                return combined_error(
-                    &format!("Derive '{}'", full_name),
-                    input.ident.span(),
-                    errors,
-                )
-                .to_compile_error();
-            }
-        };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
+        Err(errors) => {
+            return combined_error(
+                &format!("Derive '{}'", full_name),
+                input.ident.span(),
+                errors,
+            )
+            .to_compile_error();
+        }
+    };
     let type_ident = &input.ident;
 
     // Scalar ops default use other: T
@@ -45,7 +49,7 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
         &input.data,
         trait_ident,
         op_ident,
-        &type_ident,
+        type_ident,
         other_tokens,
         output,
         impl_generics,
@@ -58,8 +62,13 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
 pub fn neg(input: DeriveInput, _: &str) -> TokenStream {
     let generics = add_trait_bound(&input.generics, quote!(num::traits::Signed));
 
-    let (_, impl_generics, type_generics, where_clause) = match parse_generics(&generics) {
-        Ok((g, i, t, w)) => (g, i, t, w),
+    let ParsedGenerics {
+        impl_generics,
+        type_generics,
+        where_clause,
+        ..
+    } = match parse_generics(&generics) {
+        Ok(v) => v,
         Err(errors) => {
             return combined_error("Derive 'Neg'", input.ident.span(), errors).to_compile_error();
         }

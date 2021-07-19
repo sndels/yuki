@@ -1,7 +1,7 @@
 use crate::{
     camera::FoV,
     find_attr,
-    math::{transforms::scale, Transform, Vec3},
+    math::{transforms::scale, DecomposedMatrix, Transform, Vec3},
     parse_element,
     scene::CameraOrientation,
     yuki_error, yuki_info, yuki_trace,
@@ -73,7 +73,11 @@ pub fn parse<T: std::io::Read>(
     // Mitsuba's +X is to the left of +Z, ours to the right of it
     transform = &scale(-1.0, 1.0, 1.0) * &transform;
 
-    let (cam_pos, cam_euler, cam_scale) = match transform.m().decompose() {
+    let DecomposedMatrix {
+        translation: cam_pos,
+        rotation: cam_euler,
+        scale: cam_scale,
+    } = match transform.m().decompose() {
         Ok(result) => result,
         Err(e) => {
             return Err(format!("Cannot decompose camera to world matrix: {}", e).into());

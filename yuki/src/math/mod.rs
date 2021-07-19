@@ -10,7 +10,7 @@ mod vector;
 
 pub use bounds::{Bounds2, Bounds3};
 pub use common::ValueType;
-pub use matrix::Matrix4x4;
+pub use matrix::{DecomposedMatrix, Matrix4x4};
 pub use normal::Normal;
 pub use point::{Point2, Point3};
 pub use ray::Ray;

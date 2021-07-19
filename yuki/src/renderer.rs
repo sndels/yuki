@@ -69,9 +69,7 @@ impl Renderer {
         self.task_ending = false;
 
         if let Some(RenderTask {
-            tx_task,
-            rx_task,
-            handle,
+            rx_task, handle, ..
         }) = task
         {
             match rx_task.recv() {
@@ -274,7 +272,7 @@ pub fn create_camera(
                 ))
         }
     };
-    Camera::new(&cam_to_world, scene_params.cam_fov, &film_settings)
+    Camera::new(&cam_to_world, scene_params.cam_fov, film_settings)
 }
 
 fn launch_render<I: Integrator>(
@@ -336,7 +334,7 @@ fn launch_render<I: Integrator>(
         // Wait for children to finish
         let mut ray_count = 0;
         while !children.is_empty() {
-            if let Ok(_) = from_parent.try_recv() {
+            if from_parent.try_recv().is_ok() {
                 yuki_debug!("Render: Killed by parent");
                 break;
             }
@@ -355,7 +353,7 @@ fn launch_render<I: Integrator>(
         // Kill children after being killed
         if !children.is_empty() {
             // Kill everyone first
-            for (_, (tx, _)) in &children {
+            for (tx, _) in children.values() {
                 // No need to check for error, child having disconnected, since that's our goal
                 let _ = tx.send(0);
             }
@@ -392,7 +390,7 @@ fn render<I: Integrator>(
 
     let mut rays = 0;
     'work: loop {
-        if let Ok(_) = from_parent.try_recv() {
+        if from_parent.try_recv().is_ok() {
             yuki_debug!("Render thread {}: Killed by parent", thread_id);
             break 'work;
         }
@@ -420,11 +418,11 @@ fn render<I: Integrator>(
         let mut terminated_early = false;
         rays += I::render(&scene, &camera, &sampler, &mut tile, &mut || {
             // Let's have low latency kills for more interactive view
-            if let Ok(_) = from_parent.try_recv() {
+            if from_parent.try_recv().is_ok() {
                 yuki_debug!("Render thread {}: Killed by parent", thread_id);
                 terminated_early = true;
             }
-            return terminated_early;
+            terminated_early
         });
         if terminated_early {
             break 'work;

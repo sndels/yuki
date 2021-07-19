@@ -127,7 +127,7 @@ impl Film {
     }
 
     fn cache_tiles(&mut self, tiles: &VecDeque<FilmTile>) {
-        assert!(tiles.len() > 0);
+        assert!(!tiles.is_empty());
         // Tile size is always at most the full resolution
         let dim = tiles[0].bb.diagonal().x;
         self.cached_tiles = Some((dim, tiles.clone()));

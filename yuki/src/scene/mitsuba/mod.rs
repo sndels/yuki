@@ -65,7 +65,7 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
                     }
                     indent.truncate(indent.len() - 2);
 
-                    if let None = ignore_level {
+                    if ignore_level.is_none() {
                         match name.local_name.as_str() {
                             "scene" => {
                                 if find_attr!(&attributes, "version").as_str() != "2.1.0" {
@@ -74,7 +74,6 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
                             }
                             "default" => {
                                 // TODO
-                                ()
                             }
                             "integrator" => {
                                 ignore_level = Some(0);
@@ -169,7 +168,7 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
             load_settings: settings.clone(),
             meshes,
             geometry: geometry_arc,
-            bvh: bvh,
+            bvh,
             lights,
             background,
         },

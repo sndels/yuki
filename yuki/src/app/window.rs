@@ -18,18 +18,15 @@ use super::{
     InitialSettings, ToneMapType,
 };
 use crate::{
-    camera::{Camera, CameraSample},
+    camera::CameraSample,
     expect,
     film::{Film, FilmSettings},
     integrators::IntegratorType,
-    math::{
-        transforms::{look_at, rotation_euler, translation},
-        Point2, Vec2, Vec3,
-    },
+    math::{Point2, Vec2, Vec3},
     renderer::{create_camera, Renderer},
     samplers::SamplerSettings,
-    scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
-    yuki_debug, yuki_error, yuki_info, yuki_trace,
+    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    yuki_error, yuki_info, yuki_trace,
 };
 
 pub struct Window {
@@ -160,7 +157,7 @@ impl Window {
 
                     // Run frame logic
                     let mut frame_ui = ui.generate_frame(
-                        &window,
+                        window,
                         &mut film_settings,
                         &mut sampler_settings,
                         &mut scene_params,
@@ -345,24 +342,22 @@ impl Window {
                         cursor_state.position = Vec2::new(position.x, position.y);
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
-                        if cursor_state.inside {
-                            if !any_item_active && !ui_hovered {
-                                // We only want to handle input if we're not on top of interacting with imgui
+                        if cursor_state.inside && !any_item_active && !ui_hovered {
+                            // We only want to handle input if we're not on top of interacting with imgui
 
-                                // Ctrl+LClick fires debug ray on pixel
-                                if cursor_state.ctrl_down
-                                    && button == MouseButton::Left
-                                    && state == ElementState::Pressed
-                                {
-                                    launch_debug_ray(
-                                        &cursor_state,
-                                        &display,
-                                        &film,
-                                        &film_settings,
-                                        &scene,
-                                        &scene_params,
-                                    );
-                                }
+                            // Ctrl+LClick fires debug ray on pixel
+                            if cursor_state.ctrl_down
+                                && button == MouseButton::Left
+                                && state == ElementState::Pressed
+                            {
+                                launch_debug_ray(
+                                    &cursor_state,
+                                    &display,
+                                    &film,
+                                    &film_settings,
+                                    &scene,
+                                    &scene_params,
+                                );
                             }
                         }
                     }

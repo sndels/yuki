@@ -61,7 +61,7 @@ where
         self.m
             .iter()
             // Not all T have is_nan() so rely on NaN != NaN
-            .flat_map(|row| row.iter().map(|t| t != t))
+            .flat_map(|row| row.iter().map(|t| t.is_nan()))
             .into_iter()
             .any(|p| p)
     }
@@ -149,8 +149,8 @@ where
             // the largest value in the matrix that is not already part of a pivot
             for row in 0..4 {
                 if ipiv[row] != 1 {
-                    for rcol in 0..4 {
-                        if (ipiv[rcol] == 0) && (mi[row][rcol].abs() > big) {
+                    for (rcol, &piv) in ipiv.iter().enumerate() {
+                        if (piv == 0) && (mi[row][rcol].abs() > big) {
                             big = mi[row][rcol].abs();
                             irow = row;
                             icol = rcol;
@@ -206,18 +206,18 @@ where
         // so we'll finish the pivot here
         for col in (0..4).rev() {
             if indxr[col] != indxc[col] {
-                for row in 0..4 {
-                    // This check is unfortunate but we need split_at_mut
-                    let (a, b) = {
-                        let a = indxr[col];
-                        let b = indxc[col];
-                        if a < b {
-                            (a, b)
-                        } else {
-                            (b, a)
-                        }
-                    };
-                    let (front, back) = mi[row].split_at_mut(b);
+                // This check is unfortunate but we need split_at_mut
+                let (a, b) = {
+                    let a = indxr[col];
+                    let b = indxc[col];
+                    if a < b {
+                        (a, b)
+                    } else {
+                        (b, a)
+                    }
+                };
+                for row in mi.iter_mut() {
+                    let (front, back) = row.split_at_mut(b);
                     std::mem::swap(&mut front[a], &mut back[0]);
                 }
             }
@@ -226,7 +226,7 @@ where
     }
 
     /// Tries to decompose the matrix into translation, rotation and scaling
-    pub fn decompose(&self) -> Result<(Point3<T>, Vec3<T>, Vec3<T>), String> {
+    pub fn decompose(&self) -> Result<DecomposedMatrix<T>, String> {
         let m = &self.m;
 
         let translation = Point3::new(m[0][3], m[1][3], m[2][3]);
@@ -258,8 +258,21 @@ where
 
         let rotation = Vec3::new(theta_x, theta_y, theta_z);
 
-        Ok((translation, rotation, scale))
+        Ok(DecomposedMatrix {
+            translation,
+            rotation,
+            scale,
+        })
     }
+}
+
+pub struct DecomposedMatrix<T>
+where
+    T: FloatValueType,
+{
+    pub translation: Point3<T>,
+    pub rotation: Vec3<T>,
+    pub scale: Vec3<T>,
 }
 
 impl<T> From<Vec<T>> for Matrix4x4<T>
