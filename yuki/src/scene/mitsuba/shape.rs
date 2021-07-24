@@ -3,12 +3,11 @@ use crate::{
     materials::Material,
     math::{transforms::scale, Transform},
     parse_element,
-    scene::ply,
-    shapes::{Mesh, Shape},
+    scene::{ply, Result},
     yuki_error, yuki_info, yuki_trace,
 };
 
-use super::{common::ParseResult, transform};
+use super::transform;
 
 use std::{
     collections::HashMap,
@@ -20,11 +19,11 @@ use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 pub fn parse<T: std::io::Read>(
     dir_path: &Path,
     materials: &HashMap<String, Arc<dyn Material>>,
-    attributes: Vec<OwnedAttribute>,
+    attributes: &[OwnedAttribute],
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<(Option<Arc<Mesh>>, Vec<Arc<dyn Shape>>)> {
-    let data_type = find_attr!(&attributes, "type").as_str();
+) -> Result<ply::PlyResult> {
+    let data_type = find_attr!(attributes, "type").as_str();
     if data_type != "ply" {
         return Err(format!("Unexpected shape type '{}'!", data_type).into());
     }
@@ -36,7 +35,7 @@ pub fn parse<T: std::io::Read>(
                                     attributes: Vec<OwnedAttribute>,
                                     level: &mut i32,
                                     _: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "string" => {
@@ -85,10 +84,7 @@ pub fn parse<T: std::io::Read>(
 
     if let Some(id) = material_id {
         if let Some(material) = materials.get(&id) {
-            match ply::load(&ply_abspath.unwrap(), material.clone(), Some(transform)) {
-                Ok((m, g)) => Ok((Some(m), g)),
-                Err(e) => Err(e),
-            }
+            ply::load(&ply_abspath.unwrap(), material, Some(transform))
         } else {
             Err(format!("Unknown mesh material '{}'", id).into())
         }

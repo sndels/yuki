@@ -5,7 +5,9 @@ use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::{path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration};
+use std::{
+    convert::TryFrom, path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration,
+};
 use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
@@ -104,7 +106,7 @@ impl UI {
         tone_map_type: &mut ToneMapType,
         load_settings: &mut SceneLoadSettings,
         match_logical_cores: &mut bool,
-        scene: Arc<Scene>,
+        scene: &Arc<Scene>,
         render_in_progress: bool,
         status_messages: &Option<Vec<String>>,
     ) -> FrameUI {
@@ -139,7 +141,7 @@ impl UI {
                 ui.spacing();
 
                 render_triggered |=
-                    generate_scene_settings(&ui, &scene, scene_params, load_settings);
+                    generate_scene_settings(&ui, scene, scene_params, load_settings);
                 ui.spacing();
 
                 render_triggered |= generate_integrator_settings(&ui, scene_integrator);
@@ -158,7 +160,7 @@ impl UI {
                     }
                     ui.same_line(0.0);
                     if ui.button(im_str!("Write mapped EXR"), [120.0, 20.0]) {
-                        write_exr = Some(WriteEXR::Mapped)
+                        write_exr = Some(WriteEXR::Mapped);
                     }
                 }
                 ui.spacing();
@@ -166,10 +168,10 @@ impl UI {
                 ui.separator();
 
                 ui.text(im_str!("Current scene: {}", scene.name));
-                ui.text(im_str!("Shape count: {}", scene.geometry.len()));
+                ui.text(im_str!("Shape count: {}", scene.shapes.len()));
                 ui.text(im_str!(
                     "Shapes in BVH node: {}",
-                    (scene.load_settings.max_shapes_in_node as usize).min(scene.geometry.len())
+                    (scene.load_settings.max_shapes_in_node as usize).min(scene.shapes.len())
                 ));
                 ui.spacing();
 
@@ -201,7 +203,7 @@ pub enum WriteEXR {
     Mapped,
 }
 
-/// Kind of a closure that gets around having to store imgui::UI within UI during a frame
+/// Kind of a closure that gets around having to store [`imgui::UI`] within UI during a frame
 pub struct FrameUI<'a> {
     platform: &'a mut WinitPlatform,
     renderer: &'a mut Renderer,
@@ -245,7 +247,7 @@ fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, sp
         .speed(speed)
         .build(ui, &mut vi);
 
-    *v = vi as u16;
+    *v = u16::try_from(vi).unwrap();
 
     value_changed
 }
@@ -267,13 +269,13 @@ fn vec2_u16_picker(
         .speed(speed)
         .build_array(ui, &mut vi);
 
-    v.x = vi[0] as u16;
-    v.y = vi[1] as u16;
+    v.x = u16::try_from(vi[0]).unwrap();
+    v.y = u16::try_from(vi[1]).unwrap();
 
     value_changed
 }
 
-/// Returns `true` if film_settings was changed.
+/// Returns `true` if `film_settings` was changed.
 fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) -> bool {
     let mut changed = false;
 
@@ -311,7 +313,7 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
     changed
 }
 
-/// Returns `true` if sampler_settings was changed.
+/// Returns `true` if `sampler_settings` was changed.
 fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerSettings) -> bool {
     let mut changed = false;
 
@@ -408,8 +410,7 @@ fn generate_scene_settings(
                     {
                         let width = ui.push_item_width(77.0);
                         let fov = match &mut params.cam_fov {
-                            FoV::X(ref mut v) => v,
-                            FoV::Y(ref mut v) => v,
+                            FoV::X(ref mut v) | FoV::Y(ref mut v) => v,
                         };
                         changed |= imgui::Drag::new(im_str!("Field of View"))
                             .range(0.1..=359.9)
@@ -440,15 +441,12 @@ fn generate_scene_settings(
 
             if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
                 let open_path = &scene.load_settings.path.to_str().unwrap();
-                let path = if let Some(path) = open_file_dialog(
+                let path = open_file_dialog(
                     "Open scene",
                     open_path,
                     Some((&["*.ply", "*.xml"], "Supported scene formats")),
-                ) {
-                    PathBuf::from(path)
-                } else {
-                    PathBuf::new()
-                };
+                )
+                .map_or_else(PathBuf::new, PathBuf::from);
                 (*load_settings).path = path;
             }
             ui.same_line(0.0);
@@ -470,13 +468,12 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
 }
 
 fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
-    let changed = enum_combo_box(ui, im_str!("Tone map"), params);
+    let mut changed = enum_combo_box(ui, im_str!("Tone map"), params);
 
     if changed {
         match params {
-            ToneMapType::Raw => (),
             ToneMapType::Filmic { exposure } => *exposure = 1.0,
-            ToneMapType::Heatmap { .. } => (),
+            ToneMapType::Raw | ToneMapType::Heatmap { .. } => (),
         }
     }
 
@@ -494,7 +491,7 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
             width.pop(ui);
         }
         ToneMapType::Heatmap { bounds, channel } => {
-            let changed = enum_combo_box(ui, im_str!("Channel"), channel);
+            changed = enum_combo_box(ui, im_str!("Channel"), channel);
             if changed {
                 *bounds = None;
             }

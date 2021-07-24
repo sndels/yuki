@@ -31,7 +31,7 @@ macro_rules! find_attr {
 /// 'level' should be decremented after a recursive parser call returns to match the correct level (caller won't see EndElement)
 macro_rules! parse_element {
     ($parser:ident, $indent:ident, $start_body:expr) => {
-        let mut level = 0i32;
+        let mut level = 0;
         let mut ignore_level: Option<u32> = None;
         loop {
             match $parser.next() {

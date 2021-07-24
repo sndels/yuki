@@ -165,7 +165,7 @@ impl Window {
                         &mut tone_map_type,
                         &mut load_settings,
                         &mut match_logical_cores,
-                        scene.clone(),
+                        &scene,
                         renderer.is_active(),
                         &status_messages,
                     );
@@ -198,9 +198,9 @@ impl Window {
                         if renderer.has_finished_or_kill() {
                             yuki_info!("main_loop: Launching render job");
                             renderer.launch(
-                                scene.clone(),
+                                Arc::clone(&scene),
                                 &scene_params,
-                                film.clone(),
+                                Arc::clone(&film),
                                 sampler_settings,
                                 scene_integrator,
                                 film_settings,
@@ -291,7 +291,7 @@ impl Window {
                                 };
 
                                 status_messages =
-                                    Some(vec![match write_exr(w, h, &pixels, path) {
+                                    Some(vec![match write_exr(w, h, &pixels, &path) {
                                         Ok(_) => "EXR written".into(),
                                         Err(why) => {
                                             yuki_error!("{}", why);
@@ -354,7 +354,7 @@ impl Window {
                                     &cursor_state,
                                     &display,
                                     &film,
-                                    &film_settings,
+                                    film_settings,
                                     &scene,
                                     &scene_params,
                                 );
@@ -401,7 +401,7 @@ fn launch_debug_ray(
     cursor_state: &CursorState,
     display: &glium::Display,
     film: &Arc<Mutex<Film>>,
-    film_settings: &FilmSettings,
+    film_settings: FilmSettings,
     scene: &Arc<Scene>,
     scene_params: &DynamicSceneParameters,
 ) {
@@ -451,6 +451,7 @@ fn launch_debug_ray(
     };
 
     if film_px.min_comp() >= 0.0 && film_px.x < (film_w as f64) && film_px.y < (film_h as f64) {
+        #[allow(clippy::cast_sign_loss)] // We check above
         let film_px = Vec2::new(film_px.x as u16, film_px.y as u16);
 
         yuki_info!(
@@ -465,7 +466,7 @@ fn launch_debug_ray(
         {
             let p_film = Point2::new(film_px.x as f32, film_px.y as f32) + Vec2::new(0.5, 0.5);
 
-            let ray = camera.ray(CameraSample { p_film });
+            let ray = camera.ray(&CameraSample { p_film });
 
             scene.bvh.intersect(ray);
         }

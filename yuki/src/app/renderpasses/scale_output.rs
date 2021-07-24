@@ -1,4 +1,5 @@
 use glium::Surface;
+use std::convert::TryFrom;
 
 pub struct ScaleOutput {}
 
@@ -20,16 +21,16 @@ impl ScaleOutput {
             glium::BlitTarget {
                 left: 0,
                 bottom: (height.saturating_sub(scaled_height) / 2) + scaled_height,
-                width: width as i32,
-                height: -(scaled_height as i32),
+                width: i32::try_from(width).unwrap(),
+                height: -i32::try_from(scaled_height).unwrap(),
             }
         } else {
             let scaled_width = (height * texture.width()) / texture.height();
             glium::BlitTarget {
                 left: width.saturating_sub(scaled_width) / 2,
                 bottom: height,
-                width: scaled_width as i32,
-                height: -(height as i32),
+                width: i32::try_from(scaled_width).unwrap(),
+                height: -i32::try_from(height).unwrap(),
             }
         };
 

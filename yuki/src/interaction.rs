@@ -1,5 +1,5 @@
 use crate::{
-    materials::BSDF,
+    materials::Bsdf,
     math::{Normal, Point3, Transform, Vec3},
 };
 use std::ops::Mul;
@@ -18,7 +18,7 @@ pub struct SurfaceInteraction {
     /// Surface normal
     pub n: Normal<f32>,
     /// Material
-    pub bsdf: Option<BSDF>,
+    pub bsdf: Option<Bsdf>,
 }
 
 impl SurfaceInteraction {

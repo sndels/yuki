@@ -1,7 +1,4 @@
-use super::{
-    common::{parse_rgb, ParseResult},
-    transform,
-};
+use super::{common::parse_rgb, transform};
 use crate::{
     find_attr,
     lights::{Light, PointLight, SpotLight},
@@ -9,7 +6,9 @@ use crate::{
         transforms::{scale, translation},
         Point3, Transform, Vec3,
     },
-    parse_element, yuki_error, yuki_info, yuki_trace,
+    parse_element,
+    scene::Result,
+    yuki_error, yuki_info, yuki_trace,
 };
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
@@ -24,7 +23,7 @@ pub fn parse<T: std::io::Read>(
     attributes: &[OwnedAttribute],
     parser: &mut EventReader<T>,
     indent: String,
-) -> ParseResult<Option<Emitter>> {
+) -> Result<Option<Emitter>> {
     let attr_type = find_attr!(attributes, "type");
     let ret = match attr_type.as_str() {
         "constant" => Some(Emitter::Background {
@@ -44,14 +43,14 @@ pub fn parse<T: std::io::Read>(
 fn parse_constant_emitter<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<Vec3<f32>> {
+) -> Result<Vec3<f32>> {
     let mut radiance = Vec3::from(0.0);
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
                                     _: &mut i32,
                                     _: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "rgb" => {
@@ -68,7 +67,7 @@ fn parse_constant_emitter<T: std::io::Read>(
 fn parse_point_light<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<Arc<PointLight>> {
+) -> Result<Arc<PointLight>> {
     let mut position = Point3::from(0.0);
     let mut intensity = Vec3::from(0.0);
 
@@ -76,7 +75,7 @@ fn parse_point_light<T: std::io::Read>(
                                     attributes: Vec<OwnedAttribute>,
                                     _: &mut i32,
                                     _: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "point" => {
@@ -118,17 +117,17 @@ fn parse_point_light<T: std::io::Read>(
 fn parse_spot_light<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<Arc<SpotLight>> {
+) -> Result<Arc<SpotLight>> {
     let mut light_to_world = Transform::default();
     let mut intensity = Vec3::from(0.0);
-    let mut total_width_degrees = 0.0f32;
-    let mut falloff_start_degrees = 0.0f32;
+    let mut total_width_degrees = 0.0;
+    let mut falloff_start_degrees = 0.0;
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
                                     level: &mut i32,
                                     _: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "float" => match find_attr!(&attributes, "name").as_str() {

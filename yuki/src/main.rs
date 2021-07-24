@@ -1,4 +1,16 @@
 #![feature(destructuring_assignment)]
+#![warn(clippy::pedantic, clippy::clone_on_ref_ptr)]
+// Might be a good idea to check allowed warnings once in a while
+#![allow(
+    clippy::cast_lossless,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::doc_markdown,
+    clippy::module_name_repetitions,
+    clippy::similar_names,
+    clippy::too_many_arguments,
+    clippy::too_many_lines
+)]
 
 mod app;
 mod bvh;
@@ -47,7 +59,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
                 record.target(),
                 record.line().unwrap_or(0),
                 message
-            ))
+            ));
         })
         // .level(log::LevelFilter::Trace)
         // .level(log::LevelFilter::Debug)
@@ -69,14 +81,11 @@ fn main() {
 
     // Let's catch panic messages ourselves and output everywhere
     std::panic::set_hook(Box::new(|info| {
-        let location_str = match info.location() {
-            Some(location) => {
-                format!("{}:{}", location.file(), location.line())
-            }
-            None => {
-                yuki_error!("No location for panic!");
-                "".into()
-            }
+        let location_str = if let Some(location) = info.location() {
+            format!("{}:{}", location.file(), location.line())
+        } else {
+            yuki_error!("No location for panic!");
+            "".into()
         };
         let payload = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => s,
@@ -95,15 +104,14 @@ fn main() {
     }));
 
     match parse_settings() {
-        Ok((settings, out_path)) => match out_path {
-            Some(path) => {
-                app::headless::render(path, settings);
-            }
-            None => {
+        Ok((settings, out_path)) => {
+            if let Some(path) = out_path {
+                app::headless::render(&path, settings);
+            } else {
                 let window = app::Window::new("yuki", (1920, 1080), settings);
                 window.main_loop();
             }
-        },
+        }
         Err(why) => {
             panic!("Parsing CLI arguments failed: {}", why);
         }
@@ -160,7 +168,7 @@ fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args
     }
 
     if let Some(resolution) = pargs.opt_value_from_fn("--resolution", parse_resolution)? {
-        settings.film_settings.res = resolution
+        settings.film_settings.res = resolution;
     };
 
     if let Some(integrator) = pargs.opt_value_from_str::<&'static str, String>("--integrator")? {
@@ -176,14 +184,14 @@ fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args
 
 fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {
     let strs = s.split(',').collect::<Vec<&str>>();
-    if strs.len() != 2 {
-        Err(pico_args::Error::ArgumentParsingFailed {
-            cause: "Expected --resolution X,Y".into(),
-        })
-    } else {
+    if strs.len() == 2 {
         let x = parse_num(strs[0], "Invalid resolution X component")?;
         let y = parse_num(strs[1], "Invalid resolution Y component")?;
         Ok(Vec2::new(x, y))
+    } else {
+        Err(pico_args::Error::ArgumentParsingFailed {
+            cause: "Expected --resolution X,Y".into(),
+        })
     }
 }
 

@@ -9,13 +9,18 @@ use crate::{
     yuki_error, yuki_info,
 };
 
-use std::{collections::HashSet, path::Path, sync::Arc, time::Instant};
+use std::{collections::HashSet, convert::TryFrom, path::Path, sync::Arc, time::Instant};
+
+pub struct PlyResult {
+    pub mesh: Arc<Mesh>,
+    pub shapes: Vec<Arc<dyn Shape>>,
+}
 
 pub fn load(
     path: &Path,
-    material: Arc<dyn Material>,
+    material: &Arc<dyn Material>,
     transform: Option<Transform<f32>>,
-) -> Result<(Arc<Mesh>, Vec<Arc<dyn Shape>>)> {
+) -> Result<PlyResult> {
     let file = match std::fs::File::open(path.to_str().unwrap()) {
         Ok(f) => f,
         Err(e) => {
@@ -96,17 +101,19 @@ pub fn load(
     let mesh = Arc::new(Mesh::new(&trfn, indices, points));
 
     let triangles_start = Instant::now();
-    let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
-    for v0 in (0..mesh.indices.len()).step_by(3) {
-        geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, material.clone())));
-    }
+    let shapes: Vec<Arc<dyn Shape>> = (0..mesh.indices.len())
+        .step_by(3)
+        .map(|v0| {
+            Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(material))) as Arc<dyn Shape>
+        })
+        .collect();
     yuki_info!(
         "PLY: Gathered {} triangles in {:.2}s",
-        geometry.len(),
+        shapes.len(),
         (triangles_start.elapsed().as_micros() as f32) * 1e-6
     );
 
-    Ok((mesh, geometry))
+    Ok(PlyResult { mesh, shapes })
 }
 
 struct PlyContent {
@@ -132,14 +139,14 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
                 for (name, _) in &element.properties {
                     props.insert(name.clone());
                 }
-                content.vertex = Some(props)
+                content.vertex = Some(props);
             }
             "face" => {
                 let mut props = HashSet::new();
                 for (name, _) in &element.properties {
                     props.insert(name.clone());
                 }
-                content.face = Some(props)
+                content.face = Some(props);
             }
             _ => yuki_info!("PLY: Unknown element '{}'", name),
         }
@@ -150,13 +157,18 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
     if let Some(props) = content.vertex {
         let expected_vert_props = vec!["x", "y", "z"];
         for p in &expected_vert_props {
-            if !props.contains(&p.to_string()) {
+            if !props.contains(&(*p).to_string()) {
                 yuki_error!("PLY: Element 'vertex' missing property '{}'", p);
                 valid = false;
             }
         }
-        for p in props.difference(&expected_vert_props.iter().map(|p| p.to_string()).collect()) {
-            yuki_info!("PLY: Unknown 'vertex' property '{}'", p)
+        for p in props.difference(
+            &expected_vert_props
+                .iter()
+                .map(|p| (*p).to_string())
+                .collect(),
+        ) {
+            yuki_info!("PLY: Unknown 'vertex' property '{}'", p);
         }
     } else {
         yuki_error!("PLY: Missing element 'vertex'");
@@ -232,7 +244,10 @@ impl ply_rs::ply::PropertyAccess for Face {
             // names for face indices
             "vertex_index" | "vertex_indices" => match property {
                 ply_rs::ply::Property::ListInt(v) => {
-                    self.indices = v.iter().map(|&i| i as usize).collect();
+                    self.indices = v
+                        .iter()
+                        .map(|&i| usize::try_from(i).expect("Negative PLY index"))
+                        .collect();
                 }
                 ply_rs::ply::Property::ListUInt(v) => {
                     self.indices = v.iter().map(|&i| i as usize).collect();

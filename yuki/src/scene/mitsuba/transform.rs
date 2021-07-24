@@ -7,21 +7,21 @@ use crate::{
     parse_element, try_find_attr, yuki_error, yuki_info, yuki_trace,
 };
 
-use super::common::ParseResult;
+use super::Result;
 
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
 pub fn parse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<Transform<f32>> {
+) -> Result<Transform<f32>> {
     let mut transform = Transform::default();
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
                                     _: &mut i32,
                                     _: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "rotate" => {

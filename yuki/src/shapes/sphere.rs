@@ -31,6 +31,7 @@ impl Sphere {
 }
 
 impl Shape for Sphere {
+    #[allow(clippy::many_single_char_names)] // Convention
     fn intersect(&self, ray: Ray<f32>) -> Option<Hit> {
         let r = &self.world_to_object * ray;
 
@@ -77,7 +78,7 @@ impl Shape for Sphere {
             p *= self.radius / p.dist(Point3::from(0.0));
             // Remove division by zero further on
             if p.x == 0.0 && p.y == 0.0 {
-                p.x = 1e-5f32 * self.radius;
+                p.x = 1e-5_f32 * self.radius;
             }
             p
         };

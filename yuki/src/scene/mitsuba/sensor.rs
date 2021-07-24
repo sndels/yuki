@@ -7,7 +7,7 @@ use crate::{
     yuki_error, yuki_info, yuki_trace,
 };
 
-use super::{common::ParseResult, transform};
+use super::{transform, Result};
 
 use approx::relative_eq;
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
@@ -15,16 +15,16 @@ use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 pub fn parse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> ParseResult<(CameraOrientation, FoV)> {
+) -> Result<(CameraOrientation, FoV)> {
     let mut fov_axis = String::new();
-    let mut fov_angle = 0.0f32;
+    let mut fov_angle = 0.0;
     let mut transform = Transform::default();
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
                                     level: &mut i32,
                                     ignore_level: &mut Option<u32>|
-     -> ParseResult<()> {
+     -> Result<()> {
         let data_type = name.local_name.as_str();
         match data_type {
             "string" => {
@@ -46,9 +46,7 @@ pub fn parse<T: std::io::Read>(
                 );
                 match attr_name {
                     "fov" => fov_angle = attr_value.as_str().parse()?,
-                    "near_clip" => (), // TODO
-                    "far_clip" => (),  // TODO
-                    "" => (),          // TODO
+                    "near_clip" | "far_clip" | "" => (), // TODO
                     _ => {
                         return Err(format!("Unknown sensor string element '{}'", attr_name).into())
                     }
@@ -59,10 +57,7 @@ pub fn parse<T: std::io::Read>(
                 *level -= 1;
                 indent.truncate(indent.len() - 2);
             }
-            "sampler" => {
-                *ignore_level = Some(0);
-            }
-            "film" => {
+            "sampler" | "film" => {
                 *ignore_level = Some(0);
             }
             _ => return Err(format!("Unknown sensor data type '{}'", data_type).into()),

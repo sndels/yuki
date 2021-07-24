@@ -103,7 +103,7 @@ impl Film {
     }
 
     /// Returns `true` if this `Film`s pixels have been written to since the last
-    /// call to its [Film::clear_dirty].
+    /// call to its [`Film::clear_dirty`].
     pub fn dirty(&self) -> bool {
         self.dirty
     }
@@ -135,7 +135,7 @@ impl Film {
 
     /// Resizes this `Film` according to `settings`.
     /// Note that this invalidates any tiles still held to the `Film`.
-    fn resize(&mut self, settings: &FilmSettings) {
+    fn resize(&mut self, settings: FilmSettings) {
         assert!(settings.res.x >= settings.tile_dim && settings.res.y >= settings.tile_dim);
 
         // Bump generation for tile verification.
@@ -177,8 +177,8 @@ impl Film {
         self.dirty = true;
     }
 
-    /// Updates this `Film` with the pixel values in a [FilmTile].
-    pub fn update_tile(&mut self, tile: FilmTile) {
+    /// Updates this `Film` with the pixel values in a [`FilmTile`].
+    pub fn update_tile(&mut self, tile: &FilmTile) {
         if tile.generation != self.generation {
             yuki_warn!(
                 "update_tile: Tile generation {} doesn't match film generation {}",
@@ -266,11 +266,11 @@ fn outward_spiral(
 ) -> VecDeque<FilmTile> {
     // Algo adapted from https://stackoverflow.com/a/398302
 
-    let tiles_x = ((res.x as f32) / (tile_dim as f32)).ceil() as i32;
-    let tiles_y = ((res.y as f32) / (tile_dim as f32)).ceil() as i32;
-    let center_x = (tiles_x / 2) - (1 - tiles_x % 2);
-    let center_y = (tiles_y / 2) - (1 - tiles_y % 2);
-    let max_dim = tiles_x.max(tiles_y);
+    let h_tiles = ((res.x as f32) / (tile_dim as f32)).ceil() as i32;
+    let v_tiles = ((res.y as f32) / (tile_dim as f32)).ceil() as i32;
+    let center_x = (h_tiles / 2) - (1 - h_tiles % 2);
+    let center_y = (v_tiles / 2) - (1 - v_tiles % 2);
+    let max_dim = h_tiles.max(v_tiles);
 
     let mut x = 0;
     let mut y = 0;
@@ -282,7 +282,8 @@ fn outward_spiral(
         let tile_x = center_x + x;
         let tile_y = center_y + y;
 
-        if tile_x >= 0 && tile_x < tiles_x && tile_y >= 0 && tile_y < tiles_y {
+        if tile_x >= 0 && tile_x < h_tiles && tile_y >= 0 && tile_y < v_tiles {
+            #[allow(clippy::cast_sign_loss)] // We check above
             tile_queue.push_back(tiles.remove(&(tile_x as u16, tile_y as u16)).unwrap());
         }
 
@@ -305,7 +306,7 @@ fn outward_spiral(
 
 /// Resizes the `Film` according to current `settings` if necessary and returns [FilmTile]s for rendering.
 /// [FilmTile]s from previous calls should no longer be used.
-pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: &FilmSettings) -> VecDeque<FilmTile> {
+pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeque<FilmTile> {
     yuki_debug!("film_tiles: Begin");
     // Only lock the film for the duration of resizing
     let film_gen = {

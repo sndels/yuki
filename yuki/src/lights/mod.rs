@@ -17,6 +17,6 @@ pub struct LightSample {
 }
 
 pub trait Light: Send + Sync {
-    /// Returns a [LightSample] from the given [SurfaceInteraction] to this `Light`.
+    /// Returns a [`LightSample`] from the given [`SurfaceInteraction`] to this [`Light`].
     fn sample_li(&self, si: &SurfaceInteraction) -> LightSample;
 }

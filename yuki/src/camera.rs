@@ -30,7 +30,7 @@ pub enum FoV {
 
 impl Camera {
     /// Creates a new `Camera`. `fov` is horizontal and in degrees.
-    pub fn new(camera_to_world: &Transform<f32>, fov: FoV, film_settings: &FilmSettings) -> Self {
+    pub fn new(camera_to_world: &Transform<f32>, fov: FoV, film_settings: FilmSettings) -> Self {
         // Standard perspective projection with aspect ratio
         // Screen is
         // NOTE: pbrt uses a 1:1 image plane with a cutout region
@@ -39,8 +39,7 @@ impl Camera {
         let near = 1e-2;
         let far = 1000.0;
         let fov_angle = match fov {
-            FoV::X(v) => v,
-            FoV::Y(v) => v,
+            FoV::X(v) | FoV::Y(v) => v,
         };
         let inv_tan = 1.0 / ((fov_angle.to_radians() / 2.0).tan());
         let camera_to_screen = &scale(inv_tan, inv_tan, 1.0)
@@ -83,7 +82,7 @@ impl Camera {
     }
 
     /// Creates a new [Ray] at the camera sample with this `Camera`.
-    pub fn ray(&self, sample: CameraSample) -> Ray<f32> {
+    pub fn ray(&self, sample: &CameraSample) -> Ray<f32> {
         let p_film = Point3::new(sample.p_film.x, sample.p_film.y, 0.0);
         let p_camera = &self.raster_to_camera * p_film;
         let r = Ray::new(

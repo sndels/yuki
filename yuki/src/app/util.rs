@@ -1,5 +1,8 @@
 use chrono::{Datelike, Timelike};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     math::Vec3,
@@ -77,7 +80,7 @@ pub fn write_exr(
     width: usize,
     height: usize,
     pixels: &[Vec3<f32>],
-    path: PathBuf,
+    path: &Path,
 ) -> Result<(), String> {
     yuki_info!("Writing out EXR");
     match exr::prelude::write_rgb_file(&path, width, height, |x, y| {

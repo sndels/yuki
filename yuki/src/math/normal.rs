@@ -3,7 +3,10 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use yuki_derive::*;
+use yuki_derive::{
+    impl_normal, AbsDiffEq, Add, AddAssign, DivAssignScalar, DivScalar, Index, IndexMut,
+    MulAssignScalar, MulScalar, Neg, RelativeEq, Sub, SubAssign,
+};
 
 use super::{common::FloatValueType, vector::Vec3};
 

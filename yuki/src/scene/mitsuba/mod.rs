@@ -12,11 +12,11 @@ use crate::{
     lights::Light,
     materials::Material,
     math::Vec3,
-    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{ply::PlyResult, DynamicSceneParameters, Result, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
 };
 
-use self::{common::ParseResult, emitter::Emitter};
+use self::emitter::Emitter;
 
 use std::{collections::HashMap, sync::Arc};
 use xml::{
@@ -24,13 +24,13 @@ use xml::{
     reader::{EventReader, XmlEvent},
 };
 
-pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicSceneParameters)> {
+pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters)> {
     let dir_path = settings.path.parent().unwrap().to_path_buf();
     let file = std::fs::File::open(settings.path.to_str().unwrap())?;
     let file_buf = std::io::BufReader::new(file);
 
     let mut meshes = Vec::new();
-    let mut geometry = Vec::new();
+    let mut shapes = Vec::new();
     let mut materials: HashMap<String, Arc<dyn Material>> = HashMap::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Vec3::from(0.0);
@@ -99,17 +99,18 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
                                 }
                             }
                             "shape" => {
-                                let (mesh, geom) = shape::parse(
+                                let PlyResult {
+                                    mesh,
+                                    shapes: ply_shapes,
+                                } = shape::parse(
                                     &dir_path,
                                     &materials,
-                                    attributes,
+                                    &attributes,
                                     &mut parser,
                                     indent.clone(),
                                 )?;
-                                if let Some(m) = mesh {
-                                    meshes.push(m);
-                                }
-                                geometry.extend(geom);
+                                meshes.push(mesh);
+                                shapes.extend(ply_shapes);
                                 indent.truncate(indent.len() - 2);
                             }
                             name => return Err(format!("Unknown element: '{}'", name).into()),
@@ -139,15 +140,14 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
                     return Err(format!("Unexpected processing instruction: {}", name).into())
                 }
                 XmlEvent::CData(data) => return Err(format!("Unexpected CDATA: {}", data).into()),
-                XmlEvent::Comment(_) => (),
                 XmlEvent::Characters(chars) => {
                     return Err(format!("Unexpected characters outside tags: {}", chars).into())
                 }
-                XmlEvent::Whitespace(_) => (),
                 XmlEvent::EndDocument => {
                     yuki_trace!("End document");
                     break;
                 }
+                XmlEvent::Whitespace(_) | XmlEvent::Comment(_) => (),
             },
             Err(err) => {
                 yuki_error!("XML error: {}", err);
@@ -156,8 +156,8 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
         }
     }
 
-    let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(
-        geometry,
+    let (bvh, shapes) = BoundingVolumeHierarchy::new(
+        shapes,
         settings.max_shapes_in_node as usize,
         SplitMethod::Middle,
     );
@@ -167,7 +167,7 @@ pub fn load(settings: &SceneLoadSettings) -> ParseResult<(Scene, DynamicScenePar
             name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
             load_settings: settings.clone(),
             meshes,
-            geometry: geometry_arc,
+            shapes,
             bvh,
             lights,
             background,

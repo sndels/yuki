@@ -3,7 +3,11 @@ use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-use yuki_derive::*;
+use yuki_derive::{
+    impl_vec, AbsDiffEq, Add, AddAssign, AddAssignScalar, AddScalar, DivAssignScalar, DivScalar,
+    Index, IndexMut, MulAssignScalar, MulScalar, Neg, RelativeEq, Sub, SubAssign, SubAssignScalar,
+    SubScalar,
+};
 
 use super::{
     common::{FloatValueType, ValueType},
@@ -234,16 +238,20 @@ where
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
 
-        let v1x = self.x.to_f64().unwrap_or(f64::NAN);
-        let v1y = self.y.to_f64().unwrap_or(f64::NAN);
-        let v1z = self.z.to_f64().unwrap_or(f64::NAN);
-        let v2x = other.x.to_f64().unwrap_or(f64::NAN);
-        let v2y = other.y.to_f64().unwrap_or(f64::NAN);
-        let v2z = other.z.to_f64().unwrap_or(f64::NAN);
+        let v1 = Vec3::new(
+            self.x.to_f64().unwrap_or(f64::NAN),
+            self.y.to_f64().unwrap_or(f64::NAN),
+            self.z.to_f64().unwrap_or(f64::NAN),
+        );
+        let v2 = Vec3::new(
+            other.x.to_f64().unwrap_or(f64::NAN),
+            other.y.to_f64().unwrap_or(f64::NAN),
+            other.z.to_f64().unwrap_or(f64::NAN),
+        );
         Self {
-            x: T::from((v1y * v2z) - (v1z * v2y)).unwrap(),
-            y: T::from((v1z * v2x) - (v1x * v2z)).unwrap(),
-            z: T::from((v1x * v2y) - (v1y * v2x)).unwrap(),
+            x: T::from((v1.y * v2.z) - (v1.z * v2.y)).unwrap(),
+            y: T::from((v1.z * v2.x) - (v1.x * v2.z)).unwrap(),
+            z: T::from((v1.x * v2.y) - (v1.y * v2.x)).unwrap(),
         }
     }
 }

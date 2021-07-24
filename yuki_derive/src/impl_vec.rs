@@ -10,19 +10,14 @@ use crate::{
 pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     let vec_type = &item.ident;
 
-    let ParsedGenerics {
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
-    } = match parse_generics(&item.generics) {
+    let parsed_generics = match parse_generics(&item.generics) {
         Ok(v) => v,
         Err(errors) => {
             return combined_error("Impl Vec", item.ident.span(), errors).to_compile_error();
         }
     };
 
-    let member_ops = vec_normal_members_impl(&item.data, vec_type, &generic_param);
+    let member_ops = vec_normal_members_impl(&item.data, vec_type, &parsed_generics.generic_param);
 
     let from_args = per_component_tokens(
         &item.data,
@@ -31,7 +26,12 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     );
 
     let signed_abs_impl = abs_impl(vec_type, item);
-
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = &parsed_generics;
     let post_impl = quote! {
         #signed_abs_impl
 
@@ -51,10 +51,7 @@ pub fn vec_impl(item: &DeriveInput) -> TokenStream {
     vec_like_impl(
         &item.data,
         vec_type,
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
+        parsed_generics,
         Some(member_ops),
         Some(post_impl),
     )

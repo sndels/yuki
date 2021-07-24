@@ -8,21 +8,17 @@ use crate::common::{
 };
 
 pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
+    let trait_info = TraitInfo::new(full_name);
     let TraitInfo {
         ident: trait_ident,
-        op_ident,
         is_scalar_op,
         is_assign_op,
-    } = TraitInfo::new(full_name);
+        ..
+    } = &trait_info;
 
     let generics = add_trait_bound(&input.generics, quote!(#trait_ident));
 
-    let ParsedGenerics {
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
-    } = match parse_generics(&generics) {
+    let parsed_generics = match parse_generics(&generics) {
         Ok(v) => v,
         Err(errors) => {
             return combined_error(
@@ -36,26 +32,31 @@ pub fn vec_op(input: DeriveInput, full_name: &str) -> TokenStream {
     let type_ident = &input.ident;
 
     // Scalar ops default use other: T
-    let other_tokens = if is_scalar_op {
+    let ParsedGenerics {
+        generic_param,
+        type_generics,
+        ..
+    } = &parsed_generics;
+    let other_tokens = if *is_scalar_op {
         quote! {#generic_param}
     } else {
         quote! {#type_ident #type_generics}
     };
 
     // Assign ops have no output
-    let output = if is_assign_op { None } else { Some(type_ident) };
+    let output = if *is_assign_op {
+        None
+    } else {
+        Some(type_ident)
+    };
 
     impl_vec_op_tokens(
         &input.data,
-        trait_ident,
-        op_ident,
         type_ident,
         other_tokens,
         output,
-        impl_generics,
-        type_generics,
-        where_clause,
-        is_scalar_op,
+        parsed_generics,
+        trait_info,
     )
 }
 

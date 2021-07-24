@@ -1,7 +1,10 @@
 use approx::{AbsDiffEq, RelativeEq};
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 
-use yuki_derive::*;
+use yuki_derive::{
+    impl_point, vec_assign_op, vec_op, AbsDiffEq, AddAssign, DivAssignScalar, DivScalar, Index,
+    IndexMut, MulAssignScalar, MulScalar, RelativeEq,
+};
 
 use super::{
     common::ValueType,

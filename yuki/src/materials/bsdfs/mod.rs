@@ -18,7 +18,7 @@ pub trait BxDF {
 }
 
 /// A collection of BxDF functions.
-pub struct BSDF {
+pub struct Bsdf {
     bxdfs: Vec<Box<dyn BxDF>>,
     n_geom: Normal<f32>,
     // TODO: Shading normal
@@ -27,7 +27,7 @@ pub struct BSDF {
     t_geom: Vec3<f32>,
 }
 
-impl BSDF {
+impl Bsdf {
     pub fn new(si: &SurfaceInteraction) -> Self {
         let n_geom = si.n;
         // TODO: These should be from shading uv partial derivatives in relation to shading normal once uvs are implemented
@@ -42,7 +42,7 @@ impl BSDF {
         }
     }
 
-    /// Adds 'bxdf' into this 'BSDF'.
+    /// Adds 'bxdf' into this [`Bsdf`].
     pub fn add(&mut self, bxdf: Box<dyn BxDF>) {
         self.bxdfs.push(bxdf);
     }

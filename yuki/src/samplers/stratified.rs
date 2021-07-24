@@ -61,7 +61,7 @@ impl Sampler for StratifiedSampler {
 
         let samples = stratified_sample_2d(self.pixel_samples, self.jitter_samples, &mut self.rng);
         self.samples_2d = samples;
-        shuffle(&mut self.samples_2d, &mut self.rng)
+        shuffle(&mut self.samples_2d, &mut self.rng);
     }
 
     fn start_sample(&mut self) {
@@ -84,12 +84,12 @@ impl Sampler for StratifiedSampler {
     }
 }
 
-const ONE_MINUS_EPSILON: f32 = 1.0f32 - f32::EPSILON;
+const ONE_MINUS_EPSILON: f32 = 1.0_f32 - f32::EPSILON;
 
 fn stratified_sample_2d(n_samples: Vec2<u16>, jitter: bool, rng: &mut Pcg32) -> Vec<Point2<f32>> {
     let d = Vec2::new(1.0 / (n_samples.x as f32), 1.0 / (n_samples.y as f32));
     (0..n_samples.y)
-        .map(|y| {
+        .flat_map(|y| {
             (0..n_samples.x)
                 .map(|x| {
                     let (jx, jy) = if jitter {
@@ -104,7 +104,6 @@ fn stratified_sample_2d(n_samples: Vec2<u16>, jitter: bool, rng: &mut Pcg32) -> 
                 })
                 .collect::<Vec<Point2<f32>>>()
         })
-        .flatten()
         .collect()
 }
 

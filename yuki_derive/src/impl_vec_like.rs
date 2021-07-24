@@ -1,19 +1,23 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, Field, Ident, ImplGenerics, TypeGenerics, WhereClause};
+use syn::{spanned::Spanned, Data, Field, Ident};
 
-use crate::common::per_component_tokens;
+use crate::common::{per_component_tokens, ParsedGenerics};
 
 pub fn vec_like_impl(
     data: &Data,
     vec_type: &Ident,
-    generic_param: Ident,
-    impl_generics: ImplGenerics,
-    type_generics: TypeGenerics,
-    where_clause: Option<&WhereClause>,
+    parsed_generics: ParsedGenerics,
     member_ops: Option<TokenStream>,
     post_impl: Option<TokenStream>,
 ) -> TokenStream {
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = parsed_generics;
+
     let new_args = per_component_tokens(
         data,
         &|c: &Option<Ident>, f: &Field| quote_spanned!(f.span() => #c: #generic_param),

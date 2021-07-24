@@ -59,7 +59,7 @@ pub trait Integrator: IntegratorBase {
 
                 let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
 
-                let ray = camera.ray(CameraSample { p_film });
+                let ray = camera.ray(&CameraSample { p_film });
 
                 let result = Self::li(ray, scene);
                 color += result.li;

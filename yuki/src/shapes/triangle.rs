@@ -87,10 +87,10 @@ impl Shape for Triangle {
 
             // Fall back to f64 if we're exactly on any edge
             if (e0 == 0.0) || (e1 == 0.0) || (e2 == 0.0) {
-                let e0 = (p1t.x as f64) * (p2t.y as f64) - (p1t.y as f64) * (p2t.x as f64);
-                let e1 = (p2t.x as f64) * (p0t.y as f64) - (p2t.y as f64) * (p0t.x as f64);
-                let e2 = (p0t.x as f64) * (p1t.y as f64) - (p0t.y as f64) * (p1t.x as f64);
-                (e0 as f32, e1 as f32, e2 as f32)
+                let e0_64 = (p1t.x as f64) * (p2t.y as f64) - (p1t.y as f64) * (p2t.x as f64);
+                let e1_64 = (p2t.x as f64) * (p0t.y as f64) - (p2t.y as f64) * (p0t.x as f64);
+                let e2_64 = (p0t.x as f64) * (p1t.y as f64) - (p0t.y as f64) * (p1t.x as f64);
+                (e0_64 as f32, e1_64 as f32, e2_64 as f32)
             } else {
                 (e0, e1, e2)
             }
@@ -108,10 +108,10 @@ impl Shape for Triangle {
         }
 
         // Scaled hit distance
-        let p0z = p0t.z * sz;
-        let p1z = p1t.z * sz;
-        let p2z = p2t.z * sz;
-        let t_scaled = e0 * p0z + e1 * p1z + e2 * p2z;
+        let p0z_scaled = p0t.z * sz;
+        let p1z_scaled = p1t.z * sz;
+        let p2z_scaled = p2t.z * sz;
+        let t_scaled = e0 * p0z_scaled + e1 * p1z_scaled + e2 * p2z_scaled;
 
         // Test against ray range
         if ((det < 0.0) && ((t_scaled >= 0.0) || (t_scaled < ray.t_max * det)))

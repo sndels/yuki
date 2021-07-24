@@ -13,17 +13,18 @@ use crate::{
 pub fn point_impl(item: &DeriveInput) -> TokenStream {
     let point_type = &item.ident;
 
-    let ParsedGenerics {
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
-    } = match parse_generics(&item.generics) {
+    let parsed_generics = match parse_generics(&item.generics) {
         Ok(v) => v,
         Err(errors) => {
             return combined_error("Impl Point", item.ident.span(), errors).to_compile_error();
         }
     };
+    let ParsedGenerics {
+        generic_param,
+        impl_generics,
+        type_generics,
+        where_clause,
+    } = &parsed_generics;
 
     let str_type = point_type.to_string();
     let dist_doc = format!(
@@ -108,10 +109,7 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
     vec_like_impl(
         &item.data,
         point_type,
-        generic_param,
-        impl_generics,
-        type_generics,
-        where_clause,
+        parsed_generics,
         Some(member_ops),
         Some(post_impl),
     )

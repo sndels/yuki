@@ -4,7 +4,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use yuki_derive::*;
+use yuki_derive::{impl_bounds, Index, IndexMut};
 
 use super::{
     common::{FloatValueType, ValueType},

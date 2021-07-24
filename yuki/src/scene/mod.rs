@@ -5,11 +5,12 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
     lights::{Light, PointLight},
-    materials::Matte,
+    materials::{Material, Matte},
     math::{transforms::translation, Point3, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
 };
+use ply::PlyResult;
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
@@ -60,7 +61,7 @@ pub struct Scene {
     pub name: String,
     pub load_settings: SceneLoadSettings,
     pub meshes: Vec<Arc<Mesh>>,
-    pub geometry: Arc<Vec<Arc<dyn Shape>>>,
+    pub shapes: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
     pub lights: Vec<Arc<dyn Light>>,
     pub background: Vec3<f32>,
@@ -92,13 +93,13 @@ impl Scene {
     pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
         let load_start = Instant::now();
 
-        let (mesh, geometry) =
-            ply::load(&settings.path, Arc::new(Matte::new(Vec3::from(1.0))), None)?;
+        let white = Arc::new(Matte::new(Vec3::from(1.0))) as Arc<dyn Material>;
+        let PlyResult { mesh, shapes } = ply::load(&settings.path, &white, None)?;
 
         let meshes = vec![mesh];
 
-        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(
-            geometry,
+        let (bvh, shapes) = BoundingVolumeHierarchy::new(
+            shapes,
             settings.max_shapes_in_node as usize,
             SplitMethod::Middle,
         );
@@ -121,7 +122,7 @@ impl Scene {
                 name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
                 load_settings: settings.clone(),
                 meshes,
-                geometry: geometry_arc,
+                shapes,
                 bvh,
                 lights: vec![light],
                 background: Vec3::from(0.0),
@@ -157,7 +158,7 @@ impl Scene {
         let green = Arc::new(Matte::new(Vec3::new(0.0, 180.0, 0.0) / 255.0));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
-        let mut geometry: Vec<Arc<dyn Shape>> = Vec::new();
+        let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
 
         // Walls
         {
@@ -219,10 +220,20 @@ impl Scene {
                 )),
             ];
 
-            let materials = [white.clone(), white.clone(), white.clone(), green, red];
+            let materials = [
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                green,
+                red,
+            ];
             for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
                 for v0 in (0..mesh.indices.len()).step_by(3) {
-                    geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, material.clone())));
+                    shapes.push(Arc::new(Triangle::new(
+                        Arc::clone(mesh),
+                        v0,
+                        Arc::<Matte>::clone(material),
+                    )));
                 }
             }
             meshes.extend(wall_meshes);
@@ -249,22 +260,26 @@ impl Scene {
             ));
 
             for v0 in (0..mesh.indices.len()).step_by(3) {
-                geometry.push(Arc::new(Triangle::new(mesh.clone(), v0, white.clone())));
+                shapes.push(Arc::new(Triangle::new(
+                    Arc::clone(&mesh),
+                    v0,
+                    Arc::<Matte>::clone(&white),
+                )));
             }
             meshes.push(mesh);
         }
 
-        geometry.push(Arc::new(Sphere::new(
+        shapes.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
             white,
         )));
 
-        let (bvh, geometry_arc) = BoundingVolumeHierarchy::new(geometry, 1, SplitMethod::Middle);
+        let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(288.0, 547.0, -279.0)),
-            Vec3::from(240000.0),
+            Vec3::from(240_000.0),
         ));
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
@@ -278,7 +293,7 @@ impl Scene {
                 name: "Cornell Box".into(),
                 load_settings: SceneLoadSettings::default(),
                 meshes,
-                geometry: geometry_arc,
+                shapes,
                 bvh,
                 lights: vec![light],
                 background: Vec3::from(0.0),

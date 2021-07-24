@@ -1,6 +1,5 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use std::vec::IntoIter;
 use syn::{DeriveInput, Ident};
 
 use crate::common::{add_trait_bound, combined_error, parse_generics, ParsedGenerics};
@@ -261,18 +260,17 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
     }
 }
 
+type ComponentStreams<'a> = std::iter::Map<std::ops::Range<u32>, &'a dyn Fn(u32) -> TokenStream>;
+
 fn per_component_tokens(
     component_count: u32,
     component_tokens: &dyn Fn(&Ident) -> TokenStream,
-    meta_tokens: &dyn Fn(IntoIter<TokenStream>) -> TokenStream,
+    combined_tokens: &dyn Fn(ComponentStreams) -> TokenStream,
 ) -> TokenStream {
     let components = [
         Ident::new("x", Span::call_site()),
         Ident::new("y", Span::call_site()),
         Ident::new("z", Span::call_site()),
     ];
-    let component_streams = (0..component_count)
-        .map(|c| component_tokens(&components[c as usize]))
-        .collect::<Vec<TokenStream>>();
-    meta_tokens(component_streams.into_iter())
+    combined_tokens((0..component_count).map(&(|c| component_tokens(&components[c as usize]))))
 }

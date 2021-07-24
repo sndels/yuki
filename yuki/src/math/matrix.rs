@@ -216,7 +216,7 @@ where
                         (b, a)
                     }
                 };
-                for row in mi.iter_mut() {
+                for row in &mut mi {
                     let (front, back) = row.split_at_mut(b);
                     std::mem::swap(&mut front[a], &mut back[0]);
                 }

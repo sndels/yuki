@@ -1,6 +1,5 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use std::vec::IntoIter;
 use syn::{
     parse_quote, spanned::Spanned, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident,
     ImplGenerics, TypeGenerics, WhereClause,
@@ -128,24 +127,24 @@ pub fn combined_error(
         .unwrap();
 }
 
+type ComponentStreams<'a> =
+    std::iter::Map<syn::punctuated::Iter<'a, syn::Field>, &'a dyn Fn(&syn::Field) -> TokenStream>;
+
 pub fn per_component_tokens(
     data: &Data,
     component_tokens: &dyn Fn(&Option<Ident>, &Field) -> TokenStream,
-    meta_tokens: &dyn Fn(IntoIter<TokenStream>) -> TokenStream,
+    combined_tokens: &dyn Fn(ComponentStreams) -> TokenStream,
 ) -> TokenStream {
     match data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let component_streams = fields
-                    .named
-                    .iter()
-                    .map(|f| {
+                combined_tokens(fields.named.iter().map(
+                    &(|f: &syn::Field| {
                         let name = &f.ident;
                         // Use correct field span to get potential error on correct line
                         component_tokens(name, f)
-                    })
-                    .collect::<Vec<TokenStream>>();
-                meta_tokens(component_streams.into_iter())
+                    }),
+                ))
             }
             _ => unimplemented!(),
         },
@@ -155,16 +154,19 @@ pub fn per_component_tokens(
 
 pub fn impl_vec_op_tokens(
     item_data: &Data,
-    trait_ident: Ident,
-    op_ident: Ident,
     type_ident: &Ident,
     other_tokens: TokenStream,
     output_ident: Option<&Ident>,
-    impl_generics: ImplGenerics,
-    type_generics: TypeGenerics,
-    where_clause: Option<&WhereClause>,
-    is_scalar_op: bool,
+    parsed_generics: ParsedGenerics,
+    trait_info: TraitInfo,
 ) -> TokenStream {
+    let TraitInfo {
+        ident: trait_ident,
+        op_ident,
+        is_scalar_op,
+        ..
+    } = trait_info;
+
     let component_tokens = |c: &Option<Ident>, f: &Field| {
         if is_scalar_op {
             {
@@ -180,6 +182,14 @@ pub fn impl_vec_op_tokens(
             }
         }
     };
+
+    let ParsedGenerics {
+        impl_generics,
+        type_generics,
+        where_clause,
+        ..
+    } = parsed_generics;
+
     if output_ident.is_some() {
         // recurse gives result of each component, let's join with ',' for new-args
         let opped_components = per_component_tokens(

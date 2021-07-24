@@ -72,17 +72,14 @@ impl Renderer {
             rx_task, handle, ..
         }) = task
         {
-            match rx_task.recv() {
-                Ok(result) => {
-                    yuki_trace!("wait_result: Waiting for the finished render job to exit");
-                    handle.join().unwrap();
-                    yuki_debug!("wait_result: Render job has finished");
-                    Ok(result)
-                }
-                Err(_) => {
-                    handle.join().unwrap();
-                    Err("Render task disconnected without notifying".into())
-                }
+            if let Ok(result) = rx_task.recv() {
+                yuki_trace!("wait_result: Waiting for the finished render job to exit");
+                handle.join().unwrap();
+                yuki_debug!("wait_result: Render job has finished");
+                Ok(result)
+            } else {
+                handle.join().unwrap();
+                Err("Render task disconnected without notifying".into())
             }
         } else {
             Err("No render task active".into())
@@ -99,7 +96,7 @@ impl Renderer {
         self.task_ending
     }
 
-    /// Returns the {RenderResult} if the task has finished.
+    /// Returns the `RenderResult` if the task has finished.
     pub fn check_result(&mut self) -> Option<RenderResult> {
         let mut ret = None;
         let task = std::mem::replace(&mut self.render_task, None);
@@ -251,10 +248,7 @@ impl Drop for Renderer {
     }
 }
 
-pub fn create_camera(
-    scene_params: &DynamicSceneParameters,
-    film_settings: &FilmSettings,
-) -> Camera {
+pub fn create_camera(scene_params: &DynamicSceneParameters, film_settings: FilmSettings) -> Camera {
     let cam_to_world = match scene_params.cam_orientation {
         CameraOrientation::LookAt {
             cam_pos,
@@ -285,13 +279,13 @@ fn launch_render<I: Integrator>(
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
-    let camera = create_camera(scene_params, &film_settings);
+    let camera = create_camera(scene_params, film_settings);
 
     std::thread::spawn(move || {
         yuki_debug!("Render: Begin");
         yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
-        let tiles = Arc::new(Mutex::new(film_tiles(&mut film, &film_settings)));
+        let tiles = Arc::new(Mutex::new(film_tiles(&mut film, film_settings)));
 
         yuki_trace!("Render: Launch threads");
         let render_start = Instant::now();
@@ -305,11 +299,11 @@ fn launch_render<I: Integrator>(
             .map(|i| {
                 let (to_child, child_receive) = channel();
                 let child_send = child_send.clone();
-                let tiles = tiles.clone();
+                let tiles = Arc::clone(&tiles);
                 let camera = camera.clone();
-                let scene = scene.clone();
-                let film = film.clone();
-                let sampler = sampler.clone();
+                let scene = Arc::clone(&scene);
+                let film = Arc::clone(&film);
+                let sampler = Arc::clone(&sampler);
                 (
                     i,
                     (
@@ -317,13 +311,13 @@ fn launch_render<I: Integrator>(
                         std::thread::spawn(move || {
                             render::<I>(
                                 i,
-                                child_send,
-                                child_receive,
-                                tiles,
-                                scene,
-                                camera,
-                                sampler,
-                                film,
+                                &child_send,
+                                &child_receive,
+                                &tiles,
+                                &scene,
+                                &camera,
+                                &sampler,
+                                &film,
                             );
                         }),
                     ),
@@ -378,13 +372,13 @@ fn launch_render<I: Integrator>(
 
 fn render<I: Integrator>(
     thread_id: usize,
-    to_parent: Sender<(usize, usize)>,
-    from_parent: Receiver<usize>,
-    tiles: Arc<Mutex<VecDeque<FilmTile>>>,
-    scene: Arc<Scene>,
-    camera: Camera,
-    sampler: Arc<dyn Sampler>,
-    film: Arc<Mutex<Film>>,
+    to_parent: &Sender<(usize, usize)>,
+    from_parent: &Receiver<usize>,
+    tiles: &Arc<Mutex<VecDeque<FilmTile>>>,
+    scene: &Arc<Scene>,
+    camera: &Camera,
+    sampler: &Arc<dyn Sampler>,
+    film: &Arc<Mutex<Film>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
 
@@ -416,7 +410,7 @@ fn render<I: Integrator>(
 
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
-        rays += I::render(&scene, &camera, &sampler, &mut tile, &mut || {
+        rays += I::render(scene, camera, sampler, &mut tile, &mut || {
             // Let's have low latency kills for more interactive view
             if from_parent.try_recv().is_ok() {
                 yuki_debug!("Render thread {}: Killed by parent", thread_id);
@@ -434,7 +428,7 @@ fn render<I: Integrator>(
             let mut film = film.lock().unwrap();
             yuki_trace!("Render thread {}: Acquired film", thread_id);
 
-            film.update_tile(tile);
+            film.update_tile(&tile);
 
             yuki_trace!("Render thread {}: Releasing film", thread_id);
         }

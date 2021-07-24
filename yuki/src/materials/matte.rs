@@ -1,5 +1,5 @@
 use super::{
-    bsdfs::{Lambertian, BSDF},
+    bsdfs::{Bsdf, Lambertian},
     Material,
 };
 use crate::{interaction::SurfaceInteraction, math::Vec3};
@@ -17,8 +17,8 @@ impl Matte {
 }
 
 impl Material for Matte {
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> BSDF {
-        let mut bsdf = BSDF::new(si);
+    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
+        let mut bsdf = Bsdf::new(si);
 
         bsdf.add(Box::new(Lambertian::new(self.kd)));
 

@@ -13,11 +13,11 @@ use crate::{
 use glium::backend::glutin::headless::Headless;
 use glutin::{dpi::PhysicalSize, event_loop::EventLoop, ContextBuilder};
 use std::{
-    path::PathBuf,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
-pub fn render(exr_path: PathBuf, mut settings: InitialSettings) {
+pub fn render(exr_path: &Path, mut settings: InitialSettings) {
     let (scene, scene_params, _) = expect!(
         try_load_scene(&settings.load_settings),
         "Scene loading failed"
@@ -27,7 +27,7 @@ pub fn render(exr_path: PathBuf, mut settings: InitialSettings) {
     renderer.launch(
         scene,
         &scene_params,
-        film.clone(),
+        Arc::clone(&film),
         settings.sampler_settings,
         settings.scene_integrator,
         settings.film_settings,
@@ -39,6 +39,7 @@ pub fn render(exr_path: PathBuf, mut settings: InitialSettings) {
             yuki_info!("Render finished in {:.2}s", secs);
 
             if settings.tone_map == ToneMapType::Raw {
+                #[allow(clippy::match_wild_err_arm)] // "Wild" ignore needed as err is Arc itself
                 match Arc::try_unwrap(film) {
                     Ok(film) => {
                         let film =

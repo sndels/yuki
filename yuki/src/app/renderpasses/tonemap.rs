@@ -74,7 +74,7 @@ impl ToneMapFilm {
         let index_buffer = glium::IndexBuffer::new(
             backend,
             glium::index::PrimitiveType::TrianglesList,
-            &[0u16, 1, 2],
+            &[0_u16, 1, 2],
         )
         .map_err(NewError::IndexBuffer)?;
 
@@ -141,7 +141,7 @@ impl ToneMapFilm {
                         &self.index_buffer,
                         &self.filmic_program,
                         &uniforms,
-                        &Default::default(),
+                        &glium::DrawParameters::default(),
                     )
                     .map_err(DrawError::Draw)?;
 
@@ -164,7 +164,7 @@ impl ToneMapFilm {
                         &self.index_buffer,
                         &self.heatmap_program,
                         &uniforms,
-                        &Default::default(),
+                        &glium::DrawParameters::default(),
                     )
                     .map_err(DrawError::Draw)?;
 
@@ -208,7 +208,7 @@ impl ToneMapFilm {
                     self.input.width(),
                     self.input.height(),
                 )
-                .map_err(UpdateTexturesError::TextureCreation)?
+                .map_err(UpdateTexturesError::TextureCreation)?;
             }
 
             film.clear_dirty();

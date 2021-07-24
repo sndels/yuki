@@ -76,7 +76,7 @@ impl BoundingVolumeHierarchy {
             (flatten_start.elapsed().as_micros() as f32) * 1e-6
         );
 
-        let shapes_arc = ret.shapes.clone();
+        let shapes_arc = Arc::clone(&ret.shapes);
         (ret, shapes_arc)
     }
 
@@ -123,6 +123,8 @@ impl BoundingVolumeHierarchy {
                         hit = self.shapes[shape_range].iter().fold(
                             hit,
                             |old_hit: Option<Hit>, shape| {
+                                #[allow(clippy::option_if_let_else)]
+                                // We either have this form or copies of hit. Let's have this form.
                                 if let Some(new_hit) = shape.intersect(ray) {
                                     if let Some(old_hit) = old_hit {
                                         if new_hit.t < old_hit.t {
@@ -202,6 +204,7 @@ impl BoundingVolumeHierarchy {
                 .fold(Bounds3::default(), |b, s| b.union_p(s.centroid));
             let axis = centroid_bounds.maximum_extent();
 
+            #[allow(clippy::float_cmp)] // We really do want the exact case
             if centroid_bounds.p_max[axis] == centroid_bounds.p_min[axis] {
                 // No splitting method can help when bb is "zero"
                 init_leaf!()
@@ -223,7 +226,7 @@ impl BoundingVolumeHierarchy {
                             SplitMethod::EqualCounts
                         }
                     }
-                    _ => self.split_method,
+                    SplitMethod::EqualCounts => self.split_method,
                 };
 
                 match split_method {
@@ -261,6 +264,7 @@ impl BoundingVolumeHierarchy {
     /// Converts the [BVHBuildNode]-tree into a linear array of [BVHNode]s.
     ///
     /// Returns the next available index in the internal node array.
+    #[allow(clippy::boxed_local)] // Box is more convenient here as the input is boxed anyway
     fn flatten_tree(&mut self, root: Box<BVHBuildNode>, mut next_index: usize) -> usize {
         match root.content {
             BuildNodeContent::Interior {
