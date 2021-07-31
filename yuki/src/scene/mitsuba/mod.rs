@@ -84,10 +84,28 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParamete
                                 indent.truncate(indent.len() - 2);
                             }
                             "bsdf" => {
-                                let id = find_attr!(&attributes, "id").clone();
-                                let material = material::parse(&mut parser, indent.clone())?;
+                                let bsdf_type = find_attr!(&attributes, "type");
+
+                                let material = match bsdf_type.as_str() {
+                                    "twosided" => {
+                                        material::parse_twosided(&mut parser, indent.clone())?
+                                    }
+                                    "diffuse" => {
+                                        material::parse_diffuse(&mut parser, indent.clone())?
+                                    }
+                                    "dielectric" => {
+                                        material::parse_dielectric(&mut parser, indent.clone())?
+                                    }
+                                    _ => {
+                                        return Err(
+                                            format!("Unknown bsdf type '{}'", bsdf_type).into()
+                                        )
+                                    }
+                                };
                                 indent.truncate(indent.len() - 2);
-                                materials.insert(id, material);
+
+                                let id = find_attr!(&attributes, "id");
+                                materials.insert(id.clone(), material);
                             }
                             "emitter" => {
                                 match emitter::parse(&attributes, &mut parser, indent.clone())? {
