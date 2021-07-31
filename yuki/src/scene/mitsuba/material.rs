@@ -1,21 +1,22 @@
 use crate::{
-    materials::{Material, Matte},
+    materials::{Glass, Material, Matte},
     math::Vec3,
     parse_element,
     scene::Result,
     yuki_error, yuki_info, yuki_trace,
 };
 
-use super::common::parse_rgb;
+use super::{common::parse_rgb, find_attr};
 
+use approx::abs_diff_eq;
 use std::sync::Arc;
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
-pub fn parse<T: std::io::Read>(
+pub fn parse_twosided<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut material = Arc::new(Matte::new(Vec3::new(1.0, 0.0, 1.0)));
+    let mut material: Arc<dyn Material> = Arc::new(Matte::new(Vec3::new(1.0, 0.0, 1.0)));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -25,11 +26,10 @@ pub fn parse<T: std::io::Read>(
         let data_type = name.local_name.as_str();
         match data_type {
             "bsdf" => {
-                material = Arc::new(Matte::new(parse_diffuse(parser, indent.clone())?));
+                material = parse_diffuse(parser, indent.clone())?;
                 *level -= 1;
                 indent.truncate(indent.len() - 2);
             }
-            // TODO: Proper parsing for twosided and similar "recursive" bsdfs so this can come from parse_diffuse
             "rgb" => {
                 material = Arc::new(Matte::new(parse_rgb(&attributes, "reflectance")?));
             }
@@ -40,10 +40,10 @@ pub fn parse<T: std::io::Read>(
     Ok(material)
 }
 
-fn parse_diffuse<T: std::io::Read>(
+pub fn parse_diffuse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> Result<Vec3<f32>> {
+) -> Result<Arc<dyn Material>> {
     let mut reflectance = Vec3::new(0.5, 0.5, 0.5);
 
     parse_element!(parser, indent, |name: &OwnedName,
@@ -61,5 +61,70 @@ fn parse_diffuse<T: std::io::Read>(
         Ok(())
     });
 
-    Ok(reflectance)
+    Ok(Arc::new(Matte::new(reflectance)))
+}
+
+const BK7_GLASS_IOR: f32 = 1.5046;
+const AIR_IOR: f32 = 1.000_277;
+
+pub fn parse_dielectric<T: std::io::Read>(
+    parser: &mut EventReader<T>,
+    mut indent: String,
+) -> Result<Arc<dyn Material>> {
+    let mut int_ior = BK7_GLASS_IOR;
+    let mut ext_ior = AIR_IOR;
+    let mut specular_reflectance = Vec3::new(1.0, 1.0, 1.0);
+    let mut specular_transmittance = Vec3::new(1.0, 1.0, 1.0);
+
+    parse_element!(parser, indent, |name: &OwnedName,
+                                    attributes: Vec<OwnedAttribute>,
+                                    _: &mut i32,
+                                    _: &mut Option<u32>|
+     -> Result<()> {
+        let data_type = name.local_name.as_str();
+        match data_type {
+            "rgb" => {
+                if let Ok(v) = parse_rgb(&attributes, "specular_reflectance") {
+                    specular_reflectance = v;
+                } else if let Ok(v) = parse_rgb(&attributes, "specular_transmittance") {
+                    specular_transmittance = v;
+                } else {
+                    return Err(format!(
+                        "Unknown dielectric rgb data '{}'",
+                        find_attr!(&attributes, "name")
+                    )
+                    .into());
+                }
+            }
+            "float" => {
+                let (attr_name, attr_value) = (
+                    find_attr!(&attributes, "name").as_str(),
+                    find_attr!(&attributes, "value").as_str().parse::<f32>()?,
+                );
+                match attr_name {
+                    "int_ior" => int_ior = attr_value,
+                    "ext_ior" => ext_ior = attr_value,
+                    _ => {
+                        return Err(format!("Unknown dielectric float data '{}'", attr_name).into())
+                    }
+                }
+            }
+            _ => return Err(format!("Unknown dielectric data type '{}'", data_type).into()),
+        }
+        Ok(())
+    });
+
+    if !abs_diff_eq!(ext_ior, AIR_IOR, epsilon = 0.001) {
+        return Err(format!(
+            "Only air supported for external IoR not supported but received '{}'",
+            ext_ior
+        )
+        .into());
+    }
+
+    Ok(Arc::new(Glass::new(
+        specular_reflectance,
+        specular_transmittance,
+        int_ior,
+    )))
 }
