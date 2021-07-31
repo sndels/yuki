@@ -180,13 +180,13 @@ impl Window {
                                 scene_params = new_scene_params;
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
-                                load_settings.path.clear();
                             }
                             Err(why) => {
                                 yuki_error!("Scene loading failed: {}", why);
                                 status_messages = Some(vec!["Scene loading failed".into()]);
                             }
                         }
+                        load_settings.path.clear();
                     }
 
                     if render_triggered {
