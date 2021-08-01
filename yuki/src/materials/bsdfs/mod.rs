@@ -8,14 +8,34 @@ use crate::{
     math::{Normal, Vec3},
 };
 
+use bitflags::bitflags;
+
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Materials/BSDFs
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Basic_Interface#BxDF
+
+bitflags! {
+    pub struct BxdfType: u8 {
+        const NONE          = 0b00000;
+        const REFLECTION    = 0b00001;
+        const TRANSMISSION  = 0b00010;
+        const DIFFUSE       = 0b00100;
+        const SPECULAR      = 0b01000;
+    }
+}
 
 /// Interface for an individual BRDF or BTDF function.
 pub trait BxDF {
     /// Evaluate distribution function for the pair of directions.
     fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Vec3<f32>;
+
+    /// Returns the type flags for this `Bxdf`
+    fn flags(&self) -> BxdfType;
+
+    /// Returns `true` if the `Bxdf` matches the given type
+    fn matches(&self, t: BxdfType) -> bool {
+        t.contains(self.flags())
+    }
 }
 
 /// A collection of BxDF functions.
@@ -54,13 +74,20 @@ impl Bsdf {
     }
 
     /// Evaluate distribution function for the pair of directions.
-    pub fn f(&self, wo_world: Vec3<f32>, wi_world: Vec3<f32>) -> Vec3<f32> {
+    pub fn f(&self, wo_world: Vec3<f32>, wi_world: Vec3<f32>, bxdf_type: BxdfType) -> Vec3<f32> {
         let wo = self.world_to_local(wo_world);
         let wi = self.world_to_local(wi_world);
 
+        let reflect = wi_world.dot_n(self.n_geom) * wo_world.dot_n(self.n_geom) > 0.0;
+
         let mut f = Vec3::from(0.0);
         for bxdf in &self.bxdfs {
-            f += bxdf.f(wo, wi);
+            if bxdf.matches(bxdf_type)
+                && ((reflect && bxdf.flags().contains(BxdfType::REFLECTION))
+                    || (!reflect && bxdf.flags().contains(BxdfType::TRANSMISSION)))
+            {
+                f += bxdf.f(wo, wi);
+            }
         }
 
         f
