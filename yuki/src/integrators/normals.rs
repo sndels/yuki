@@ -9,10 +9,12 @@ use crate::{
 /// The first channel of returned color is the number of BVH intersections performed.
 /// The second channel is the number of BVH node hits found.
 /// The third channel is the number of BVH node hits found if the ray also hit scene geometry.
-pub struct NormalsIntegrator;
+pub struct NormalsIntegrator {
+    pub dummy: u32,
+}
 
 impl IntegratorBase for NormalsIntegrator {
-    fn li(ray: Ray<f32>, scene: &Scene, _: u32) -> RadianceResult {
+    fn li(&self, ray: Ray<f32>, scene: &Scene, _: u32) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
 

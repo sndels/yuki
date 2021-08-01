@@ -29,7 +29,7 @@ impl Default for InitialSettings {
                 symmetric_dimensions: true,
                 jitter_samples: false,
             },
-            scene_integrator: IntegratorType::Whitted,
+            scene_integrator: IntegratorType::default(),
             tone_map: ToneMapType::default(),
             load_settings: SceneLoadSettings::default(),
         }
