@@ -24,10 +24,19 @@ bitflags! {
     }
 }
 
+pub struct BxdfSample {
+    pub wi: Vec3<f32>,
+    pub f: Vec3<f32>,
+    pub sample_type: BxdfType,
+}
+
 /// Interface for an individual BRDF or BTDF function.
 pub trait BxDF {
     /// Evaluate distribution function for the pair of directions.
     fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Vec3<f32>;
+
+    /// Returns an incident light diretion and the value of the `BxDF` for the given outgoing direction
+    fn sample_f(&self, wo: Vec3<f32>) -> BxdfSample;
 
     /// Returns the type flags for this `Bxdf`
     fn flags(&self) -> BxdfType;
@@ -73,6 +82,15 @@ impl Bsdf {
         Vec3::new(v.dot(self.s_geom), v.dot(self.t_geom), v.dot_n(self.n_geom))
     }
 
+    /// Transform `v` from surface local to world space.
+    fn local_to_world(&self, v: Vec3<f32>) -> Vec3<f32> {
+        Vec3::new(
+            self.s_geom.x * v.x + self.t_geom.x * v.y + self.n_geom.x * v.z,
+            self.s_geom.y * v.x + self.t_geom.y * v.y + self.n_geom.y * v.z,
+            self.s_geom.z * v.x + self.t_geom.z * v.y + self.n_geom.z * v.z,
+        )
+    }
+
     /// Evaluate distribution function for the pair of directions.
     pub fn f(&self, wo_world: Vec3<f32>, wi_world: Vec3<f32>, bxdf_type: BxdfType) -> Vec3<f32> {
         let wo = self.world_to_local(wo_world);
@@ -91,5 +109,37 @@ impl Bsdf {
         }
 
         f
+    }
+
+    /// Samples the first BxDF matching `sample_type`.
+    pub fn sample_f(&self, wo_world: Vec3<f32>, sample_type: BxdfType) -> BxdfSample {
+        // TODO: Materials with multiple matching lobes
+        assert!(
+            self.bxdfs
+                .iter()
+                .filter(|bxdf| bxdf.matches(sample_type))
+                .count()
+                <= 1,
+            "Sampling Bsdf with multiple matching lobes"
+        );
+
+        self.bxdfs
+            .iter()
+            .find(|bxdf| bxdf.matches(sample_type))
+            .map_or_else(
+                || BxdfSample {
+                    wi: Vec3::from(0.0),
+                    f: Vec3::from(0.0),
+                    sample_type: BxdfType::NONE,
+                },
+                |bxdf| {
+                    let wo = self.world_to_local(wo_world);
+
+                    let mut ret = bxdf.sample_f(wo);
+                    ret.wi = self.local_to_world(ret.wi);
+
+                    ret
+                },
+            )
     }
 }
