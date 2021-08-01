@@ -32,11 +32,11 @@ pub struct BxdfSample {
 }
 
 /// Interface for an individual BRDF or BTDF function.
-pub trait BxDF {
+pub trait Bxdf {
     /// Evaluate distribution function for the pair of directions.
     fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Vec3<f32>;
 
-    /// Returns an incident light diretion and the value of the `BxDF` for the given outgoing direction
+    /// Returns an incident light diretion and the value of the `Bxdf` for the given outgoing direction
     fn sample_f(&self, wo: Vec3<f32>) -> BxdfSample;
 
     /// Returns the type flags for this `Bxdf`
@@ -50,7 +50,7 @@ pub trait BxDF {
 
 /// A collection of BxDF functions.
 pub struct Bsdf {
-    bxdfs: Vec<Box<dyn BxDF>>,
+    bxdfs: Vec<Box<dyn Bxdf>>,
     n_geom: Normal<f32>,
     // TODO: Shading normal
     // TODO: These should be s_shading, t_shading
@@ -74,7 +74,7 @@ impl Bsdf {
     }
 
     /// Adds 'bxdf' into this [`Bsdf`].
-    pub fn add(&mut self, bxdf: Box<dyn BxDF>) {
+    pub fn add(&mut self, bxdf: Box<dyn Bxdf>) {
         self.bxdfs.push(bxdf);
     }
 
@@ -112,7 +112,7 @@ impl Bsdf {
         f
     }
 
-    /// Samples the first BxDF matching `sample_type`.
+    /// Samples the first `Bxdf` matching `sample_type`.
     pub fn sample_f(&self, wo_world: Vec3<f32>, sample_type: BxdfType) -> BxdfSample {
         // TODO: Materials with multiple matching lobes
         assert!(
