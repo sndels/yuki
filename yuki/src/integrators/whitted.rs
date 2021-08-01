@@ -10,7 +10,7 @@ use crate::{
 pub struct WhittedIntegrator;
 
 impl IntegratorBase for WhittedIntegrator {
-    fn li(ray: Ray<f32>, scene: &Scene) -> RadianceResult {
+    fn li(ray: Ray<f32>, scene: &Scene, depth: u32) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
 

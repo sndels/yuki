@@ -61,7 +61,7 @@ pub trait Integrator: IntegratorBase {
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = Self::li(ray, scene);
+                let result = Self::li(ray, scene, 0);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

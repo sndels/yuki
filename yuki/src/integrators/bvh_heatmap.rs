@@ -11,7 +11,7 @@ use crate::{
 pub struct BVHIntersectionsIntegrator;
 
 impl IntegratorBase for BVHIntersectionsIntegrator {
-    fn li(ray: Ray<f32>, scene: &Scene) -> RadianceResult {
+    fn li(ray: Ray<f32>, scene: &Scene, _: u32) -> RadianceResult {
         let IntersectionResult {
             hit,
             intersection_test_count,
