@@ -357,6 +357,7 @@ impl Window {
                                     film_settings,
                                     &scene,
                                     &scene_params,
+                                    scene_integrator,
                                 );
                             }
                         }
@@ -404,6 +405,7 @@ fn launch_debug_ray(
     film_settings: FilmSettings,
     scene: &Arc<Scene>,
     scene_params: &DynamicSceneParameters,
+    scene_integrator: IntegratorType,
 ) {
     let window_px = cursor_state.position;
     yuki_info!(
@@ -468,7 +470,8 @@ fn launch_debug_ray(
 
             let ray = camera.ray(&CameraSample { p_film });
 
-            scene.bvh.intersect(ray);
+            let integrator = scene_integrator.instantiate();
+            integrator.li(ray, scene, 0);
         }
     } else {
         yuki_info!("main_loop: Window px is outside the film");
