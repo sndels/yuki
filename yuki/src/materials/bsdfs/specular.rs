@@ -1,4 +1,4 @@
-use super::{cos_theta, fresnel, fresnel::Fresnel, refract, BxDF, BxdfSample, BxdfType};
+use super::{cos_theta, fresnel, fresnel::Fresnel, refract, Bxdf, BxdfSample, BxdfType};
 use crate::math::{Normal, Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
@@ -15,7 +15,7 @@ impl Reflection {
     }
 }
 
-impl BxDF for Reflection {
+impl Bxdf for Reflection {
     fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Vec3<f32> {
         Vec3::from(0.0)
     }
@@ -59,7 +59,7 @@ impl Transmission {
     }
 }
 
-impl BxDF for Transmission {
+impl Bxdf for Transmission {
     fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Vec3<f32> {
         Vec3::from(0.0)
     }
