@@ -1,5 +1,5 @@
 use super::{
-    renderpasses::{find_min_max, ToneMapFilm, ToneMapType},
+    renderpasses::{find_min_max, HeatmapParams, ToneMapFilm, ToneMapType},
     util::{try_load_scene, write_exr},
     InitialSettings,
 };
@@ -38,8 +38,9 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
         Ok(RenderResult { secs, .. }) => {
             yuki_info!("Render finished in {:.2}s", secs);
 
-            if settings.tone_map == ToneMapType::Raw {
-                #[allow(clippy::match_wild_err_arm)] // "Wild" ignore needed as err is Arc itself
+            if let ToneMapType::Raw = settings.tone_map {
+                #[allow(clippy::match_wild_err_arm)]
+                // "Wild" ignore needed as err is Arc itself
                 match Arc::try_unwrap(film) {
                     Ok(film) => {
                         let film =
@@ -73,10 +74,10 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
                     "Failed to create tone map render pass"
                 );
 
-                if let ToneMapType::Heatmap {
+                if let ToneMapType::Heatmap(HeatmapParams {
                     ref mut bounds,
                     channel,
-                } = settings.tone_map
+                }) = settings.tone_map
                 {
                     if bounds.is_none() {
                         *bounds = Some(expect!(
