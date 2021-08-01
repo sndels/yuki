@@ -1,5 +1,6 @@
 pub mod fresnel;
 mod lambertian;
+pub mod specular;
 
 pub use lambertian::Lambertian;
 
