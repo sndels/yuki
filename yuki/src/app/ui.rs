@@ -460,9 +460,27 @@ fn generate_scene_settings(
 
 /// Returns `true` if the integrator was changed.
 fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
-    let width = ui.push_item_width(140.0);
-    let changed = enum_combo_box(ui, im_str!("Scene integrator"), integrator);
-    width.pop(ui);
+    let mut changed = enum_combo_box(ui, im_str!("Scene integrator"), integrator);
+
+    if changed {
+        match integrator {
+            IntegratorType::Whitted { max_depth } => *max_depth = 3,
+            IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
+        }
+    }
+
+    ui.indent();
+    match integrator {
+        IntegratorType::Whitted { max_depth } => {
+            let width = ui.push_item_width(118.0);
+            changed |= imgui::Drag::new(im_str!("Max depth"))
+                .range(1..=u32::MAX)
+                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                .build(ui, max_depth);
+            width.pop(ui);
+        }
+        IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
+    }
 
     changed
 }

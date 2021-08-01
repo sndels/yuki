@@ -23,15 +23,22 @@ use std::sync::Arc;
 #[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
 #[repr(usize)]
 pub enum IntegratorType {
-    Whitted,
+    Whitted { max_depth: u32 },
     BVHIntersections,
     Normals,
+}
+
+impl Default for IntegratorType {
+    fn default() -> Self {
+        IntegratorType::Whitted { max_depth: 3 }
+    }
 }
 
 // Public interface of integrators, IntegratorBase holds the specializations.
 pub trait Integrator: IntegratorBase {
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
+        &self,
         scene: &Scene,
         camera: &Camera,
         sampler: &Arc<dyn Sampler>,
@@ -61,7 +68,7 @@ pub trait Integrator: IntegratorBase {
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = Self::li(ray, scene, 0);
+                let result = self.li(ray, scene, 0);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

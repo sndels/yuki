@@ -198,34 +198,19 @@ impl Renderer {
         let (to_render, render_rx) = channel();
         let (render_tx, from_render) = channel();
 
-        macro_rules! launch_typed_render {
-            ($integrator:ty) => {{
-                launch_render::<$integrator>(
-                    render_tx,
-                    render_rx,
-                    scene,
-                    &scene_params,
-                    film,
-                    create_sampler(sampler_settings),
-                    film_settings,
-                    match_logical_cores,
-                )
-            }};
-        }
-
         yuki_trace!("launch: Launching render job");
 
-        let render_thread = match integrator {
-            IntegratorType::Whitted => {
-                launch_typed_render!(WhittedIntegrator)
-            }
-            IntegratorType::BVHIntersections => {
-                launch_typed_render!(BVHIntersectionsIntegrator)
-            }
-            IntegratorType::Normals => {
-                launch_typed_render!(NormalsIntegrator)
-            }
-        };
+        let render_thread = launch_render(
+            render_tx,
+            render_rx,
+            scene,
+            scene_params,
+            film,
+            integrator,
+            create_sampler(sampler_settings),
+            film_settings,
+            match_logical_cores,
+        );
 
         yuki_info!("launch: Render job launched");
 
@@ -269,12 +254,13 @@ pub fn create_camera(scene_params: &DynamicSceneParameters, film_settings: FilmS
     Camera::new(&cam_to_world, scene_params.cam_fov, film_settings)
 }
 
-fn launch_render<I: Integrator>(
+fn launch_render(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
     scene: Arc<Scene>,
     scene_params: &DynamicSceneParameters,
     mut film: Arc<Mutex<Film>>,
+    integrator: IntegratorType,
     sampler: Arc<dyn Sampler>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
@@ -309,13 +295,14 @@ fn launch_render<I: Integrator>(
                     (
                         to_child,
                         std::thread::spawn(move || {
-                            render::<I>(
+                            render(
                                 i,
                                 &child_send,
                                 &child_receive,
                                 &tiles,
                                 &scene,
                                 &camera,
+                                integrator,
                                 &sampler,
                                 &film,
                             );
@@ -370,13 +357,14 @@ fn launch_render<I: Integrator>(
     })
 }
 
-fn render<I: Integrator>(
+fn render(
     thread_id: usize,
     to_parent: &Sender<(usize, usize)>,
     from_parent: &Receiver<usize>,
     tiles: &Arc<Mutex<VecDeque<FilmTile>>>,
     scene: &Arc<Scene>,
     camera: &Camera,
+    integrator_type: IntegratorType,
     sampler: &Arc<dyn Sampler>,
     film: &Arc<Mutex<Film>>,
 ) {
@@ -410,7 +398,18 @@ fn render<I: Integrator>(
 
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
-        rays += I::render(scene, camera, sampler, &mut tile, &mut || {
+        let integrator = match integrator_type {
+            IntegratorType::Whitted { max_depth } => {
+                Box::new(WhittedIntegrator { max_depth }) as Box<dyn Integrator>
+            }
+            IntegratorType::BVHIntersections => {
+                Box::new(BVHIntersectionsIntegrator { dummy: 0 }) as Box<dyn Integrator>
+            }
+            IntegratorType::Normals => {
+                Box::new(NormalsIntegrator { dummy: 0 }) as Box<dyn Integrator>
+            }
+        };
+        rays += integrator.render(scene, camera, sampler, &mut tile, &mut || {
             // Let's have low latency kills for more interactive view
             if from_parent.try_recv().is_ok() {
                 yuki_debug!("Render thread {}: Killed by parent", thread_id);
