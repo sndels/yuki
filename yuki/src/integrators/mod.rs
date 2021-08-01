@@ -1,40 +1,28 @@
-mod base;
 mod bvh_heatmap;
 mod normals;
 mod whitted;
 
-pub use bvh_heatmap::BVHIntersectionsIntegrator;
-pub use normals::NormalsIntegrator;
-pub use whitted::WhittedIntegrator;
+use bvh_heatmap::BVHIntersections;
+use normals::Normals;
+use whitted::Whitted;
 
-use base::IntegratorBase;
 use strum::{EnumString, EnumVariantNames, ToString};
 
 use crate::{
     camera::{Camera, CameraSample},
     film::FilmTile,
-    math::{Point2, Vec2, Vec3},
+    math::{Point2, Ray, Vec2, Vec3},
     samplers::Sampler,
     scene::Scene,
 };
 
 use std::sync::Arc;
 
-#[derive(Copy, Clone)]
-pub struct WhittedParams {
-    pub max_depth: u32,
-}
-
-impl Default for WhittedParams {
-    fn default() -> Self {
-        Self { max_depth: 3 }
-    }
-}
+pub type WhittedParams = whitted::Params;
 
 #[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
-#[repr(usize)]
 pub enum IntegratorType {
-    Whitted(WhittedParams),
+    Whitted(whitted::Params),
     BVHIntersections,
     Normals,
 }
@@ -42,28 +30,29 @@ pub enum IntegratorType {
 impl IntegratorType {
     pub fn instantiate(self) -> Box<dyn Integrator> {
         match self {
-            IntegratorType::Whitted(WhittedParams { max_depth }) => Box::new(WhittedIntegrator {
-                max_depth: max_depth,
-            })
-                as Box<dyn Integrator>,
-            IntegratorType::BVHIntersections => {
-                Box::new(BVHIntersectionsIntegrator { dummy: 0 }) as Box<dyn Integrator>
-            }
-            IntegratorType::Normals => {
-                Box::new(NormalsIntegrator { dummy: 0 }) as Box<dyn Integrator>
-            }
+            IntegratorType::Whitted(params) => Box::new(Whitted::new(params)),
+            IntegratorType::BVHIntersections => Box::new(BVHIntersections {}),
+            IntegratorType::Normals => Box::new(Normals {}),
         }
     }
 }
 
 impl Default for IntegratorType {
     fn default() -> Self {
-        IntegratorType::Whitted(WhittedParams::default())
+        IntegratorType::Whitted(whitted::Params::default())
     }
 }
 
-// Public interface of integrators, IntegratorBase holds the specializations.
-pub trait Integrator: IntegratorBase {
+pub struct RadianceResult {
+    pub li: Vec3<f32>,
+    pub ray_scene_intersections: usize,
+}
+
+// Public interface for scene integrators.
+pub trait Integrator {
+    /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.
+    fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32) -> RadianceResult;
+
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
         &self,
@@ -112,4 +101,3 @@ pub trait Integrator: IntegratorBase {
         ray_count
     }
 }
-impl<T: IntegratorBase> Integrator for T {}

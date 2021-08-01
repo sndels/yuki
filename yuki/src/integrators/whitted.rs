@@ -1,4 +1,4 @@
-use super::base::{IntegratorBase, RadianceResult};
+use super::{Integrator, RadianceResult};
 use crate::{
     bvh::IntersectionResult,
     interaction::SurfaceInteraction,
@@ -8,11 +8,28 @@ use crate::{
     shapes::Hit,
 };
 
-pub struct WhittedIntegrator {
+#[derive(Copy, Clone)]
+pub struct Params {
     pub max_depth: u32,
 }
 
-impl WhittedIntegrator {
+impl Default for Params {
+    fn default() -> Self {
+        Self { max_depth: 3 }
+    }
+}
+
+pub struct Whitted {
+    max_depth: u32,
+}
+
+impl Whitted {
+    pub fn new(params: Params) -> Self {
+        Self {
+            max_depth: params.max_depth,
+        }
+    }
+
     fn specular_contribution(
         &self,
         si: &SurfaceInteraction,
@@ -46,7 +63,7 @@ impl WhittedIntegrator {
     }
 }
 
-impl IntegratorBase for WhittedIntegrator {
+impl Integrator for Whitted {
     fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
