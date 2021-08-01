@@ -17,7 +17,7 @@ use crate::{
     camera::FoV,
     expect,
     film::FilmSettings,
-    integrators::IntegratorType,
+    integrators::{IntegratorType, WhittedParams},
     math::Vec2,
     samplers::SamplerSettings,
     scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
@@ -462,16 +462,9 @@ fn generate_scene_settings(
 fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
     let mut changed = enum_combo_box(ui, im_str!("Scene integrator"), integrator);
 
-    if changed {
-        match integrator {
-            IntegratorType::Whitted { max_depth } => *max_depth = 3,
-            IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
-        }
-    }
-
     ui.indent();
     match integrator {
-        IntegratorType::Whitted { max_depth } => {
+        IntegratorType::Whitted(WhittedParams { max_depth }) => {
             let width = ui.push_item_width(118.0);
             changed |= imgui::Drag::new(im_str!("Max depth"))
                 .range(1..=u32::MAX)
