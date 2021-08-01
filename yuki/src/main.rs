@@ -27,7 +27,7 @@ mod samplers;
 mod scene;
 mod shapes;
 
-use app::ToneMapType;
+use app::{FilmicParams, HeatmapParams, ToneMapType};
 use math::Vec2;
 use std::{path::PathBuf, str::FromStr};
 
@@ -202,13 +202,13 @@ fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
 
     match &mut tonemap {
         ToneMapType::Raw => (),
-        ToneMapType::Filmic { ref mut exposure } => {
+        ToneMapType::Filmic(FilmicParams { ref mut exposure }) => {
             *exposure = parse_num(strs[1], "Invalid filmic exposure")?;
         }
-        ToneMapType::Heatmap {
+        ToneMapType::Heatmap(HeatmapParams {
             ref mut channel,
             ref mut bounds,
-        } => {
+        }) => {
             *channel = parse_enum(strs[1], "Unknown heatmap channel")?;
             if strs.len() == 4 {
                 *bounds = Some((

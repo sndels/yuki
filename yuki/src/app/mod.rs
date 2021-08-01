@@ -4,7 +4,7 @@ mod ui;
 mod util;
 mod window;
 
-pub use renderpasses::ToneMapType;
+pub use renderpasses::{FilmicParams, HeatmapParams, ToneMapType};
 pub use window::Window;
 
 use crate::{

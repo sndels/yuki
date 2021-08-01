@@ -11,7 +11,7 @@ use std::{
 use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
-use super::renderpasses::ToneMapType;
+use super::renderpasses::{FilmicParams, HeatmapParams, ToneMapType};
 
 use crate::{
     camera::FoV,
@@ -479,19 +479,12 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
 }
 
 fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
-    let mut changed = enum_combo_box(ui, im_str!("Tone map"), params);
-
-    if changed {
-        match params {
-            ToneMapType::Filmic { exposure } => *exposure = 1.0,
-            ToneMapType::Raw | ToneMapType::Heatmap { .. } => (),
-        }
-    }
+    enum_combo_box(ui, im_str!("Tone map"), params);
 
     ui.indent();
     match params {
         ToneMapType::Raw => (),
-        ToneMapType::Filmic { exposure } => {
+        ToneMapType::Filmic(FilmicParams { exposure }) => {
             let width = ui.push_item_width(118.0);
             imgui::Drag::new(im_str!("Exposure"))
                 .range(0.0..=f32::MAX)
@@ -501,8 +494,8 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
                 .build(ui, exposure);
             width.pop(ui);
         }
-        ToneMapType::Heatmap { bounds, channel } => {
-            changed = enum_combo_box(ui, im_str!("Channel"), channel);
+        ToneMapType::Heatmap(HeatmapParams { bounds, channel }) => {
+            let changed = enum_combo_box(ui, im_str!("Channel"), channel);
             if changed {
                 *bounds = None;
             }

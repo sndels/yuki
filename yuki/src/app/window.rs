@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::{
-    renderpasses::{find_min_max, ScaleOutput, ToneMapFilm},
+    renderpasses::{find_min_max, HeatmapParams, ScaleOutput, ToneMapFilm},
     ui::{WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
@@ -225,10 +225,10 @@ impl Window {
                     let mut render_target = display.draw();
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
-                    if let ToneMapType::Heatmap {
+                    if let ToneMapType::Heatmap(HeatmapParams {
                         ref mut bounds,
                         channel,
-                    } = tone_map_type
+                    }) = tone_map_type
                     {
                         let film_dirty = {
                             yuki_trace!("main_loop: Waiting for lock on film");

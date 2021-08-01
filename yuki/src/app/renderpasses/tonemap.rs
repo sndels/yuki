@@ -8,22 +8,41 @@ use crate::{
     yuki_debug, yuki_trace,
 };
 
-#[derive(EnumVariantNames, ToString, EnumString, PartialEq)]
+pub struct FilmicParams {
+    pub exposure: f32,
+}
+
+impl Default for FilmicParams {
+    fn default() -> Self {
+        Self { exposure: 1.0 }
+    }
+}
+
+pub struct HeatmapParams {
+    // No bounds forces re-evaluation of tight bounds
+    pub bounds: Option<(f32, f32)>,
+    pub channel: HeatmapChannel,
+}
+
+impl Default for HeatmapParams {
+    fn default() -> Self {
+        Self {
+            bounds: None,
+            channel: HeatmapChannel::Red,
+        }
+    }
+}
+
+#[derive(EnumVariantNames, ToString, EnumString)]
 pub enum ToneMapType {
     Raw,
-    Filmic {
-        exposure: f32,
-    },
-    Heatmap {
-        // No bounds forces re-evaluation of tight bounds
-        bounds: Option<(f32, f32)>,
-        channel: HeatmapChannel,
-    },
+    Filmic(FilmicParams),
+    Heatmap(HeatmapParams),
 }
 
 impl Default for ToneMapType {
     fn default() -> Self {
-        ToneMapType::Filmic { exposure: 1.0 }
+        ToneMapType::Filmic(FilmicParams::default())
     }
 }
 
@@ -128,7 +147,7 @@ impl ToneMapFilm {
 
         let output = match params {
             ToneMapType::Raw => &self.input,
-            ToneMapType::Filmic { exposure } => {
+            ToneMapType::Filmic(FilmicParams { exposure }) => {
                 let uniforms = glium::uniform! {
                     input_texture: input_sampler,
                         exposure: *exposure,
@@ -147,7 +166,7 @@ impl ToneMapFilm {
 
                 &self.output
             }
-            ToneMapType::Heatmap { bounds, channel } => {
+            ToneMapType::Heatmap(HeatmapParams { bounds, channel }) => {
                 let (min, max) = bounds.expect("Missing Heatmap bounds");
 
                 let uniforms = glium::uniform! {
