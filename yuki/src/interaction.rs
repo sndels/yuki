@@ -1,6 +1,6 @@
 use crate::{
     materials::Bsdf,
-    math::{Normal, Point3, Transform, Vec3},
+    math::{Normal, Point3, Ray, Transform, Vec3},
 };
 use std::ops::Mul;
 
@@ -44,6 +44,22 @@ impl SurfaceInteraction {
             wo,
             bsdf: None,
         }
+    }
+
+    /// Spawns a ray from the `SurfaceInteraction` toward `d`.
+    pub fn spawn_ray(&self, d: Vec3<f32>) -> Ray<f32> {
+        let o = {
+            // TODO: Base offset on p error
+            let n = Vec3::from(self.n);
+            let offset = n * 0.001;
+            if d.dot(n) > 0.0 {
+                self.p + offset
+            } else {
+                self.p - offset
+            }
+            // TODO: Round away from p
+        };
+        Ray::new(o, d, f32::INFINITY)
     }
 }
 
