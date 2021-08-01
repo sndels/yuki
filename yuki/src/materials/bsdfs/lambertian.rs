@@ -1,4 +1,4 @@
-use super::BxDF;
+use super::{BxDF, BxdfType};
 use crate::math::Vec3;
 
 // Based on Physically Based Rendering 3rd ed.
@@ -17,5 +17,9 @@ impl Lambertian {
 impl BxDF for Lambertian {
     fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Vec3<f32> {
         self.reflectance * std::f32::consts::FRAC_1_PI
+    }
+
+    fn flags(&self) -> BxdfType {
+        BxdfType::DIFFUSE | BxdfType::REFLECTION
     }
 }

@@ -1,7 +1,7 @@
 mod bsdfs;
 mod matte;
 
-pub use bsdfs::Bsdf;
+pub use bsdfs::{Bsdf, BxdfType};
 pub use matte::Matte;
 
 use crate::interaction::SurfaceInteraction;

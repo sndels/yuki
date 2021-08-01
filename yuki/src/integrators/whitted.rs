@@ -1,6 +1,7 @@
 use super::base::{IntegratorBase, RadianceResult};
 use crate::{
     bvh::IntersectionResult,
+    materials::BxdfType,
     math::{Ray, Vec3},
     scene::Scene,
     shapes::Hit,
@@ -22,7 +23,10 @@ impl IntegratorBase for WhittedIntegrator {
                 let light_sample = l.sample_li(&si);
                 // TODO: Trace light visibility
                 c + mul(
-                    si.bsdf.as_ref().unwrap().f(si.wo, light_sample.l),
+                    si.bsdf
+                        .as_ref()
+                        .unwrap()
+                        .f(si.wo, light_sample.l, BxdfType::all()),
                     light_sample.li,
                 ) * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
             })
