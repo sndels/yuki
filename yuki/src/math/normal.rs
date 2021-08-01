@@ -58,6 +58,16 @@ where
     pub fn dot_v(&self, v: Vec3<T>) -> T {
         self.x * v.x + self.y * v.y + self.z * v.z
     }
+
+    #[inline]
+    /// Returns this `Normal`, or it flipped, such that it is in the same hemisphere as `v`.
+    pub fn faceforward(&self, v: Vec3<T>) -> Self {
+        if self.dot_v(v) < T::zero() {
+            Normal::new(-self.x, -self.y, -self.z)
+        } else {
+            *self
+        }
+    }
 }
 
 impl<T> From<Vec3<T>> for Normal<T>
