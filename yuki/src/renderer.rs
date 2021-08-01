@@ -11,10 +11,7 @@ use std::{
 use crate::{
     camera::Camera,
     film::{film_tiles, Film, FilmSettings, FilmTile},
-    integrators::{
-        BVHIntersectionsIntegrator, Integrator, IntegratorType, NormalsIntegrator,
-        WhittedIntegrator, WhittedParams,
-    },
+    integrators::IntegratorType,
     math::{
         transforms::{look_at, rotation_euler, translation},
         Vec3,
@@ -398,17 +395,7 @@ fn render(
 
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
-        let integrator = match integrator_type {
-            IntegratorType::Whitted(WhittedParams { max_depth }) => {
-                Box::new(WhittedIntegrator { max_depth }) as Box<dyn Integrator>
-            }
-            IntegratorType::BVHIntersections => {
-                Box::new(BVHIntersectionsIntegrator { dummy: 0 }) as Box<dyn Integrator>
-            }
-            IntegratorType::Normals => {
-                Box::new(NormalsIntegrator { dummy: 0 }) as Box<dyn Integrator>
-            }
-        };
+        let integrator = integrator_type.instantiate();
         rays += integrator.render(scene, camera, sampler, &mut tile, &mut || {
             // Let's have low latency kills for more interactive view
             if from_parent.try_recv().is_ok() {
