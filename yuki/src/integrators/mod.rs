@@ -39,6 +39,23 @@ pub enum IntegratorType {
     Normals,
 }
 
+impl IntegratorType {
+    pub fn instantiate(self) -> Box<dyn Integrator> {
+        match self {
+            IntegratorType::Whitted(WhittedParams { max_depth }) => Box::new(WhittedIntegrator {
+                max_depth: max_depth,
+            })
+                as Box<dyn Integrator>,
+            IntegratorType::BVHIntersections => {
+                Box::new(BVHIntersectionsIntegrator { dummy: 0 }) as Box<dyn Integrator>
+            }
+            IntegratorType::Normals => {
+                Box::new(NormalsIntegrator { dummy: 0 }) as Box<dyn Integrator>
+            }
+        }
+    }
+}
+
 impl Default for IntegratorType {
     fn default() -> Self {
         IntegratorType::Whitted(WhittedParams::default())
