@@ -13,7 +13,7 @@ use crate::{
     film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::{
         BVHIntersectionsIntegrator, Integrator, IntegratorType, NormalsIntegrator,
-        WhittedIntegrator,
+        WhittedIntegrator, WhittedParams,
     },
     math::{
         transforms::{look_at, rotation_euler, translation},
@@ -399,7 +399,7 @@ fn render(
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
         let integrator = match integrator_type {
-            IntegratorType::Whitted { max_depth } => {
+            IntegratorType::Whitted(WhittedParams { max_depth }) => {
                 Box::new(WhittedIntegrator { max_depth }) as Box<dyn Integrator>
             }
             IntegratorType::BVHIntersections => {

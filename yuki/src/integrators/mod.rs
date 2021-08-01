@@ -20,17 +20,28 @@ use crate::{
 
 use std::sync::Arc;
 
+#[derive(Copy, Clone)]
+pub struct WhittedParams {
+    pub max_depth: u32,
+}
+
+impl Default for WhittedParams {
+    fn default() -> Self {
+        Self { max_depth: 3 }
+    }
+}
+
 #[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
 #[repr(usize)]
 pub enum IntegratorType {
-    Whitted { max_depth: u32 },
+    Whitted(WhittedParams),
     BVHIntersections,
     Normals,
 }
 
 impl Default for IntegratorType {
     fn default() -> Self {
-        IntegratorType::Whitted { max_depth: 3 }
+        IntegratorType::Whitted(WhittedParams::default())
     }
 }
 
