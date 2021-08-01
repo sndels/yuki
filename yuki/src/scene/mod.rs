@@ -5,7 +5,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
     lights::{Light, PointLight},
-    materials::{Material, Matte},
+    materials::{Glass, Material, Matte},
     math::{transforms::translation, Point3, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
@@ -272,7 +272,11 @@ impl Scene {
         shapes.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            white,
+            Arc::new(Glass::new(
+                Vec3::new(1.0, 1.0, 1.0),
+                Vec3::new(1.0, 1.0, 1.0),
+                1.5,
+            )),
         )));
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
