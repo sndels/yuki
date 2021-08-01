@@ -143,3 +143,22 @@ impl Bsdf {
             )
     }
 }
+
+fn cos_theta(w: Vec3<f32>) -> f32 {
+    w.z
+}
+
+// Returns the refracted direction for `wi` and `n` or `None` if total internal reflection happens.
+fn refract(wi: Vec3<f32>, n: Normal<f32>, eta: f32) -> Option<Vec3<f32>> {
+    let cos_theta_i = n.dot_v(wi);
+    let sin_2_theta_i = (1.0 - cos_theta_i * cos_theta_i).max(0.0);
+    let sin_2_theta_t = eta * eta * sin_2_theta_i;
+
+    let total_internal_reflection = sin_2_theta_t >= 1.0;
+    if total_internal_reflection {
+        return None;
+    }
+
+    let cos_theta_t = (1.0 - sin_2_theta_t).sqrt();
+    Some(-wi * eta + Vec3::from(n) * (eta * cos_theta_i - cos_theta_t))
+}
