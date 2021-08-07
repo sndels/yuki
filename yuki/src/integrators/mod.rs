@@ -46,12 +46,27 @@ impl Default for IntegratorType {
 pub struct RadianceResult {
     pub li: Vec3<f32>,
     pub ray_scene_intersections: usize,
+    pub rays: Option<Vec<IntegratorRay>>,
+}
+
+#[derive(Debug)]
+pub struct IntegratorRay {
+    pub ray: Ray<f32>,
+    pub ray_type: RayType,
+}
+
+#[derive(Debug)]
+pub enum RayType {
+    Direct,
+    Reflection,
+    Refraction,
 }
 
 // Public interface for scene integrators.
 pub trait Integrator {
     /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.
-    fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32) -> RadianceResult;
+    /// If called with `collect_rays` true, populates the list of rays launched.
+    fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32, collect_rays: bool) -> RadianceResult;
 
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
@@ -85,7 +100,7 @@ pub trait Integrator {
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = self.li(ray, scene, 0);
+                let result = self.li(ray, scene, 0, false);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

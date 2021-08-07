@@ -12,7 +12,7 @@ use crate::{
 pub struct Normals {}
 
 impl Integrator for Normals {
-    fn li(&self, ray: Ray<f32>, scene: &Scene, _: u32) -> RadianceResult {
+    fn li(&self, ray: Ray<f32>, scene: &Scene, _: u32, _: bool) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
 
@@ -24,6 +24,7 @@ impl Integrator for Normals {
         RadianceResult {
             li: color,
             ray_scene_intersections: ray_count,
+            rays: None,
         }
     }
 }
