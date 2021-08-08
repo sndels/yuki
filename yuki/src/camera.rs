@@ -1,7 +1,7 @@
 use crate::{
     film::FilmSettings,
     math::{
-        transforms::{scale, translation},
+        transforms::{look_at, scale, translation},
         Point2, Point3, Ray, Transform, Vec2, Vec3,
     },
 };
@@ -21,6 +21,23 @@ pub struct Camera {
     raster_to_camera: Transform<f32>,
 }
 
+#[derive(Copy, Clone)]
+pub struct CameraParameters {
+    pub position: Point3<f32>,
+    pub target: Point3<f32>,
+    pub fov: FoV,
+}
+
+impl Default for CameraParameters {
+    fn default() -> Self {
+        Self {
+            position: Point3::new(0.0, 0.0, 0.0),
+            target: Point3::new(0.0, 0.0, 0.0),
+            fov: FoV::X(0.0),
+        }
+    }
+}
+
 // Angle in degrees
 #[derive(Copy, Clone)]
 pub enum FoV {
@@ -30,7 +47,10 @@ pub enum FoV {
 
 impl Camera {
     /// Creates a new `Camera`. `fov` is horizontal and in degrees.
-    pub fn new(camera_to_world: &Transform<f32>, fov: FoV, film_settings: FilmSettings) -> Self {
+    pub fn new(params: CameraParameters, film_settings: FilmSettings) -> Self {
+        // TODO: Arbitrary up for proper trackball
+        let camera_to_world =
+            look_at(params.position, params.target, Vec3::new(0.0, 1.0, 0.0)).inverted();
         // Standard perspective projection with aspect ratio
         // Screen is
         // NOTE: pbrt uses a 1:1 image plane with a cutout region
@@ -38,7 +58,7 @@ impl Camera {
         // We don't really care about near, far since we only use this to project rays
         let near = 1e-2;
         let far = 1000.0;
-        let fov_angle = match fov {
+        let fov_angle = match params.fov {
             FoV::X(v) | FoV::Y(v) => v,
         };
         let inv_tan = 1.0 / ((fov_angle.to_radians() / 2.0).tan());
@@ -55,7 +75,7 @@ impl Camera {
         // We adapt the mitsuba convention that has a directional fov by scaling that to 1
         let film_x = film_settings.res.x as f32;
         let film_y = film_settings.res.y as f32;
-        let (screen_min, screen_max) = match fov {
+        let (screen_min, screen_max) = match params.fov {
             FoV::X(_) => {
                 let ar = film_x / film_y;
                 (Vec2::new(-1.0, -1.0 / ar), Vec2::new(1.0, 1.0 / ar))
@@ -76,7 +96,7 @@ impl Camera {
         let raster_to_camera = &camera_to_screen.inverted() * &raster_to_screen;
 
         Self {
-            camera_to_world: camera_to_world.clone(),
+            camera_to_world,
             raster_to_camera,
         }
     }

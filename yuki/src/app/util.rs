@@ -5,34 +5,35 @@ use std::{
 };
 
 use crate::{
+    camera::CameraParameters,
     math::Vec3,
-    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{Scene, SceneLoadSettings},
     yuki_info,
 };
 
 pub fn try_load_scene(
     settings: &SceneLoadSettings,
-) -> Result<(Arc<Scene>, DynamicSceneParameters, f32), String> {
+) -> Result<(Arc<Scene>, CameraParameters, f32), String> {
     if settings.path.exists() {
         match settings.path.extension() {
             Some(ext) => match ext.to_str().unwrap() {
                 "ply" => match Scene::ply(settings) {
-                    Ok((scene, scene_params, total_secs)) => {
+                    Ok((scene, camera_params, total_secs)) => {
                         yuki_info!(
                             "PLY loaded from {}",
                             settings.path.file_name().unwrap().to_str().unwrap()
                         );
-                        Ok((Arc::new(scene), scene_params, total_secs))
+                        Ok((Arc::new(scene), camera_params, total_secs))
                     }
                     Err(why) => Err(format!("Loading PLY failed: {}", why)),
                 },
                 "xml" => match Scene::mitsuba(settings) {
-                    Ok((scene, scene_params, total_secs)) => {
+                    Ok((scene, camera_params, total_secs)) => {
                         yuki_info!(
                             "Mitsuba 2.0 scene loaded from {}",
                             settings.path.file_name().unwrap().to_str().unwrap()
                         );
-                        Ok((Arc::new(scene), scene_params, total_secs))
+                        Ok((Arc::new(scene), camera_params, total_secs))
                     }
                     Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
                 },
@@ -41,8 +42,8 @@ pub fn try_load_scene(
             None => Err("Expected a file with an extension".into()),
         }
     } else if settings.path.as_os_str().is_empty() {
-        let (scene, scene_params, total_secs) = Scene::cornell();
-        Ok((Arc::new(scene), scene_params, total_secs))
+        let (scene, camera_params, total_secs) = Scene::cornell();
+        Ok((Arc::new(scene), camera_params, total_secs))
     } else {
         Err(format!(
             "Scene does not exist '{}'",

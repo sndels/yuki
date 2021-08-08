@@ -12,7 +12,7 @@ use crate::{
     lights::Light,
     materials::Material,
     math::Vec3,
-    scene::{ply::PlyResult, DynamicSceneParameters, Result, Scene, SceneLoadSettings},
+    scene::{ply::PlyResult, CameraParameters, Result, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
 };
 
@@ -24,7 +24,7 @@ use xml::{
     reader::{EventReader, XmlEvent},
 };
 
-pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters)> {
+pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
     let dir_path = settings.path.parent().unwrap().to_path_buf();
     let file = std::fs::File::open(settings.path.to_str().unwrap())?;
     let file_buf = std::io::BufReader::new(file);
@@ -34,7 +34,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParamete
     let mut materials: HashMap<String, Arc<dyn Material>> = HashMap::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Vec3::from(0.0);
-    let mut scene_params = DynamicSceneParameters::new();
+    let mut camera_params = CameraParameters::default();
     let mut parser = EventReader::new(file_buf);
     let mut indent = String::new();
     let mut ignore_level: Option<u32> = None;
@@ -79,8 +79,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParamete
                                 ignore_level = Some(0);
                             }
                             "sensor" => {
-                                (scene_params.cam_orientation, scene_params.cam_fov) =
-                                    sensor::parse(&mut parser, indent.clone())?;
+                                camera_params = sensor::parse(&mut parser, indent.clone())?;
                                 indent.truncate(indent.len() - 2);
                             }
                             "bsdf" => {
@@ -190,6 +189,6 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParamete
             lights,
             background,
         },
-        scene_params,
+        camera_params,
     ))
 }

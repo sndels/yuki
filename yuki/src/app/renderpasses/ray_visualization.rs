@@ -1,14 +1,10 @@
 use glium::Surface;
 
 use crate::{
-    camera::FoV,
+    camera::{CameraParameters, FoV},
     film::FilmSettings,
     integrators::{IntegratorRay, RayType},
-    math::{
-        transforms::{look_at, rotation_euler, translation},
-        Bounds3, Matrix4x4, Point3, Transform, Vec3,
-    },
-    scene::{CameraOrientation, DynamicSceneParameters},
+    math::{transforms::look_at, Bounds3, Matrix4x4, Point3, Transform, Vec3},
     yuki_trace,
 };
 
@@ -72,35 +68,19 @@ impl RayVisualization {
     pub fn draw<'a>(
         &self,
         scene_bb: Bounds3<f32>,
-        scene_params: &DynamicSceneParameters,
+        camera_params: CameraParameters,
         film_settings: FilmSettings,
         fb: &mut glium::framebuffer::SimpleFrameBuffer<'a>,
     ) -> Result<(), glium::DrawError> {
         if let Some((vbo, ibo)) = &self.buffers {
             yuki_trace!("draw: Buffers initialized, drawing.");
-            // TODO: This could be CameraOrientation::camera_to_world?
-            let (world_to_camera, cam_pos) = match scene_params.cam_orientation {
-                CameraOrientation::LookAt {
-                    cam_pos,
-                    cam_target,
-                } => (
-                    look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)),
-                    cam_pos,
-                ),
-                CameraOrientation::Pose {
-                    cam_pos,
-                    cam_euler_deg,
-                } => (
-                    (&translation(cam_pos.into())
-                        * &rotation_euler(Vec3::new(
-                            cam_euler_deg.x.to_radians(),
-                            cam_euler_deg.y.to_radians(),
-                            cam_euler_deg.z.to_radians(),
-                        )))
-                        .inverted(),
-                    cam_pos,
-                ),
-            };
+
+            let world_to_camera = look_at(
+                camera_params.position,
+                camera_params.target,
+                Vec3::new(0.0, 1.0, 0.0),
+            );
+
             let camera_to_clip = {
                 let bb_points = {
                     let p0 = scene_bb.p_min;
@@ -118,15 +98,14 @@ impl RayVisualization {
                 };
                 let zf = bb_points
                     .iter()
-                    .fold(0.0, |acc, &p| (p - cam_pos).len().max(acc));
+                    .fold(0.0, |acc, &p| (p - camera_params.position).len().max(acc));
                 let zn = zf * 1e-5;
 
-                let fov = match scene_params.cam_fov {
-                    FoV::X(angle) => angle,
-                    FoV::Y(angle) => angle,
+                let fov = match camera_params.fov {
+                    FoV::X(angle) | FoV::Y(angle) => angle,
                 };
                 let tan_half_fov = (fov * 0.5).to_radians().tan();
-                let (xf, yf) = match scene_params.cam_fov {
+                let (xf, yf) = match camera_params.fov {
                     FoV::X(_) => {
                         let ar = (film_settings.res.y as f32) / (film_settings.res.x as f32);
                         (1.0 / tan_half_fov, 1.0 / (tan_half_fov * ar))
