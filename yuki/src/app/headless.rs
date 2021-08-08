@@ -18,7 +18,7 @@ use std::{
 };
 
 pub fn render(exr_path: &Path, mut settings: InitialSettings) {
-    let (scene, scene_params, _) = expect!(
+    let (scene, camera_params, _) = expect!(
         try_load_scene(&settings.load_settings),
         "Scene loading failed"
     );
@@ -26,7 +26,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
     let mut renderer = Renderer::new();
     renderer.launch(
         scene,
-        &scene_params,
+        camera_params,
         Arc::clone(&film),
         settings.sampler_settings,
         settings.scene_integrator,

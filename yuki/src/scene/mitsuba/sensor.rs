@@ -1,9 +1,12 @@
 use crate::{
     camera::FoV,
     find_attr,
-    math::{transforms::scale, DecomposedMatrix, Transform, Vec3},
+    math::{
+        transforms::{rotation_euler, scale, translation},
+        DecomposedMatrix, Point3, Transform, Vec3,
+    },
     parse_element,
-    scene::CameraOrientation,
+    scene::CameraParameters,
     yuki_error, yuki_info, yuki_trace,
 };
 
@@ -15,7 +18,7 @@ use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 pub fn parse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> Result<(CameraOrientation, FoV)> {
+) -> Result<CameraParameters> {
     let mut fov_axis = String::new();
     let mut fov_angle = 0.0;
     let mut transform = Transform::default();
@@ -69,7 +72,7 @@ pub fn parse<T: std::io::Read>(
     transform = &scale(-1.0, 1.0, 1.0) * &transform;
 
     let DecomposedMatrix {
-        translation: cam_pos,
+        translation: position,
         rotation: cam_euler,
         scale: cam_scale,
     } = match transform.m().decompose() {
@@ -85,7 +88,7 @@ pub fn parse<T: std::io::Read>(
     if fov_axis != "x" {
         return Err("Only horizontal fov is supported".into());
     }
-    let cam_fov = match fov_axis.as_str() {
+    let fov = match fov_axis.as_str() {
         "x" => FoV::X(fov_angle),
         "y" => FoV::Y(fov_angle),
         axis => {
@@ -93,17 +96,15 @@ pub fn parse<T: std::io::Read>(
         }
     };
 
-    Ok((
-        CameraOrientation::Pose {
-            cam_pos,
-            cam_euler_deg: Vec3::new(
-                // Compensate for the flipped X-axis
-                // TODO: Wrong handedness in decompose?
-                -cam_euler.x.to_degrees(),
-                -cam_euler.y.to_degrees(),
-                cam_euler.z.to_degrees(),
-            ),
-        },
-        cam_fov,
-    ))
+    // We compensate for the flipped X axis in the rotation
+    let camera_to_world = &translation(position.into())
+        * &rotation_euler(Vec3::new(-cam_euler.x, -cam_euler.y, cam_euler.z));
+    // This should be changed to some sane distance in front of camera once we know the scene scale
+    let target = &camera_to_world * Point3::new(0.0, 0.0, 1.0);
+
+    Ok(CameraParameters {
+        position,
+        target,
+        fov,
+    })
 }

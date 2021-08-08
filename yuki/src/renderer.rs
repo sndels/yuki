@@ -9,15 +9,12 @@ use std::{
 };
 
 use crate::{
-    camera::Camera,
+    camera::{Camera, CameraParameters},
     film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::IntegratorType,
-    math::{
-        transforms::{look_at, rotation_euler, translation},
-        Vec3,
-    },
+    math::Vec3,
     samplers::{create_sampler, Sampler, SamplerSettings},
-    scene::{CameraOrientation, DynamicSceneParameters, Scene},
+    scene::Scene,
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
@@ -185,7 +182,7 @@ impl Renderer {
     pub fn launch(
         &mut self,
         scene: Arc<Scene>,
-        scene_params: &DynamicSceneParameters,
+        camera_params: CameraParameters,
         film: Arc<Mutex<Film>>,
         sampler_settings: SamplerSettings,
         integrator: IntegratorType,
@@ -201,7 +198,7 @@ impl Renderer {
             render_tx,
             render_rx,
             scene,
-            scene_params,
+            camera_params,
             film,
             integrator,
             create_sampler(sampler_settings),
@@ -230,39 +227,18 @@ impl Drop for Renderer {
     }
 }
 
-pub fn create_camera(scene_params: &DynamicSceneParameters, film_settings: FilmSettings) -> Camera {
-    let cam_to_world = match scene_params.cam_orientation {
-        CameraOrientation::LookAt {
-            cam_pos,
-            cam_target,
-        } => look_at(cam_pos, cam_target, Vec3::new(0.0, 1.0, 0.0)).inverted(),
-        CameraOrientation::Pose {
-            cam_pos,
-            cam_euler_deg,
-        } => {
-            &translation(cam_pos.into())
-                * &rotation_euler(Vec3::new(
-                    cam_euler_deg.x.to_radians(),
-                    cam_euler_deg.y.to_radians(),
-                    cam_euler_deg.z.to_radians(),
-                ))
-        }
-    };
-    Camera::new(&cam_to_world, scene_params.cam_fov, film_settings)
-}
-
 fn launch_render(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
     scene: Arc<Scene>,
-    scene_params: &DynamicSceneParameters,
+    camera_params: CameraParameters,
     mut film: Arc<Mutex<Film>>,
     integrator: IntegratorType,
     sampler: Arc<dyn Sampler>,
     film_settings: FilmSettings,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
-    let camera = create_camera(scene_params, film_settings);
+    let camera = Camera::new(camera_params, film_settings);
 
     std::thread::spawn(move || {
         yuki_debug!("Render: Begin");

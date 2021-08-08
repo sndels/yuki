@@ -3,7 +3,7 @@ mod ply;
 
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
-    camera::FoV,
+    camera::{CameraParameters, FoV},
     lights::{Light, PointLight},
     materials::{Glass, Material, Matte},
     math::{transforms::translation, Point3, Transform, Vec3},
@@ -29,34 +29,6 @@ impl SceneLoadSettings {
     }
 }
 
-pub enum CameraOrientation {
-    Pose {
-        cam_pos: Point3<f32>,
-        cam_euler_deg: Vec3<f32>,
-    },
-    LookAt {
-        cam_pos: Point3<f32>,
-        cam_target: Point3<f32>,
-    },
-}
-
-pub struct DynamicSceneParameters {
-    pub cam_orientation: CameraOrientation,
-    pub cam_fov: FoV,
-}
-
-impl DynamicSceneParameters {
-    fn new() -> Self {
-        Self {
-            cam_orientation: CameraOrientation::LookAt {
-                cam_pos: Point3::new(0.0, 0.0, 0.0),
-                cam_target: Point3::new(0.0, 0.0, 0.0),
-            },
-            cam_fov: FoV::X(0.0),
-        }
-    }
-}
-
 pub struct Scene {
     pub name: String,
     pub load_settings: SceneLoadSettings,
@@ -73,7 +45,7 @@ impl Scene {
     /// Loads a Mitsuba 2 scene
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn mitsuba(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn mitsuba(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
         let load_start = Instant::now();
 
         let (scene, dynamic_params) = mitsuba::load(settings)?;
@@ -90,7 +62,7 @@ impl Scene {
     /// on it at an angle.
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, DynamicSceneParameters, f32)> {
+    pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
         let load_start = Instant::now();
 
         let white = Arc::new(Matte::new(Vec3::from(1.0))) as Arc<dyn Material>;
@@ -127,12 +99,10 @@ impl Scene {
                 lights: vec![light],
                 background: Vec3::from(0.0),
             },
-            DynamicSceneParameters {
-                cam_orientation: CameraOrientation::LookAt {
-                    cam_pos,
-                    cam_target,
-                },
-                cam_fov,
+            CameraParameters {
+                position: cam_pos,
+                target: cam_target,
+                fov: cam_fov,
             },
             total_secs,
         ))
@@ -140,7 +110,7 @@ impl Scene {
 
     /// Constructs the Cornell box holding a tall box and a sphere
     // Lifted from http://www.graphics.cornell.edu/online/box/data.html
-    pub fn cornell() -> (Scene, DynamicSceneParameters, f32) {
+    pub fn cornell() -> (Scene, CameraParameters, f32) {
         let load_start = Instant::now();
 
         // Original uses a right-handed coordinate system so flip z
@@ -302,12 +272,10 @@ impl Scene {
                 lights: vec![light],
                 background: Vec3::from(0.0),
             },
-            DynamicSceneParameters {
-                cam_orientation: CameraOrientation::LookAt {
-                    cam_pos,
-                    cam_target,
-                },
-                cam_fov,
+            CameraParameters {
+                position: cam_pos,
+                target: cam_target,
+                fov: cam_fov,
             },
             total_secs,
         )

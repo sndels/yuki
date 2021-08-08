@@ -14,13 +14,13 @@ use tinyfiledialogs::open_file_dialog;
 use super::renderpasses::{FilmicParams, HeatmapParams, ToneMapType};
 
 use crate::{
-    camera::FoV,
+    camera::{CameraParameters, FoV},
     expect,
     film::FilmSettings,
     integrators::{IntegratorType, WhittedParams},
     math::Vec2,
     samplers::SamplerSettings,
-    scene::{CameraOrientation, DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{Scene, SceneLoadSettings},
     yuki_error,
 };
 
@@ -101,7 +101,7 @@ impl UI {
         window: &glutin::window::Window,
         film_settings: &mut FilmSettings,
         sampler_settings: &mut SamplerSettings,
-        scene_params: &mut DynamicSceneParameters,
+        camera_params: &mut CameraParameters,
         scene_integrator: &mut IntegratorType,
         tone_map_type: &mut ToneMapType,
         load_settings: &mut SceneLoadSettings,
@@ -141,7 +141,7 @@ impl UI {
                 ui.spacing();
 
                 render_triggered |=
-                    generate_scene_settings(&ui, scene, scene_params, load_settings);
+                    generate_scene_settings(&ui, scene, camera_params, load_settings);
                 ui.spacing();
 
                 render_triggered |= generate_integrator_settings(&ui, scene_integrator);
@@ -366,7 +366,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerS
 fn generate_scene_settings(
     ui: &imgui::Ui<'_>,
     scene: &Scene,
-    params: &mut DynamicSceneParameters,
+    camera_params: &mut CameraParameters,
     load_settings: &mut SceneLoadSettings,
 ) -> bool {
     let mut changed = false;
@@ -376,40 +376,19 @@ fn generate_scene_settings(
             imgui::TreeNode::new(im_str!("Camera"))
                 .default_open(true)
                 .build(ui, || {
-                    match &mut params.cam_orientation {
-                        CameraOrientation::LookAt {
-                            ref mut cam_pos,
-                            ref mut cam_target,
-                        } => {
-                            changed |= imgui::Drag::new(im_str!("Position"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_pos.array_mut());
+                    changed |= imgui::Drag::new(im_str!("Position"))
+                        .speed(0.1)
+                        .display_format(im_str!("%.1f"))
+                        .build_array(ui, camera_params.position.array_mut());
 
-                            changed |= imgui::Drag::new(im_str!("Target"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_target.array_mut());
-                        }
-                        CameraOrientation::Pose {
-                            ref mut cam_pos,
-                            ref mut cam_euler_deg,
-                        } => {
-                            changed |= imgui::Drag::new(im_str!("Position"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_pos.array_mut());
-
-                            changed |= imgui::Drag::new(im_str!("Rotation"))
-                                .speed(0.1)
-                                .display_format(im_str!("%.1f"))
-                                .build_array(ui, cam_euler_deg.array_mut());
-                        }
-                    }
+                    changed |= imgui::Drag::new(im_str!("Target"))
+                        .speed(0.1)
+                        .display_format(im_str!("%.1f"))
+                        .build_array(ui, camera_params.target.array_mut());
 
                     {
                         let width = ui.push_item_width(77.0);
-                        let fov = match &mut params.cam_fov {
+                        let fov = match &mut camera_params.fov {
                             FoV::X(ref mut v) | FoV::Y(ref mut v) => v,
                         };
                         changed |= imgui::Drag::new(im_str!("Field of View"))

@@ -18,14 +18,14 @@ use super::{
     InitialSettings, ToneMapType,
 };
 use crate::{
-    camera::CameraSample,
+    camera::{Camera, CameraParameters, CameraSample},
     expect,
     film::{Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{Point2, Vec2, Vec3},
-    renderer::{create_camera, Renderer},
+    renderer::Renderer,
     samplers::SamplerSettings,
-    scene::{DynamicSceneParameters, Scene, SceneLoadSettings},
+    scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
 };
 
@@ -50,7 +50,7 @@ pub struct Window {
     // Scene
     load_settings: SceneLoadSettings,
     scene: Arc<Scene>,
-    scene_params: DynamicSceneParameters,
+    camera_params: CameraParameters,
 }
 
 impl Window {
@@ -83,7 +83,7 @@ impl Window {
         );
 
         // Init with cornell here so scene is loaded on first frame and ui gets load time through the normal logic
-        let (scene, scene_params, _) = Scene::cornell();
+        let (scene, camera_params, _) = Scene::cornell();
 
         Window {
             event_loop,
@@ -98,7 +98,7 @@ impl Window {
             scene: Arc::new(scene),
             tone_map_type: settings.tone_map,
             load_settings: settings.load_settings,
-            scene_params,
+            camera_params,
         }
     }
 
@@ -116,7 +116,7 @@ impl Window {
             mut scene,
             mut tone_map_type,
             mut load_settings,
-            mut scene_params,
+            mut camera_params,
         } = self;
 
         let mut last_frame = Instant::now();
@@ -168,7 +168,7 @@ impl Window {
                         window,
                         &mut film_settings,
                         &mut sampler_settings,
-                        &mut scene_params,
+                        &mut camera_params,
                         &mut scene_integrator,
                         &mut tone_map_type,
                         &mut load_settings,
@@ -183,9 +183,9 @@ impl Window {
 
                     if load_settings.path.exists() {
                         match try_load_scene(&load_settings) {
-                            Ok((new_scene, new_scene_params, total_secs)) => {
+                            Ok((new_scene, new_camera_params, total_secs)) => {
                                 scene = new_scene;
-                                scene_params = new_scene_params;
+                                camera_params = new_camera_params;
                                 ray_visualization.clear_rays();
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
@@ -208,7 +208,7 @@ impl Window {
                             yuki_info!("main_loop: Launching render job");
                             renderer.launch(
                                 Arc::clone(&scene),
-                                &scene_params,
+                                camera_params,
                                 Arc::clone(&film),
                                 sampler_settings,
                                 scene_integrator,
@@ -262,7 +262,7 @@ impl Window {
                     expect!(
                         ray_visualization.draw(
                             scene.bvh.bounds(),
-                            &scene_params,
+                            camera_params,
                             film_settings,
                             &mut tone_mapped_film.as_surface(),
                         ),
@@ -374,7 +374,7 @@ impl Window {
                                     &film,
                                     film_settings,
                                     &scene,
-                                    &scene_params,
+                                    camera_params,
                                     scene_integrator,
                                 ) {
                                     if let Err(why) = ray_visualization.set_rays(&display, &rays) {
@@ -430,7 +430,7 @@ fn launch_debug_ray(
     film: &Arc<Mutex<Film>>,
     film_settings: FilmSettings,
     scene: &Arc<Scene>,
-    scene_params: &DynamicSceneParameters,
+    camera_params: CameraParameters,
     scene_integrator: IntegratorType,
 ) -> Option<Vec<IntegratorRay>> {
     let window_px = cursor_state.position;
@@ -491,7 +491,7 @@ fn launch_debug_ray(
             film_px.y
         );
 
-        let camera = create_camera(scene_params, film_settings);
+        let camera = Camera::new(camera_params, film_settings);
 
         // TODO: Use the active scene integrator instead, add evaluated rays as return data?
         {
