@@ -106,5 +106,6 @@ pub fn parse<T: std::io::Read>(
         position,
         target,
         fov,
+        ..CameraParameters::default()
     })
 }
