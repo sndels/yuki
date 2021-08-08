@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::{
-    renderpasses::{find_min_max, HeatmapParams, ScaleOutput, ToneMapFilm},
+    renderpasses::{find_min_max, HeatmapParams, RayVisualization, ScaleOutput, ToneMapFilm},
     ui::{WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
@@ -21,7 +21,7 @@ use crate::{
     camera::CameraSample,
     expect,
     film::{Film, FilmSettings},
-    integrators::IntegratorType,
+    integrators::{IntegratorRay, IntegratorType},
     math::{Point2, Vec2, Vec3},
     renderer::{create_camera, Renderer},
     samplers::SamplerSettings,
@@ -45,6 +45,7 @@ pub struct Window {
     // Output
     tone_map_type: ToneMapType,
     tone_map_film: ToneMapFilm,
+    ray_visualization: RayVisualization,
 
     // Scene
     load_settings: SceneLoadSettings,
@@ -76,6 +77,11 @@ impl Window {
             "Failed to create tone map render pass"
         );
 
+        let ray_visualization = expect!(
+            RayVisualization::new(&display),
+            "Failed to create ray visualization render pass"
+        );
+
         // Init with cornell here so scene is loaded on first frame and ui gets load time through the normal logic
         let (scene, scene_params, _) = Scene::cornell();
 
@@ -84,6 +90,7 @@ impl Window {
             display,
             ui,
             tone_map_film,
+            ray_visualization,
             film_settings: settings.film_settings,
             scene_integrator: settings.scene_integrator,
             sampler_settings: settings.sampler_settings,
@@ -101,6 +108,7 @@ impl Window {
             display,
             mut ui,
             mut tone_map_film,
+            mut ray_visualization,
             mut film_settings,
             mut scene_integrator,
             mut sampler_settings,
@@ -178,6 +186,7 @@ impl Window {
                             Ok((new_scene, new_scene_params, total_secs)) => {
                                 scene = new_scene;
                                 scene_params = new_scene_params;
+                                ray_visualization.clear_rays();
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
                             }
@@ -249,6 +258,15 @@ impl Window {
                     let tone_mapped_film = expect!(
                         tone_map_film.draw(&display, &film, &tone_map_type),
                         "Film tone map pass failed"
+                    );
+                    expect!(
+                        ray_visualization.draw(
+                            scene.bvh.bounds(),
+                            &scene_params,
+                            film_settings,
+                            &mut tone_mapped_film.as_surface(),
+                        ),
+                        "Ray visualization failed"
                     );
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);
 
@@ -350,7 +368,7 @@ impl Window {
                                 && button == MouseButton::Left
                                 && state == ElementState::Pressed
                             {
-                                launch_debug_ray(
+                                if let Some(rays) = launch_debug_ray(
                                     &cursor_state,
                                     &display,
                                     &film,
@@ -358,7 +376,14 @@ impl Window {
                                     &scene,
                                     &scene_params,
                                     scene_integrator,
-                                );
+                                ) {
+                                    if let Err(why) = ray_visualization.set_rays(&display, &rays) {
+                                        yuki_error!(
+                                            "Setting rays to ray visualization failed: {:?}",
+                                            why
+                                        );
+                                    };
+                                }
                             }
                         }
                     }
@@ -398,6 +423,7 @@ unsafe impl glium::texture::PixelValue for Vec3<f32> {
     }
 }
 
+#[must_use]
 fn launch_debug_ray(
     cursor_state: &CursorState,
     display: &glium::Display,
@@ -406,7 +432,7 @@ fn launch_debug_ray(
     scene: &Arc<Scene>,
     scene_params: &DynamicSceneParameters,
     scene_integrator: IntegratorType,
-) {
+) -> Option<Vec<IntegratorRay>> {
     let window_px = cursor_state.position;
     yuki_info!(
         "main_loop: Debug ray initiated at window px ({},{})",
@@ -452,7 +478,10 @@ fn launch_debug_ray(
         Vec2::new(x, y)
     };
 
-    if film_px.min_comp() >= 0.0 && film_px.x < (film_w as f64) && film_px.y < (film_h as f64) {
+    let collected_rays = if film_px.min_comp() >= 0.0
+        && film_px.x < (film_w as f64)
+        && film_px.y < (film_h as f64)
+    {
         #[allow(clippy::cast_sign_loss)] // We check above
         let film_px = Vec2::new(film_px.x as u16, film_px.y as u16);
 
@@ -471,9 +500,14 @@ fn launch_debug_ray(
             let ray = camera.ray(&CameraSample { p_film });
 
             let integrator = scene_integrator.instantiate();
+
             let result = integrator.li(ray, scene, 0, true);
+            result.rays
         }
     } else {
         yuki_info!("main_loop: Window px is outside the film");
-    }
+        None
+    };
+
+    collected_rays
 }
