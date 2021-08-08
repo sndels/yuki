@@ -1,7 +1,10 @@
 use glium::Surface;
 use glutin::{
     dpi::LogicalSize,
-    event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent},
+    event::{
+        ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
+        WindowEvent,
+    },
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
@@ -18,11 +21,11 @@ use super::{
     InitialSettings, ToneMapType,
 };
 use crate::{
-    camera::{Camera, CameraParameters, CameraSample},
+    camera::{Camera, CameraParameters, CameraSample, FoV},
     expect,
     film::{Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
-    math::{Point2, Vec2, Vec3},
+    math::{transforms::rotation, Point2, Vec2, Vec3},
     renderer::Renderer,
     samplers::SamplerSettings,
     scene::{Scene, SceneLoadSettings},
@@ -121,12 +124,15 @@ impl Window {
 
         let mut last_frame = Instant::now();
 
+        let mut window_size = display.gl_window().window().inner_size();
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut ui_hovered = false;
         let mut renderer = Renderer::new();
         let mut status_messages: Option<Vec<String>> = None;
         let mut cursor_state = CursorState::default();
+        let mut mouse_gesture: Option<MouseGesture> = None;
+        let mut camera_offset: Option<CameraOffset> = None;
 
         let mut match_logical_cores = true;
 
@@ -163,6 +169,23 @@ impl Window {
                         status_messages = Some(messages);
                     }
 
+                    if load_settings.path.exists() {
+                        match try_load_scene(&load_settings) {
+                            Ok((new_scene, new_camera_params, total_secs)) => {
+                                scene = new_scene;
+                                camera_params = new_camera_params;
+                                ray_visualization.clear_rays();
+                                status_messages =
+                                    Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
+                            }
+                            Err(why) => {
+                                yuki_error!("Scene loading failed: {}", why);
+                                status_messages = Some(vec!["Scene loading failed".into()]);
+                            }
+                        }
+                        load_settings.path.clear();
+                    }
+
                     // Run frame logic
                     let mut frame_ui = ui.generate_frame(
                         window,
@@ -181,22 +204,18 @@ impl Window {
                     any_item_active = frame_ui.any_item_active;
                     ui_hovered = frame_ui.ui_hovered;
 
-                    if load_settings.path.exists() {
-                        match try_load_scene(&load_settings) {
-                            Ok((new_scene, new_camera_params, total_secs)) => {
-                                scene = new_scene;
-                                camera_params = new_camera_params;
-                                ray_visualization.clear_rays();
-                                status_messages =
-                                    Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
-                            }
-                            Err(why) => {
-                                yuki_error!("Scene loading failed: {}", why);
-                                status_messages = Some(vec!["Scene loading failed".into()]);
-                            }
-                        }
-                        load_settings.path.clear();
-                    }
+                    render_triggered |= handle_mouse_gestures(
+                        window_size,
+                        &mut camera_params,
+                        &mut mouse_gesture,
+                        &mut camera_offset,
+                    );
+
+                    let active_camera_params =
+                        camera_offset.as_ref().map_or(camera_params, |offset| {
+                            render_triggered = true; // TODO: Delta between current mouse positions to skip new render ~stationary mouse
+                            offset.apply(camera_params)
+                        });
 
                     if render_triggered {
                         yuki_info!("main_loop: Render triggered");
@@ -208,7 +227,7 @@ impl Window {
                             yuki_info!("main_loop: Launching render job");
                             renderer.launch(
                                 Arc::clone(&scene),
-                                camera_params,
+                                active_camera_params,
                                 Arc::clone(&film),
                                 sampler_settings,
                                 scene_integrator,
@@ -262,7 +281,7 @@ impl Window {
                     expect!(
                         ray_visualization.draw(
                             scene.bvh.bounds(),
-                            camera_params,
+                            active_camera_params,
                             film_settings,
                             &mut tone_mapped_film.as_surface(),
                         ),
@@ -330,6 +349,7 @@ impl Window {
                     }
                     WindowEvent::Resized(size) => {
                         yuki_trace!("main_loop: Resized");
+                        window_size = size;
                         display.gl_window().resize(size);
                     }
                     WindowEvent::KeyboardInput {
@@ -353,11 +373,20 @@ impl Window {
                             }
                         }
                     }
-                    WindowEvent::ModifiersChanged(state) => cursor_state.ctrl_down = state.ctrl(),
+                    WindowEvent::ModifiersChanged(state) => {
+                        cursor_state.ctrl_down = state.ctrl();
+                        cursor_state.shift_down = state.shift();
+                    }
                     WindowEvent::CursorEntered { .. } => cursor_state.inside = true,
                     WindowEvent::CursorLeft { .. } => cursor_state.inside = false,
                     WindowEvent::CursorMoved { position, .. } => {
                         cursor_state.position = Vec2::new(position.x, position.y);
+                        if let Some(gesture) = &mut mouse_gesture {
+                            gesture.current_position = cursor_state.position;
+                        }
+                    }
+                    WindowEvent::MouseWheel { delta, .. } => {
+                        handle_scroll_event(delta, camera_params, &mut camera_offset);
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
                         if cursor_state.inside && !any_item_active && !ui_hovered {
@@ -385,6 +414,27 @@ impl Window {
                                     };
                                 }
                             }
+
+                            // TODO: Make this work on a touchpad
+                            if button == MouseButton::Middle && state == ElementState::Pressed {
+                                if cursor_state.shift_down {
+                                    mouse_gesture = Some(MouseGesture {
+                                        start_position: cursor_state.position,
+                                        current_position: cursor_state.position,
+                                        gesture: MouseGestureType::TrackPlane,
+                                    });
+                                } else {
+                                    mouse_gesture = Some(MouseGesture {
+                                        start_position: cursor_state.position,
+                                        current_position: cursor_state.position,
+                                        gesture: MouseGestureType::TrackBall,
+                                    });
+                                }
+                            }
+                        }
+
+                        if state == ElementState::Released {
+                            mouse_gesture = None;
                         }
                     }
                     _ => {}
@@ -399,6 +449,7 @@ struct CursorState {
     inside: bool,
     position: Vec2<f64>,
     ctrl_down: bool,
+    shift_down: bool,
 }
 
 impl Default for CursorState {
@@ -407,6 +458,163 @@ impl Default for CursorState {
             inside: false,
             position: Vec2::from(0.0),
             ctrl_down: false,
+            shift_down: false,
+        }
+    }
+}
+
+struct MouseGesture {
+    start_position: Vec2<f64>,
+    current_position: Vec2<f64>,
+    gesture: MouseGestureType,
+}
+
+#[derive(Debug)]
+enum MouseGestureType {
+    TrackBall,
+    TrackPlane,
+}
+
+struct CameraOffset {
+    position: Vec3<f32>,
+    target: Vec3<f32>,
+    flip_up: bool,
+}
+
+impl CameraOffset {
+    fn apply(&self, params: CameraParameters) -> CameraParameters {
+        CameraParameters {
+            position: params.position + self.position,
+            target: params.target + self.target,
+            up: if self.flip_up { -params.up } else { params.up },
+            fov: params.fov,
+        }
+    }
+}
+
+impl Default for CameraOffset {
+    fn default() -> Self {
+        Self {
+            position: Vec3::from(0.0),
+            target: Vec3::from(0.0),
+            flip_up: false,
+        }
+    }
+}
+
+fn handle_mouse_gestures(
+    window_size: glutin::dpi::PhysicalSize<u32>,
+    camera_params: &mut CameraParameters,
+    mouse_gesture: &mut Option<MouseGesture>,
+    camera_offset: &mut Option<CameraOffset>,
+) -> bool {
+    match &mouse_gesture {
+        Some(MouseGesture {
+            start_position,
+            current_position,
+            gesture,
+        }) => {
+            match gesture {
+                MouseGestureType::TrackBall => {
+                    // Adapted from Max Liani
+                    // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
+                    let drag_scale = 1.0 / 400.0;
+                    let drag = (*current_position - *start_position) * drag_scale;
+
+                    let from_target = camera_params.position - camera_params.target;
+
+                    let horizontal_rotated_from_target =
+                        &rotation(drag.x as f32, camera_params.up) * from_target;
+
+                    let right = horizontal_rotated_from_target
+                        .cross(camera_params.up)
+                        .normalized();
+
+                    let new_from_target =
+                        &rotation(drag.y as f32, right) * horizontal_rotated_from_target;
+                    let flip_up = right.dot(new_from_target.cross(camera_params.up)) < 0.0;
+
+                    *camera_offset = Some(CameraOffset {
+                        position: new_from_target - from_target,
+                        flip_up,
+                        ..CameraOffset::default()
+                    });
+
+                    true
+                }
+                MouseGestureType::TrackPlane => {
+                    // Adapted from Max Liani
+                    // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
+                    let from_target = camera_params.position - camera_params.target;
+                    let dist_target = from_target.len();
+
+                    // TODO: Adjust for aspect ratio difference between film and window
+                    let drag_scale = {
+                        match camera_params.fov {
+                            FoV::X(angle) => {
+                                let tan_half_fov = (angle.to_radians() * 0.5).tan();
+                                dist_target * tan_half_fov / ((window_size.width as f32) * 0.5)
+                            }
+                            FoV::Y(angle) => {
+                                let tan_half_fov = (angle.to_radians() * 0.5).tan();
+                                dist_target * tan_half_fov / ((window_size.height as f32) * 0.5)
+                            }
+                        }
+                    };
+                    let drag = (*current_position - *start_position) * (drag_scale as f64);
+
+                    let right = from_target.cross(camera_params.up).normalized();
+                    let cam_up = right.cross(from_target).normalized();
+
+                    let offset = -right * (drag.x as f32) + cam_up * (drag.y as f32);
+
+                    *camera_offset = Some(CameraOffset {
+                        position: offset,
+                        target: offset,
+                        ..CameraOffset::default()
+                    });
+
+                    true
+                }
+            }
+        }
+        None => {
+            if camera_offset.is_some() {
+                let offset = camera_offset.take();
+                *camera_params = offset.unwrap().apply(*camera_params);
+
+                true
+            } else {
+                false
+            }
+        }
+    }
+}
+
+fn handle_scroll_event(
+    delta: MouseScrollDelta,
+    camera_params: CameraParameters,
+    camera_offset: &mut Option<CameraOffset>,
+) {
+    if camera_offset.is_none() {
+        let to_target = camera_params.target - camera_params.position;
+        let dist_target = to_target.len();
+        let fwd = to_target / dist_target;
+
+        let scroll_scale = dist_target * 0.1;
+        let scroll = match delta {
+            MouseScrollDelta::LineDelta(_, y) => y,
+            MouseScrollDelta::PixelDelta(delta) => delta.y as f32,
+        };
+
+        let offset = fwd * scroll * scroll_scale;
+
+        // TODO: This still goes to zero, I'm dumb and floats are hard
+        if dist_target - offset.len() > 0.01 {
+            *camera_offset = Some(CameraOffset {
+                position: offset,
+                ..CameraOffset::default()
+            });
         }
     }
 }
