@@ -174,10 +174,7 @@ impl<T> Bounds3<T>
 where
     T: FloatValueType,
 {
-    /// Checks if `ray` hits this `Bounds3`.
-    ///
-    /// Precomputed `inv_dir` is supplied as an optimization.
-    pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>) -> bool {
+    fn slab_test(&self, ray: Ray<T>, inv_dir: Vec3<T>) -> (T, T) {
         // Adapted from slab test used in OptiX and Embree as listed in
         // A Ray-Box Intersection Algorithm and Efficient Dynamic Voxel Rendering
         // by Alexander Majercik et. al.
@@ -191,8 +188,29 @@ where
         let t1 = mul_vec3(self.p_max - ray.o, inv_dir);
 
         // TODO: Ray tmin
-        let tmin = t0.min(t1).max_comp().max(T::zero());
-        let tmax = t0.max(t1).min_comp().min(ray.t_max);
+        (
+            t0.min(t1).max_comp().max(T::zero()),
+            t0.max(t1).min_comp().min(ray.t_max),
+        )
+    }
+
+    /// Returns both intersections of `ray` with this `Bounds3`, if valid.
+    pub fn intersections(&self, ray: Ray<T>) -> Option<(T, T)> {
+        let inv_dir = Vec3::new(T::one() / ray.d.x, T::one() / ray.d.y, T::one() / ray.d.z);
+        let (tmin, tmax) = self.slab_test(ray, inv_dir);
+
+        if tmin <= tmax {
+            Some((tmin, tmax))
+        } else {
+            None
+        }
+    }
+
+    /// Checks if `ray` hits this `Bounds3`.
+    ///
+    /// Precomputed `inv_dir` is supplied as an optimization.
+    pub fn intersect(&self, ray: Ray<T>, inv_dir: Vec3<T>) -> bool {
+        let (tmin, tmax) = self.slab_test(ray, inv_dir);
 
         tmin <= tmax
     }
