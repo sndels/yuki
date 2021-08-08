@@ -80,6 +80,10 @@ impl BoundingVolumeHierarchy {
         (ret, shapes_arc)
     }
 
+    pub fn bounds(&self) -> Bounds3<f32> {
+        self.nodes[0].bounds
+    }
+
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
     pub fn intersect(&self, mut ray: Ray<f32>) -> IntersectionResult {
         let mut hit = None;
