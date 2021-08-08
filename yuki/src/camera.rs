@@ -25,6 +25,7 @@ pub struct Camera {
 pub struct CameraParameters {
     pub position: Point3<f32>,
     pub target: Point3<f32>,
+    pub up: Vec3<f32>,
     pub fov: FoV,
 }
 
@@ -33,6 +34,7 @@ impl Default for CameraParameters {
         Self {
             position: Point3::new(0.0, 0.0, 0.0),
             target: Point3::new(0.0, 0.0, 0.0),
+            up: Vec3::new(0.0, 1.0, 0.0),
             fov: FoV::X(0.0),
         }
     }
@@ -48,9 +50,7 @@ pub enum FoV {
 impl Camera {
     /// Creates a new `Camera`. `fov` is horizontal and in degrees.
     pub fn new(params: CameraParameters, film_settings: FilmSettings) -> Self {
-        // TODO: Arbitrary up for proper trackball
-        let camera_to_world =
-            look_at(params.position, params.target, Vec3::new(0.0, 1.0, 0.0)).inverted();
+        let camera_to_world = look_at(params.position, params.target, params.up).inverted();
         // Standard perspective projection with aspect ratio
         // Screen is
         // NOTE: pbrt uses a 1:1 image plane with a cutout region

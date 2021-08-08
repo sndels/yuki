@@ -103,6 +103,7 @@ impl Scene {
                 position: cam_pos,
                 target: cam_target,
                 fov: cam_fov,
+                ..CameraParameters::default()
             },
             total_secs,
         ))
@@ -276,6 +277,7 @@ impl Scene {
                 position: cam_pos,
                 target: cam_target,
                 fov: cam_fov,
+                ..CameraParameters::default()
             },
             total_secs,
         )
