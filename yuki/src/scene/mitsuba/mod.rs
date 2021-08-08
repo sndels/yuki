@@ -11,7 +11,7 @@ use crate::{
     find_attr,
     lights::Light,
     materials::Material,
-    math::Vec3,
+    math::{Ray, Vec3},
     scene::{ply::PlyResult, CameraParameters, Result, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
 };
@@ -178,6 +178,19 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
         settings.max_shapes_in_node as usize,
         SplitMethod::Middle,
     );
+
+    // Let's default target to middle way into the visible scene since we don't have look at here
+    {
+        let fwd = (camera_params.target - camera_params.position).normalized();
+        let ray = Ray::new(camera_params.position, fwd, f32::INFINITY);
+        if let Some((p0, p1)) = bvh.bounds().intersections(ray) {
+            camera_params.target = if p0 > 0.0 {
+                camera_params.position + fwd * ((p0 + p1) / 2.0)
+            } else {
+                camera_params.position + fwd * (p1 / 2.0)
+            };
+        }
+    }
 
     Ok((
         Scene {
