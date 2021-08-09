@@ -67,6 +67,11 @@ impl Whitted {
 
 impl Integrator for Whitted {
     fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32, collect_rays: bool) -> RadianceResult {
+        // TODO: Do color/spectrum class for this math
+        fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
+            Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
+        }
+
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
         let mut collected_rays: Option<Vec<IntegratorRay>> = None;
@@ -78,10 +83,6 @@ impl Integrator for Whitted {
                 }]);
             }
 
-            // TODO: Do color/spectrum class for this math
-            fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-                Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
-            }
             let mut ray_count = 1;
             let mut sum_li = scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
                 let light_sample = l.sample_li(&si);
