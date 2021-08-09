@@ -14,7 +14,7 @@ macro_rules! expect {
 /// A wrapper over log implementation. Takes in a format string.
 macro_rules! yuki_trace {
     ( $( $arg:expr ),+ ) => {
-        log::trace!( $( $arg ),+ );
+        log::trace!( $( $arg ),+ )
     };
 }
 
@@ -22,7 +22,7 @@ macro_rules! yuki_trace {
 /// A wrapper over log implementation. Takes in a format string.
 macro_rules! yuki_debug {
     ( $( $arg:expr ),+ ) => {
-        log::debug!( $( $arg ),+ );
+        log::debug!( $( $arg ),+ )
     };
 }
 
@@ -30,7 +30,7 @@ macro_rules! yuki_debug {
 /// A wrapper over log implementation. Takes in a format string.
 macro_rules! yuki_info {
     ( $( $arg:expr ),+ ) => {
-        log::info!( $( $arg ),+ );
+        log::info!( $( $arg ),+ )
     };
 }
 
@@ -38,7 +38,7 @@ macro_rules! yuki_info {
 /// A wrapper over log implementation. Takes in a format string.
 macro_rules! yuki_warn {
     ( $( $arg:expr ),+ ) => {
-        log::warn!( $( $arg ),+ );
+        log::warn!( $( $arg ),+ )
     };
 }
 
@@ -48,6 +48,6 @@ macro_rules! yuki_error {
     ( $( $arg:expr ),+ ) => {
         let msg = format!( $( $arg ),+ );
         win_dbg_logger::output_debug_string(&msg);
-        log::error!("{}", &msg);
+        log::error!("{}", &msg)
     };
 }
