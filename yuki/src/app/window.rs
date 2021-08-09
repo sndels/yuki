@@ -374,8 +374,7 @@ impl Window {
                         }
                     }
                     WindowEvent::ModifiersChanged(state) => {
-                        cursor_state.ctrl_down = state.ctrl();
-                        cursor_state.shift_down = state.shift();
+                        cursor_state.state = state;
                     }
                     WindowEvent::CursorEntered { .. } => cursor_state.inside = true,
                     WindowEvent::CursorLeft { .. } => cursor_state.inside = false,
@@ -393,7 +392,7 @@ impl Window {
                             // We only want to handle input if we're not on top of interacting with imgui
 
                             // Ctrl+LClick fires debug ray on pixel
-                            if cursor_state.ctrl_down
+                            if cursor_state.state.ctrl()
                                 && button == MouseButton::Left
                                 && state == ElementState::Pressed
                             {
@@ -415,9 +414,12 @@ impl Window {
                                 }
                             }
 
-                            // TODO: Make this work on a touchpad
-                            if button == MouseButton::Middle && state == ElementState::Pressed {
-                                if cursor_state.shift_down {
+                            if mouse_gesture.is_none()
+                                && (button == MouseButton::Middle
+                                    || (button == MouseButton::Left && cursor_state.state.alt()))
+                                && state == ElementState::Pressed
+                            {
+                                if cursor_state.state.shift() {
                                     mouse_gesture = Some(MouseGesture {
                                         start_position: cursor_state.position,
                                         current_position: cursor_state.position,
@@ -433,7 +435,7 @@ impl Window {
                             }
                         }
 
-                        if state == ElementState::Released {
+                        if mouse_gesture.is_some() && state == ElementState::Released {
                             mouse_gesture = None;
                         }
                     }
@@ -448,8 +450,7 @@ impl Window {
 struct CursorState {
     inside: bool,
     position: Vec2<f64>,
-    ctrl_down: bool,
-    shift_down: bool,
+    state: glutin::event::ModifiersState,
 }
 
 impl Default for CursorState {
@@ -457,8 +458,7 @@ impl Default for CursorState {
         Self {
             inside: false,
             position: Vec2::from(0.0),
-            ctrl_down: false,
-            shift_down: false,
+            state: glutin::event::ModifiersState::default(),
         }
     }
 }
