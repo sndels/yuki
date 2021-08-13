@@ -61,6 +61,7 @@ pub enum RayType {
     Direct,
     Reflection,
     Refraction,
+    Normal,
 }
 
 // Public interface for scene integrators.

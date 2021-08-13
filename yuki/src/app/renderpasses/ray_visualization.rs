@@ -37,6 +37,7 @@ impl RayVisualization {
                 RayType::Direct => [1.0, 1.0, 1.0],
                 RayType::Reflection => [1.0, 0.0, 0.0],
                 RayType::Refraction => [0.0, 1.0, 0.0],
+                RayType::Normal => [0.0, 0.0, 1.0],
             };
             let p0 = ray.o;
             let p1 = ray.o + ray.d.normalized() * ray.t_max;
