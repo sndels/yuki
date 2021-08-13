@@ -75,12 +75,23 @@ impl Integrator for Whitted {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
         let mut collected_rays: Option<Vec<IntegratorRay>> = None;
+        let max_scene_dim = {
+            let bounds = scene.bvh.bounds();
+            let i = bounds.maximum_extent();
+            bounds.p_max[i] - bounds.p_min[i]
+        };
         let (incoming_radiance, ray_count) = if let Some(Hit { si, t, .. }) = hit {
             if collect_rays {
-                collected_rays = Some(vec![IntegratorRay {
-                    ray: Ray::new(ray.o, ray.d, t),
-                    ray_type: RayType::Direct,
-                }]);
+                collected_rays = Some(vec![
+                    IntegratorRay {
+                        ray: Ray::new(ray.o, ray.d, t),
+                        ray_type: RayType::Direct,
+                    },
+                    IntegratorRay {
+                        ray: Ray::new(si.p, si.n.into(), max_scene_dim / 10.0),
+                        ray_type: RayType::Normal,
+                    },
+                ]);
             }
 
             let mut ray_count = 1;
