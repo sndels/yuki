@@ -168,10 +168,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(552.8, 0.0, 0.0),
-                        Point3::new(549.6, 0.0, 559.2),
                         Point3::new(0.0, 0.0, 559.2),
+                        Point3::new(549.6, 0.0, 559.2),
+                        Point3::new(552.8, 0.0, 0.0),
+                        Point3::new(0.0, 0.0, 0.0),
                     ],
                 )),
                 // Ceiling
@@ -190,10 +190,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 0.0, 559.2),
-                        Point3::new(549.6, 0.0, 559.2),
-                        Point3::new(556.0, 548.8, 559.2),
                         Point3::new(0.0, 548.8, 559.2),
+                        Point3::new(556.0, 548.8, 559.2),
+                        Point3::new(549.6, 0.0, 559.2),
+                        Point3::new(0.0, 0.0, 559.2),
                     ],
                 )),
                 // Right wall
@@ -201,10 +201,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(0.0, 0.0, 559.2),
-                        Point3::new(0.0, 548.8, 559.2),
                         Point3::new(0.0, 548.8, 0.0),
+                        Point3::new(0.0, 548.8, 559.2),
+                        Point3::new(0.0, 0.0, 559.2),
+                        Point3::new(0.0, 0.0, 0.0),
                     ],
                 )),
                 // Left wall

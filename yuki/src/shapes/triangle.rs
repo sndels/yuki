@@ -150,8 +150,9 @@ impl Shape for Triangle {
 
         // Geometry normal, flip for backface hits
         let mut n = Normal::from(dp02.cross(dp12).normalized());
-        // TODO: Handle in material since this defines in/out refraction
-        n = if ray.d.dot_n(n) < 0.0 { n } else { -n };
+        if self.mesh.transform_swaps_handedness {
+            n = -n;
+        }
 
         // TODO: Shading geometry
 
