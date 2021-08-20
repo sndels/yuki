@@ -47,7 +47,7 @@ impl Whitted {
             RadianceResult {
                 li: Vec3::from(0.0),
                 ray_scene_intersections: 0,
-                rays: None,
+                rays: Vec::new(),
             }
         } else {
             // TODO: Do color/spectrum class for this math
@@ -74,24 +74,34 @@ impl Integrator for Whitted {
 
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
-        let mut collected_rays: Option<Vec<IntegratorRay>> = None;
-        let max_scene_dim = {
+        let min_debug_ray_length = {
             let bounds = scene.bvh.bounds();
             let i = bounds.maximum_extent();
-            bounds.p_max[i] - bounds.p_min[i]
+            (bounds.p_max[i] - bounds.p_min[i]) / 10.0
+        };
+        let mut collected_rays: Vec<IntegratorRay> = if collect_rays {
+            vec![IntegratorRay {
+                ray: Ray::new(
+                    ray.o,
+                    ray.d,
+                    scene
+                        .bvh
+                        .bounds()
+                        .intersections(ray)
+                        .map_or(min_debug_ray_length, |(_, t_max)| t_max),
+                ),
+                ray_type: RayType::Direct,
+            }]
+        } else {
+            Vec::new()
         };
         let (incoming_radiance, ray_count) = if let Some(Hit { si, t, .. }) = hit {
             if collect_rays {
-                collected_rays = Some(vec![
-                    IntegratorRay {
-                        ray: Ray::new(ray.o, ray.d, t),
-                        ray_type: RayType::Direct,
-                    },
-                    IntegratorRay {
-                        ray: Ray::new(si.p, si.n.into(), max_scene_dim / 10.0),
-                        ray_type: RayType::Normal,
-                    },
-                ]);
+                collected_rays[0].ray.t_max = t;
+                collected_rays.push(IntegratorRay {
+                    ray: Ray::new(si.p, si.n.into(), min_debug_ray_length),
+                    ray_type: RayType::Normal,
+                });
             }
 
             let mut ray_count = 1;
@@ -109,18 +119,19 @@ impl Integrator for Whitted {
 
             if depth + 1 < self.max_depth {
                 macro_rules! spec {
-                    ($t:expr, $rt:expr) => {
-                        let specular_result =
-                            self.specular_contribution(&si, scene, depth, $t, collect_rays);
-                        sum_li += specular_result.li;
-                        ray_count += specular_result.ray_scene_intersections;
-                        if let Some(rays) = &mut collected_rays {
-                            if let Some(mut spec_rays) = specular_result.rays {
-                                spec_rays[0].ray_type = $rt;
-                                rays.append(&mut spec_rays);
-                            }
+                    ($t:expr, $rt:expr) => {{
+                        let RadianceResult {
+                            li,
+                            ray_scene_intersections,
+                            mut rays,
+                        } = self.specular_contribution(&si, scene, depth, $t, collect_rays);
+                        sum_li += li;
+                        ray_count += ray_scene_intersections;
+                        if !rays.is_empty() {
+                            rays[0].ray_type = $rt;
+                            collected_rays.append(&mut rays);
                         }
-                    };
+                    }};
                 }
                 spec!(BxdfType::REFLECTION, RayType::Reflection);
                 spec!(BxdfType::TRANSMISSION, RayType::Refraction);

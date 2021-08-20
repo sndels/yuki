@@ -46,7 +46,7 @@ impl Default for IntegratorType {
 pub struct RadianceResult {
     pub li: Vec3<f32>,
     pub ray_scene_intersections: usize,
-    pub rays: Option<Vec<IntegratorRay>>,
+    pub rays: Vec<IntegratorRay>,
 }
 
 #[derive(Debug)]

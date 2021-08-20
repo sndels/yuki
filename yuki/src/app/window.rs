@@ -710,7 +710,7 @@ fn launch_debug_ray(
             let integrator = scene_integrator.instantiate();
 
             let result = integrator.li(ray, scene, 0, true);
-            result.rays
+            Some(result.rays)
         }
     } else {
         yuki_info!("main_loop: Window px is outside the film");
