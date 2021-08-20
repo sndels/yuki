@@ -104,13 +104,12 @@ fn main() {
     }));
 
     match parse_settings() {
-        Ok((settings, out_path)) => {
-            if let Some(path) = out_path {
-                app::headless::render(&path, settings);
-            } else {
-                let window = app::Window::new("yuki", (1920, 1080), settings);
-                window.main_loop();
-            }
+        Ok((settings, Some(out_path))) => {
+            app::headless::render(&out_path, settings);
+        }
+        Ok((settings, None)) => {
+            let window = app::Window::new("yuki", (1920, 1080), settings);
+            window.main_loop();
         }
         Err(why) => {
             panic!("Parsing CLI arguments failed: {}", why);
