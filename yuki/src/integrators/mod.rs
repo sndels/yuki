@@ -49,6 +49,16 @@ pub struct RadianceResult {
     pub rays: Vec<IntegratorRay>,
 }
 
+impl Default for RadianceResult {
+    fn default() -> Self {
+        Self {
+            li: Vec3::from(0.0),
+            ray_scene_intersections: 0,
+            rays: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct IntegratorRay {
     pub ray: Ray<f32>,

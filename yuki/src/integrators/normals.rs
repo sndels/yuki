@@ -24,7 +24,7 @@ impl Integrator for Normals {
         RadianceResult {
             li: color,
             ray_scene_intersections: ray_count,
-            rays: Vec::new(),
+            ..RadianceResult::default()
         }
     }
 }

@@ -44,11 +44,7 @@ impl Whitted {
             .unwrap()
             .sample_f(si.wo, BxdfType::SPECULAR | ray_type);
         if sample_type == BxdfType::NONE {
-            RadianceResult {
-                li: Vec3::from(0.0),
-                ray_scene_intersections: 0,
-                rays: Vec::new(),
-            }
+            RadianceResult::default()
         } else {
             // TODO: Do color/spectrum class for this math
             fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
