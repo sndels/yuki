@@ -25,7 +25,10 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
   - Relaunch on most relevant setting changes
 - EXR export for the raw values or tone mapped output
   - [HDRView](https://github.com/wkjarosz/hdrview) is snappy for inspection and diffs
-
+- Basic mouse control for camera
+  - Trackball, planar track, dolly
+  - Adapted from [Max Liani](https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/)
+- Rasterized debug rays
 
 ### Renderer
 - Tile-based rendering
@@ -35,12 +38,18 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
     - Not separately cleared when film clear is disabled to minimize lag
 - BVH
 - Integrator abstraction
-  - Whitted for direct diffuse lighting
-  - Debug integrators
+  - Whitted
+    - Direct diffuse lighting
+    - Mirror specular reflections and transmission
+  - Normals debug
+  - BVH intersections debug
 - Stratified sampling
 - Light types
   - Point
   - Spot
+- Material types (pbrt's Material/BSDF/BxDF abstraction)
+  - Matte
+  - Glass
 
 ### Scene formats (partially) supported
   - [PLY](http://paulbourke.net/dataformats/ply/)
