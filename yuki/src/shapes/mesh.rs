@@ -10,6 +10,7 @@ pub struct Mesh {
     pub indices: Vec<usize>,
     /// Points in world space
     pub points: Vec<Point3<f32>>,
+    pub transform_swaps_handedness: bool,
 }
 
 impl Mesh {
@@ -27,6 +28,7 @@ impl Mesh {
             object_to_world: object_to_world.clone(),
             indices,
             points,
+            transform_swaps_handedness: object_to_world.swaps_handedness(),
         }
     }
 }
