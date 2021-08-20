@@ -1,3 +1,4 @@
+use approx::relative_ne;
 use glium::Surface;
 use glutin::{
     dpi::LogicalSize,
@@ -607,14 +608,17 @@ fn handle_scroll_event(
             MouseScrollDelta::PixelDelta(delta) => delta.y as f32,
         };
 
-        let offset = fwd * scroll * scroll_scale;
+        let offset = CameraOffset {
+            position: fwd * scroll * scroll_scale,
+            ..CameraOffset::default()
+        };
 
-        // TODO: This still goes to zero, I'm dumb and floats are hard
-        if dist_target - offset.len() > 0.01 {
-            *camera_offset = Some(CameraOffset {
-                position: offset,
-                ..CameraOffset::default()
-            });
+        if relative_ne!(
+            offset.apply(camera_params).position,
+            camera_params.target,
+            max_relative = 0.01
+        ) {
+            *camera_offset = Some(offset);
         }
     }
 }
