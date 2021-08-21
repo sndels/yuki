@@ -1,7 +1,7 @@
 use super::{Integrator, IntegratorRay, RadianceResult, RayType};
 use crate::{
     bvh::IntersectionResult,
-    interaction::SurfaceInteraction,
+    interaction::{Interaction, SurfaceInteraction},
     materials::{BxdfSample, BxdfType},
     math::{Ray, Vec3},
     scene::Scene,
@@ -51,7 +51,7 @@ impl Whitted {
                 Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
             }
 
-            let refl = si.spawn_ray(wi);
+            let refl = Interaction::from(si).spawn_ray(wi);
 
             let mut ret = self.li(refl, scene, depth + 1, collect_rays);
             ret.li = mul(f, ret.li) * wi.dot_n(si.n).abs();

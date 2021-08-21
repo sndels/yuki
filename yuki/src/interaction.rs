@@ -2,10 +2,42 @@ use crate::{
     materials::Bsdf,
     math::{Normal, Point3, Ray, Transform, Vec3},
 };
-use std::ops::Mul;
+use std::{convert::From, ops::Mul};
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Interactions#SurfaceInteraction
+
+pub struct Interaction {
+    pub p: Point3<f32>,
+    pub n: Normal<f32>,
+}
+
+impl Default for Interaction {
+    fn default() -> Self {
+        Self {
+            p: Point3::from(0.0),
+            n: Normal::new(0.0, 0.0, 1.0),
+        }
+    }
+}
+
+impl Interaction {
+    /// Spawns a ray from the `SurfaceInteraction` toward `d`.
+    pub fn spawn_ray(&self, d: Vec3<f32>) -> Ray<f32> {
+        let o = {
+            // TODO: Base offset on p error
+            let n = Vec3::from(self.n);
+            let offset = n * 0.001;
+            if d.dot(n) > 0.0 {
+                self.p + offset
+            } else {
+                self.p - offset
+            }
+            // TODO: Round away from p
+        };
+        Ray::new(o, d, f32::INFINITY)
+    }
+}
 
 // Info for a point on a surface
 pub struct SurfaceInteraction {
@@ -45,22 +77,6 @@ impl SurfaceInteraction {
             bsdf: None,
         }
     }
-
-    /// Spawns a ray from the `SurfaceInteraction` toward `d`.
-    pub fn spawn_ray(&self, d: Vec3<f32>) -> Ray<f32> {
-        let o = {
-            // TODO: Base offset on p error
-            let n = Vec3::from(self.n);
-            let offset = n * 0.001;
-            if d.dot(n) > 0.0 {
-                self.p + offset
-            } else {
-                self.p - offset
-            }
-            // TODO: Round away from p
-        };
-        Ray::new(o, d, f32::INFINITY)
-    }
 }
 
 impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
@@ -75,5 +91,11 @@ impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
             n: self * other.n,
             bsdf: other.bsdf,
         }
+    }
+}
+
+impl From<&SurfaceInteraction> for Interaction {
+    fn from(si: &SurfaceInteraction) -> Self {
+        Self { p: si.p, n: si.n }
     }
 }
