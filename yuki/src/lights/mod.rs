@@ -4,7 +4,7 @@ mod spot_light;
 pub use point_light::PointLight;
 pub use spot_light::SpotLight;
 
-use crate::{interaction::SurfaceInteraction, math::Vec3};
+use crate::{interaction::SurfaceInteraction, math::Vec3, visibility::VisibilityTester};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Light_Sources/Light_Interface.html#Light
@@ -13,6 +13,7 @@ use crate::{interaction::SurfaceInteraction, math::Vec3};
 pub struct LightSample {
     pub l: Vec3<f32>,
     pub li: Vec3<f32>,
+    pub vis: Option<VisibilityTester>,
 }
 
 pub trait Light: Send + Sync {

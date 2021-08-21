@@ -1,7 +1,8 @@
 use super::{Light, LightSample};
 use crate::{
-    interaction::SurfaceInteraction,
+    interaction::{Interaction, SurfaceInteraction},
     math::{Point3, Transform, Vec3},
+    visibility::VisibilityTester,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -30,6 +31,14 @@ impl Light for PointLight {
         let dist = dist_sqr.sqrt();
         let l = to_light / dist;
 
-        LightSample { l, li }
+        let vis = Some(VisibilityTester::new(
+            Interaction::from(si),
+            Interaction {
+                p: self.p,
+                ..Interaction::default()
+            },
+        ));
+
+        LightSample { l, li, vis }
     }
 }

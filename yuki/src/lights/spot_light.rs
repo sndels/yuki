@@ -1,7 +1,8 @@
 use super::{Light, LightSample};
 use crate::{
-    interaction::SurfaceInteraction,
+    interaction::{Interaction, SurfaceInteraction},
     math::{Point3, Transform, Vec3},
+    visibility::VisibilityTester,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -57,6 +58,18 @@ impl Light for SpotLight {
         let l = to_light / dist;
         let li = self.i * self.falloff(l) / dist_sqr;
 
-        LightSample { l, li }
+        let vis = if li == Vec3::from(0.0) {
+            None
+        } else {
+            Some(VisibilityTester::new(
+                Interaction::from(si),
+                Interaction {
+                    p: self.p,
+                    ..Interaction::default()
+                },
+            ))
+        };
+
+        LightSample { l, li, vis }
     }
 }
