@@ -30,6 +30,6 @@ impl Light for PointLight {
         let dist = dist_sqr.sqrt();
         let l = to_light / dist;
 
-        LightSample { l, dist, li }
+        LightSample { l, li }
     }
 }

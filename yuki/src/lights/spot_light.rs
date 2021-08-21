@@ -57,6 +57,6 @@ impl Light for SpotLight {
         let l = to_light / dist;
         let li = self.i * self.falloff(l) / dist_sqr;
 
-        LightSample { l, dist, li }
+        LightSample { l, li }
     }
 }
