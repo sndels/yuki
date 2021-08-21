@@ -27,7 +27,7 @@ use crate::{
     film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Vec2, Vec3},
-    renderer::{RenderTaskPayload, Renderer},
+    renderer::Renderer,
     samplers::SamplerSettings,
     scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
@@ -129,13 +129,12 @@ impl Window {
         let mut render_triggered = false;
         let mut any_item_active = false;
         let mut ui_hovered = false;
+        // Boxed so we can drop this at will to kill the background threads
         let mut renderer = Renderer::new();
         let mut status_messages: Option<Vec<String>> = None;
         let mut cursor_state = CursorState::default();
         let mut mouse_gesture: Option<MouseGesture> = None;
         let mut camera_offset: Option<CameraOffset> = None;
-
-        let mut match_logical_cores = true;
 
         event_loop.run(move |event, _, control_flow| {
             let gl_window = display.gl_window();
@@ -161,16 +160,17 @@ impl Window {
                         let film_ref_count = Arc::strong_count(&film);
                         let mut messages = Vec::new();
                         if film_ref_count > 1 {
+                            // Film is held by UI and each render worker
+                            // The render manager will also hold a ref while messaging workers
+                            // so this will also briefly flash a count with an extra thread
                             messages
-                                .push(format!("Render threads running: {}", film_ref_count - 2));
-                        }
-                        if renderer.is_winding_down() {
-                            messages.push("Render winding down".into());
+                                .push(format!("Render threads running: {}", film_ref_count - 1));
                         }
                         status_messages = Some(messages);
                     }
 
                     if load_settings.path.exists() {
+                        renderer.kill();
                         match try_load_scene(&load_settings) {
                             Ok((new_scene, new_camera_params, total_secs)) => {
                                 scene = new_scene;
@@ -196,7 +196,6 @@ impl Window {
                         &mut scene_integrator,
                         &mut tone_map_type,
                         &mut load_settings,
-                        &mut match_logical_cores,
                         &scene,
                         renderer.is_active(),
                         &status_messages,
@@ -224,24 +223,19 @@ impl Window {
                         // Need replace since the thread handle needs to be moved out
                         yuki_trace!("main_loop: Checking for an existing render job");
 
-                        if renderer.has_finished_or_kill() {
-                            yuki_info!("main_loop: Launching render job");
-                            // Make sure film matches settings
-                            // This leaves the previous film hanging until all threads have dropped it
-                            film = film_or_new(&film, film_settings);
-                            renderer.launch(
-                                RenderTaskPayload {
-                                    scene: Arc::clone(&scene),
-                                    camera_params: active_camera_params,
-                                    film: Arc::clone(&film),
-                                    sampler_settings: sampler_settings,
-                                    integrator: scene_integrator,
-                                    film_settings: film_settings,
-                                },
-                                match_logical_cores,
-                            );
-                            render_triggered = false;
-                        }
+                        yuki_info!("main_loop: Launching render job");
+                        // Make sure film matches settings
+                        // This leaves the previous film hanging until all threads have dropped it
+                        film = film_or_new(&film, film_settings);
+                        renderer.launch(
+                            Arc::clone(&scene),
+                            active_camera_params,
+                            Arc::clone(&film),
+                            sampler_settings,
+                            scene_integrator,
+                            film_settings,
+                        );
+                        render_triggered = false;
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
                         if let Some(result) = renderer.check_result() {

@@ -115,6 +115,10 @@ impl Film {
 
     /// Returns `true` if `tile` belongs to this `Film` and is from the same generation.
     pub fn matches(&self, tile: &FilmTile) -> bool {
+        if self.id != tile.film_id {
+            // Since tiles and their film go hand in hand, this should never happen
+            panic!("Tile-Film ID mismatch");
+        }
         self.id == tile.film_id && self.generation == tile.generation
     }
 
