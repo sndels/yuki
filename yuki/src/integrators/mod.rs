@@ -71,6 +71,7 @@ pub enum RayType {
     Reflection,
     Refraction,
     Normal,
+    Shadow,
 }
 
 // Public interface for scene integrators.

@@ -2,6 +2,7 @@ use super::{Integrator, IntegratorRay, RadianceResult, RayType};
 use crate::{
     bvh::IntersectionResult,
     interaction::{Interaction, SurfaceInteraction},
+    lights::LightSample,
     materials::{BxdfSample, BxdfType},
     math::{Ray, Vec3},
     scene::Scene,
@@ -102,15 +103,23 @@ impl Integrator for Whitted {
 
             let mut ray_count = 1;
             let mut sum_li = scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
-                let light_sample = l.sample_li(&si);
-                // TODO: Trace light visibility
-                c + mul(
-                    si.bsdf
-                        .as_ref()
-                        .unwrap()
-                        .f(si.wo, light_sample.l, BxdfType::all()),
-                    light_sample.li,
-                ) * si.n.dot_v(light_sample.l).clamp(0.0, 1.0)
+                let LightSample { l, li, vis } = l.sample_li(&si);
+                if li != Vec3::from(0.0) {
+                    // TODO: Trace light visibility
+                    let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                    if let Some(test) = vis {
+                        if collect_rays {
+                            collected_rays.push(IntegratorRay {
+                                ray: test.ray(),
+                                ray_type: RayType::Shadow,
+                            });
+                        }
+                        if f != Vec3::from(0.0) && test.unoccluded(scene) {
+                            return c + mul(f, li) * si.n.dot_v(l).clamp(0.0, 1.0);
+                        }
+                    }
+                }
+                c
             });
 
             if depth + 1 < self.max_depth {
