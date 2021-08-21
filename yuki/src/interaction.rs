@@ -37,6 +37,25 @@ impl Interaction {
         };
         Ray::new(o, d, f32::INFINITY)
     }
+
+    /// Spawns a ray from this `SurfaceInteraction` toward another one.
+    /// Note that the ray direction is not normalized.
+    pub fn spawn_ray_to(&self, other: &Interaction) -> Ray<f32> {
+        let o = {
+            // TODO: Base offset on p error
+            let n = Vec3::from(self.n);
+            let offset = n * 0.001;
+            if (other.p - self.p).dot(n) > 0.0 {
+                self.p + offset
+            } else {
+                self.p - offset
+            }
+            // TODO: Round away from p
+        };
+        // NOTE: This is not normalized
+        let d = other.p - o;
+        Ray::new(o, d, 0.9999)
+    }
 }
 
 // Info for a point on a surface
