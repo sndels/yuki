@@ -37,13 +37,14 @@ pub struct FilmTile {
     pub bb: Bounds2<u16>,
     /// Pixel values in this tile stored in row-major RGB order.
     pub pixels: Vec<Vec3<f32>>,
-    // Generation of this tile. Used to verify inputs in update_tile.
+    // Generation of this tile.
     generation: u64,
+    film_id: u32,
 }
 
 impl FilmTile {
     /// Creates a new `FilmTile` with the given [Bounds2].
-    pub fn new(bb: Bounds2<u16>, generation: u64) -> Self {
+    pub fn new(bb: Bounds2<u16>, generation: u64, film_id: u32) -> Self {
         let width = (bb.p_max.x - bb.p_min.x) as usize;
         let height = (bb.p_max.y - bb.p_min.y) as usize;
 
@@ -51,6 +52,7 @@ impl FilmTile {
             bb,
             pixels: vec![Vec3::zeros(); width * height],
             generation,
+            film_id,
         }
     }
 }
@@ -63,8 +65,10 @@ pub struct Film {
     pixels: Vec<Vec3<f32>>,
     // Indicator for changed pixel values.
     dirty: bool,
-    // Generation of the pixel buffer and tiles in flight. Used to verify inputs in update_tile.
+    // Generation of the pixel buffer and tiles in flight.
     generation: u64,
+    // Random identifier for the film itself.
+    id: u32,
     // Cached tiles for the current pixel buffer, in correct order for rendering
     // Also store the dimension of the cached tiles
     cached_tiles: Option<(u16, VecDeque<FilmTile>)>,
@@ -78,6 +82,7 @@ impl Film {
             pixels: vec![Vec3::zeros(); (res.x as usize) * (res.y as usize)],
             dirty: true,
             generation: 0,
+            id: rand::random::<u32>(),
             cached_tiles: None,
         }
     }
@@ -90,6 +95,11 @@ impl Film {
     /// Returns the generation of the current pixel buffer and corresponding tiles.
     pub fn generation(&self) -> u64 {
         self.generation
+    }
+
+    /// Returns the ID of this `Film`.
+    pub fn id(&self) -> u32 {
+        self.id
     }
 
     /// Returns the generation of the current pixel buffer and corresponding tiles.
@@ -175,6 +185,15 @@ impl Film {
             return;
         }
 
+        if tile.film_id != self.id {
+            yuki_warn!(
+                "update_tile: Tile's film id {} doesn't match self id {}",
+                tile.film_id,
+                self.id
+            );
+            return;
+        }
+
         let tile_min = tile.bb.p_min;
         let tile_max = tile.bb.p_max;
 
@@ -217,11 +236,17 @@ impl Default for Film {
             dirty: true,
             generation: 0,
             cached_tiles: None,
+            id: rand::random::<u32>(),
         }
     }
 }
 
-fn generate_tiles(res: Vec2<u16>, tile_dim: u16, film_gen: u64) -> HashMap<(u16, u16), FilmTile> {
+fn generate_tiles(
+    res: Vec2<u16>,
+    tile_dim: u16,
+    film_gen: u64,
+    film_id: u32,
+) -> HashMap<(u16, u16), FilmTile> {
     // Collect tiles spanning the whole image hashed by their tile coordinates
     let mut tiles = HashMap::new();
     let dim = tile_dim;
@@ -237,6 +262,7 @@ fn generate_tiles(res: Vec2<u16>, tile_dim: u16, film_gen: u64) -> HashMap<(u16,
                 FilmTile::new(
                     Bounds2::new(Point2::new(i, j), Point2::new(max_x, max_y)),
                     film_gen,
+                    film_id,
                 ),
             );
         }
@@ -343,8 +369,15 @@ pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeq
         tiles
     } else {
         yuki_trace!("film_tiles: Generating new tiles");
-        let generation = film.lock().unwrap().generation();
-        let tiles = generate_tiles(settings.res, settings.tile_dim, generation);
+        let (generation, id) = {
+            yuki_trace!("film_tiles: Waiting for lock on film");
+            let film = film.lock().unwrap();
+            yuki_trace!("film_tiles: Acquired film");
+
+            yuki_trace!("film_tiles: Releasing film");
+            (film.generation(), film.id())
+        };
+        let tiles = generate_tiles(settings.res, settings.tile_dim, generation, id);
 
         yuki_trace!("film_tiles: Ordering tiles");
         // Order tiles in a spiral from middle since that makes the visualisation more snappy:
