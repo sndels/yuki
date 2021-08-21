@@ -92,6 +92,11 @@ impl Film {
         self.generation
     }
 
+    /// Returns the generation of the current pixel buffer and corresponding tiles.
+    fn move_generation(&mut self) {
+        self.generation += 1;
+    }
+
     /// Returns a reference to the the pixels of this `Film`.
     pub fn pixels(&self) -> &Vec<Vec3<f32>> {
         &self.pixels
@@ -131,24 +136,6 @@ impl Film {
         // Tile size is always at most the full resolution
         let dim = tiles[0].bb.diagonal().x;
         self.cached_tiles = Some((dim, tiles.clone()));
-    }
-
-    /// Resizes this `Film` according to `settings`.
-    /// Note that this invalidates any tiles still held to the `Film`.
-    fn resize(&mut self, settings: FilmSettings) {
-        assert!(settings.res.x >= settings.tile_dim && settings.res.y >= settings.tile_dim);
-
-        // Bump generation for tile verification.
-        self.generation += 1;
-
-        self.res = settings.res;
-        let pixel_count = (settings.res.x as usize) * (settings.res.y as usize);
-
-        if self.pixels.len() != pixel_count || settings.clear {
-            self.pixels = vec![Vec3::from(0.0); pixel_count];
-            self.cached_tiles = None;
-            self.dirty = true;
-        }
     }
 
     /// Circles the given tile in this `Film` with a pixel border of `color`.
@@ -304,28 +291,46 @@ fn outward_spiral(
     tile_queue
 }
 
-/// Resizes the `Film` according to current `settings` if necessary and returns [FilmTile]s for rendering.
-/// [FilmTile]s from previous calls should no longer be used.
+pub fn film_or_new(film: &Arc<Mutex<Film>>, settings: FilmSettings) -> Arc<Mutex<Film>> {
+    yuki_trace!("film_or_new: Waiting for lock on film (res)");
+    let film_res = film.lock().unwrap().res();
+    yuki_trace!("film_or_new: Acquired and released film (res)");
+
+    if settings.clear || film_res != settings.res {
+        assert!(
+            settings.res.x >= settings.tile_dim && settings.res.y >= settings.tile_dim,
+            "Film resolution is smaller than tile size"
+        );
+
+        yuki_trace!("film_or_new: Creating new film");
+
+        let new_film = Arc::new(Mutex::new(Film::new(settings.res)));
+        yuki_trace!("film_or_new: Releasing film");
+        new_film
+    } else {
+        yuki_trace!("film_or_new: Waiting for lock on film (move_generation)");
+        film.lock().unwrap().move_generation();
+        yuki_trace!("film_or_new: Acquired and released film (move_generation)");
+
+        yuki_debug!(
+            "film_or_new: New film generation {}",
+            film.lock().unwrap().generation()
+        );
+
+        Arc::clone(film)
+    }
+}
+
+/// Generates [FilmTile]s for rendering.
 pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeque<FilmTile> {
     yuki_debug!("film_tiles: Begin");
-    // Only lock the film for the duration of resizing
-    let film_gen = {
-        yuki_trace!("film_tiles: Waiting for lock on film");
-        let mut film = film.lock().unwrap();
-        yuki_trace!("film_tiles: Acquired film");
-
-        yuki_trace!("film_tiles: Resizing film");
-        film.resize(settings);
-        let gen = film.generation();
-
-        yuki_trace!("film_tiles: Releasing film");
-        gen
-    };
 
     let tiles = {
         yuki_trace!("film_tiles: Waiting for lock on film");
         let film = film.lock().unwrap();
         yuki_trace!("film_tiles: Acquired film");
+
+        assert!(film.res() == settings.res, "Film does not match settings");
 
         yuki_trace!("film_tiles: Checking for cached tiles");
         let tiles = film.cached_tiles(settings.tile_dim);
@@ -338,7 +343,8 @@ pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeq
         tiles
     } else {
         yuki_trace!("film_tiles: Generating new tiles");
-        let tiles = generate_tiles(settings.res, settings.tile_dim, film_gen);
+        let generation = film.lock().unwrap().generation();
+        let tiles = generate_tiles(settings.res, settings.tile_dim, generation);
 
         yuki_trace!("film_tiles: Ordering tiles");
         // Order tiles in a spiral from middle since that makes the visualisation more snappy:

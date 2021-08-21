@@ -24,7 +24,7 @@ use super::{
 use crate::{
     camera::{Camera, CameraParameters, CameraSample, FoV},
     expect,
-    film::{Film, FilmSettings},
+    film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Vec2, Vec3},
     renderer::Renderer,
@@ -116,7 +116,7 @@ impl Window {
             mut film_settings,
             mut scene_integrator,
             mut sampler_settings,
-            film,
+            mut film,
             mut scene,
             mut tone_map_type,
             mut load_settings,
@@ -226,6 +226,9 @@ impl Window {
 
                         if renderer.has_finished_or_kill() {
                             yuki_info!("main_loop: Launching render job");
+                            // Make sure film matches settings
+                            // This leaves the previous film hanging until all threads have dropped it
+                            film = film_or_new(&film, film_settings);
                             renderer.launch(
                                 Arc::clone(&scene),
                                 active_camera_params,
