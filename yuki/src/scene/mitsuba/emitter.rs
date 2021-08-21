@@ -152,7 +152,7 @@ fn parse_spot_light<T: std::io::Read>(
     });
 
     // Mitsuba's +X is to the left of +Z, ours to the right of it
-    light_to_world = &light_to_world * &scale(-1.0, 1.0, 1.0);
+    light_to_world = &scale(-1.0, 1.0, 1.0) * &light_to_world;
 
     Ok(Arc::new(SpotLight::new(
         &light_to_world,
