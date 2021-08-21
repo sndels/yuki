@@ -26,6 +26,7 @@ mod renderer;
 mod samplers;
 mod scene;
 mod shapes;
+mod visibility;
 
 use app::{FilmicParams, HeatmapParams, ToneMapType};
 use math::Vec2;
