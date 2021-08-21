@@ -41,7 +41,7 @@ impl RayVisualization {
                 RayType::Shadow => [1.0, 1.0, 0.0],
             };
             let p0 = ray.o;
-            let p1 = ray.o + ray.d.normalized() * ray.t_max;
+            let p1 = ray.o + ray.d * ray.t_max;
             vertices.push(Vertex {
                 position: [p0.x, p0.y, p0.z],
                 color,
