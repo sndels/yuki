@@ -171,6 +171,67 @@ impl BoundingVolumeHierarchy {
         }
     }
 
+    /// Checks if`ray` intersects with any of the shapes in this `BoundingVolumeHierarchy`.
+    pub fn any_intersect(&self, ray: Ray<f32>) -> bool {
+        // Pre-calculated to speed up Bounds3 intersection tests
+        let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
+
+        let mut current_node_index = 0;
+        // to_visit_index points to the next index to access in to_visit_stack
+        let mut to_visit_index = 0;
+        let mut to_visit_stack = [0; 64];
+        loop {
+            let node = self.nodes[current_node_index];
+            if node.bounds.intersect(ray, inv_dir) {
+                match node.content {
+                    NodeContent::Interior {
+                        second_child_index,
+                        split_axis,
+                    } => {
+                        // Traverse children front to back
+                        if inv_dir[split_axis as usize] < 0.0 {
+                            to_visit_stack[to_visit_index] = current_node_index + 1;
+                            to_visit_index += 1;
+                            current_node_index = second_child_index as usize;
+                        } else {
+                            to_visit_stack[to_visit_index] = second_child_index as usize;
+                            to_visit_index += 1;
+                            current_node_index += 1;
+                        }
+                    }
+                    NodeContent::Leaf {
+                        first_shape_index,
+                        shape_count,
+                    } => {
+                        let shape_range = (first_shape_index as usize)
+                            ..((first_shape_index + (shape_count as u32)) as usize);
+                        for shape in &self.shapes[shape_range] {
+                            if shape.intersect(ray).is_some() {
+                                return true;
+                            }
+                        }
+
+                        if to_visit_index == 0 {
+                            break;
+                        }
+
+                        to_visit_index -= 1;
+                        current_node_index = to_visit_stack[to_visit_index];
+                    }
+                    NodeContent::Uninitialized => unreachable!(),
+                }
+            } else {
+                if to_visit_index == 0 {
+                    break;
+                }
+                to_visit_index -= 1;
+                current_node_index = to_visit_stack[to_visit_index];
+            }
+        }
+
+        false
+    }
+
     /// Builds the node structure as a [BVHBuildNode]-tree.
     fn recursive_build(
         &mut self,
