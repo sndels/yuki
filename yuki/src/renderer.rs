@@ -43,14 +43,14 @@ pub struct RenderResult {
 }
 
 struct RenderTask {
-    pub tx_task: Option<Sender<usize>>,
+    pub tx_task: Option<Sender<Option<RenderTaskPayload>>>,
     pub rx_task: Receiver<RenderResult>,
     pub handle: JoinHandle<()>,
 }
 
 impl RenderTask {
     pub fn new(
-        tx_task: Option<Sender<usize>>,
+        tx_task: Option<Sender<Option<RenderTaskPayload>>>,
         rx_task: Receiver<RenderResult>,
         handle: JoinHandle<()>,
     ) -> Self {
@@ -173,7 +173,7 @@ impl Renderer {
                                 yuki_debug!(
                                     "has_finished_or_kill: Sending kill command to the render job"
                                 );
-                                let _ = tx.send(0);
+                                let _ = tx.send(None);
                             }
                             // Keep handles to continue polling until the thread has stopped
                             self.render_task = Some(RenderTask::new(None, rx_task, handle));
@@ -219,7 +219,7 @@ impl Drop for Renderer {
         }) = task
         {
             if let Some(tx) = tx_task {
-                let _ = tx.send(0);
+                let _ = tx.send(None);
             }
             handle.join().unwrap();
         }
@@ -228,7 +228,7 @@ impl Drop for Renderer {
 
 fn launch_render(
     to_parent: Sender<RenderResult>,
-    from_parent: Receiver<usize>,
+    from_parent: Receiver<Option<RenderTaskPayload>>,
     mut payload: RenderTaskPayload,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
@@ -240,74 +240,101 @@ fn launch_render(
             &mut payload.film,
             payload.film_settings,
         )));
-        let camera = Camera::new(payload.camera_params, payload.film_settings);
-        let sampler = Arc::new(create_sampler(payload.sampler_settings));
 
-        yuki_trace!("Render: Launch threads");
-        let render_start = Instant::now();
-        let thread_count = if match_logical_cores {
-            num_cpus::get()
-        } else {
-            num_cpus::get_physical()
-        };
-        let (child_send, from_children) = channel();
-        let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
-            .map(|i| {
-                let (to_child, child_receive) = channel();
-                let child_send = child_send.clone();
-                let payload = RenderThreadPayload {
-                    tiles: Arc::clone(&tiles),
-                    camera: camera.clone(),
-                    scene: Arc::clone(&payload.scene),
-                    integrator_type: payload.integrator,
-                    sampler: Arc::clone(&sampler),
-                    film: Arc::clone(&payload.film),
-                };
-                (
-                    i,
-                    (
-                        to_child,
-                        std::thread::spawn(move || {
-                            render(i, &child_send, &child_receive, payload);
-                        }),
-                    ),
-                )
-            })
-            .collect();
-
-        // Wait for children to finish
+        let mut render_start = Instant::now();
         let mut ray_count = 0;
-        while !children.is_empty() {
-            if from_parent.try_recv().is_ok() {
-                yuki_debug!("Render: Killed by parent");
-                break;
-            }
+        // We might get a new payload and push new tiles
+        while {
+            let tiles = &tiles.lock().unwrap();
+            !tiles.is_empty()
+        } {
+            let camera = Camera::new(payload.camera_params, payload.film_settings);
+            let sampler = Arc::new(create_sampler(payload.sampler_settings));
 
-            if let Ok((thread_id, rays)) = from_children.try_recv() {
-                yuki_trace!("Render: Join {}", thread_id);
-                let (_, child) = children.remove(&thread_id).unwrap();
-                child.join().unwrap();
-                yuki_trace!("Render: {} terminated", thread_id);
-                ray_count += rays;
+            yuki_trace!("Render: Launch threads");
+            render_start = Instant::now();
+            let thread_count = if match_logical_cores {
+                num_cpus::get()
             } else {
+                num_cpus::get_physical()
+            };
+            let (child_send, from_children) = channel();
+            let mut children: HashMap<usize, (Sender<usize>, JoinHandle<_>)> = (0..thread_count)
+                .map(|i| {
+                    let (to_child, child_receive) = channel();
+                    let child_send = child_send.clone();
+                    let payload = RenderThreadPayload {
+                        tiles: Arc::clone(&tiles),
+                        camera: camera.clone(),
+                        scene: Arc::clone(&payload.scene),
+                        integrator_type: payload.integrator,
+                        sampler: Arc::clone(&sampler),
+                        film: Arc::clone(&payload.film),
+                    };
+                    (
+                        i,
+                        (
+                            to_child,
+                            std::thread::spawn(move || {
+                                render(i, &child_send, &child_receive, payload);
+                            }),
+                        ),
+                    )
+                })
+                .collect();
+
+            // Wait for children to finish
+            ray_count = 0;
+            while !children.is_empty() {
+                let mut received_new_payload = false;
+                if let Ok(msg) = from_parent.try_recv() {
+                    match msg {
+                        Some(new_payload) => {
+                            yuki_debug!("Render: Received new payload");
+                            payload = new_payload;
+
+                            let mut tiles = tiles.lock().unwrap();
+                            *tiles = film_tiles(&mut payload.film, payload.film_settings);
+                            received_new_payload = true;
+                        }
+                        None => {
+                            yuki_debug!("Render: Killed by parent");
+                        }
+                    }
+                }
+
+                while let Ok((thread_id, rays)) = from_children.try_recv() {
+                    yuki_trace!("Render: Join {}", thread_id);
+                    let (_, child) = children.remove(&thread_id).unwrap();
+                    child.join().unwrap();
+                    yuki_trace!("Render: {} terminated", thread_id);
+                    ray_count += rays;
+                }
+
+                // Let's wait for remaining threads if most have already finished
+                // instead of running full render on the few that remain
+                if received_new_payload && children.len() <= thread_count / 2 {
+                    break;
+                }
+
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
-        }
 
-        // Kill children after being killed
-        if !children.is_empty() {
-            // Kill everyone first
-            for (tx, _) in children.values() {
-                // No need to check for error, child having disconnected, since that's our goal
-                let _ = tx.send(0);
-            }
-            // Wait for everyone to end
-            for (thread_id, (_, child)) in children {
-                // This message might not be from the same child, but we don't really care as long as
-                // every child notifies us
-                from_children.recv().unwrap();
-                child.join().unwrap();
-                yuki_debug!("Render: {} terminated", thread_id);
+            // Kill children after being killed
+            if !children.is_empty() {
+                // Kill everyone first
+                for (tx, _) in children.values() {
+                    // No need to check for error, child having disconnected, since that's our goal
+                    let _ = tx.send(0);
+                }
+                // Wait for everyone to end
+                for (thread_id, (_, child)) in children {
+                    // This message might not be from the same child, but we don't really care as long as
+                    // every child notifies us
+                    from_children.recv().unwrap();
+                    child.join().unwrap();
+                    yuki_debug!("Render: {} terminated", thread_id);
+                }
             }
         }
 
