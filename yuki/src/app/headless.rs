@@ -7,7 +7,7 @@ use crate::{
     expect,
     film::Film,
     math::Vec3,
-    renderer::{RenderResult, Renderer},
+    renderer::{RenderResult, RenderTaskPayload, Renderer},
     yuki_info,
 };
 use glium::backend::glutin::headless::Headless;
@@ -25,12 +25,14 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
     let film = Arc::new(Mutex::new(Film::new(settings.film_settings.res)));
     let mut renderer = Renderer::new();
     renderer.launch(
-        scene,
-        camera_params,
-        Arc::clone(&film),
-        settings.sampler_settings,
-        settings.scene_integrator,
-        settings.film_settings,
+        RenderTaskPayload {
+            scene: scene,
+            camera_params: camera_params,
+            film: Arc::clone(&film),
+            sampler_settings: settings.sampler_settings,
+            integrator: settings.scene_integrator,
+            film_settings: settings.film_settings,
+        },
         true,
     );
 

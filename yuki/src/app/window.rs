@@ -27,7 +27,7 @@ use crate::{
     film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Vec2, Vec3},
-    renderer::Renderer,
+    renderer::{RenderTaskPayload, Renderer},
     samplers::SamplerSettings,
     scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
@@ -230,12 +230,14 @@ impl Window {
                             // This leaves the previous film hanging until all threads have dropped it
                             film = film_or_new(&film, film_settings);
                             renderer.launch(
-                                Arc::clone(&scene),
-                                active_camera_params,
-                                Arc::clone(&film),
-                                sampler_settings,
-                                scene_integrator,
-                                film_settings,
+                                RenderTaskPayload {
+                                    scene: Arc::clone(&scene),
+                                    camera_params: active_camera_params,
+                                    film: Arc::clone(&film),
+                                    sampler_settings: sampler_settings,
+                                    integrator: scene_integrator,
+                                    film_settings: film_settings,
+                                },
                                 match_logical_cores,
                             );
                             render_triggered = false;

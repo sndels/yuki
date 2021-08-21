@@ -18,6 +18,24 @@ use crate::{
     yuki_debug, yuki_error, yuki_info, yuki_trace, yuki_warn,
 };
 
+pub struct RenderTaskPayload {
+    pub scene: Arc<Scene>,
+    pub camera_params: CameraParameters,
+    pub film: Arc<Mutex<Film>>,
+    pub sampler_settings: SamplerSettings,
+    pub integrator: IntegratorType,
+    pub film_settings: FilmSettings,
+}
+
+struct RenderThreadPayload {
+    pub tiles: Arc<Mutex<VecDeque<FilmTile>>>,
+    pub camera: Camera,
+    pub scene: Arc<Scene>,
+    pub integrator_type: IntegratorType,
+    pub sampler: Arc<dyn Sampler>,
+    pub film: Arc<Mutex<Film>>,
+}
+
 #[derive(Copy, Clone)]
 pub struct RenderResult {
     pub secs: f32,
@@ -179,32 +197,13 @@ impl Renderer {
     }
 
     /// Launch render task.
-    pub fn launch(
-        &mut self,
-        scene: Arc<Scene>,
-        camera_params: CameraParameters,
-        film: Arc<Mutex<Film>>,
-        sampler_settings: SamplerSettings,
-        integrator: IntegratorType,
-        film_settings: FilmSettings,
-        match_logical_cores: bool,
-    ) {
+    pub fn launch(&mut self, payload: RenderTaskPayload, match_logical_cores: bool) {
         let (to_render, render_rx) = channel();
         let (render_tx, from_render) = channel();
 
         yuki_trace!("launch: Launching render job");
 
-        let render_thread = launch_render(
-            render_tx,
-            render_rx,
-            scene,
-            camera_params,
-            film,
-            integrator,
-            create_sampler(sampler_settings),
-            film_settings,
-            match_logical_cores,
-        );
+        let render_thread = launch_render(render_tx, render_rx, payload, match_logical_cores);
 
         yuki_info!("launch: Render job launched");
 
@@ -230,21 +229,19 @@ impl Drop for Renderer {
 fn launch_render(
     to_parent: Sender<RenderResult>,
     from_parent: Receiver<usize>,
-    scene: Arc<Scene>,
-    camera_params: CameraParameters,
-    mut film: Arc<Mutex<Film>>,
-    integrator: IntegratorType,
-    sampler: Arc<dyn Sampler>,
-    film_settings: FilmSettings,
+    mut payload: RenderTaskPayload,
     match_logical_cores: bool,
 ) -> JoinHandle<()> {
-    let camera = Camera::new(camera_params, film_settings);
-
     std::thread::spawn(move || {
         yuki_debug!("Render: Begin");
         yuki_trace!("Render: Getting tiles");
         // Get tiles, resizes film if necessary
-        let tiles = Arc::new(Mutex::new(film_tiles(&mut film, film_settings)));
+        let tiles = Arc::new(Mutex::new(film_tiles(
+            &mut payload.film,
+            payload.film_settings,
+        )));
+        let camera = Camera::new(payload.camera_params, payload.film_settings);
+        let sampler = Arc::new(create_sampler(payload.sampler_settings));
 
         yuki_trace!("Render: Launch threads");
         let render_start = Instant::now();
@@ -258,27 +255,20 @@ fn launch_render(
             .map(|i| {
                 let (to_child, child_receive) = channel();
                 let child_send = child_send.clone();
-                let tiles = Arc::clone(&tiles);
-                let camera = camera.clone();
-                let scene = Arc::clone(&scene);
-                let film = Arc::clone(&film);
-                let sampler = Arc::clone(&sampler);
+                let payload = RenderThreadPayload {
+                    tiles: Arc::clone(&tiles),
+                    camera: camera.clone(),
+                    scene: Arc::clone(&payload.scene),
+                    integrator_type: payload.integrator,
+                    sampler: Arc::clone(&sampler),
+                    film: Arc::clone(&payload.film),
+                };
                 (
                     i,
                     (
                         to_child,
                         std::thread::spawn(move || {
-                            render(
-                                i,
-                                &child_send,
-                                &child_receive,
-                                &tiles,
-                                &scene,
-                                &camera,
-                                integrator,
-                                &sampler,
-                                &film,
-                            );
+                            render(i, &child_send, &child_receive, payload);
                         }),
                     ),
                 )
@@ -334,13 +324,16 @@ fn render(
     thread_id: usize,
     to_parent: &Sender<(usize, usize)>,
     from_parent: &Receiver<usize>,
-    tiles: &Arc<Mutex<VecDeque<FilmTile>>>,
-    scene: &Arc<Scene>,
-    camera: &Camera,
-    integrator_type: IntegratorType,
-    sampler: &Arc<dyn Sampler>,
-    film: &Arc<Mutex<Film>>,
+    payload: RenderThreadPayload,
 ) {
+    let RenderThreadPayload {
+        tiles,
+        camera,
+        scene,
+        integrator_type,
+        sampler,
+        film,
+    } = payload;
     yuki_debug!("Render thread {}: Begin", thread_id);
 
     let mut rays = 0;
@@ -372,7 +365,7 @@ fn render(
         yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
         let mut terminated_early = false;
         let integrator = integrator_type.instantiate();
-        rays += integrator.render(scene, camera, sampler, &mut tile, &mut || {
+        rays += integrator.render(&scene, &camera, &sampler, &mut tile, &mut || {
             // Let's have low latency kills for more interactive view
             if from_parent.try_recv().is_ok() {
                 yuki_debug!("Render thread {}: Killed by parent", thread_id);
