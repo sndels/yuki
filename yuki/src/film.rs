@@ -93,16 +93,6 @@ impl Film {
     }
 
     /// Returns the generation of the current pixel buffer and corresponding tiles.
-    pub fn generation(&self) -> u64 {
-        self.generation
-    }
-
-    /// Returns the ID of this `Film`.
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    /// Returns the generation of the current pixel buffer and corresponding tiles.
     fn move_generation(&mut self) {
         self.generation += 1;
     }
@@ -338,7 +328,7 @@ pub fn film_or_new(film: &Arc<Mutex<Film>>, settings: FilmSettings) -> Arc<Mutex
 
         yuki_debug!(
             "film_or_new: New film generation {}",
-            film.lock().unwrap().generation()
+            film.lock().unwrap().generation
         );
 
         Arc::clone(film)
@@ -373,7 +363,7 @@ pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeq
             yuki_trace!("film_tiles: Acquired film");
 
             yuki_trace!("film_tiles: Releasing film");
-            (film.generation(), film.id())
+            (film.generation, film.id)
         };
         let tiles = generate_tiles(settings.res, settings.tile_dim, generation, id);
 
