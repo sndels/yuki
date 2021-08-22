@@ -123,6 +123,11 @@ impl Film {
         self.dirty
     }
 
+    /// Returns `true` if `tile` belongs to this `Film` and is from the same generation.
+    pub fn matches(&self, tile: &FilmTile) -> bool {
+        self.id == tile.film_id && self.generation == tile.generation
+    }
+
     /// Returns blank `FilmTile`s for the buffer pixel with if they have been cached in the correct dimension.
     /// The returned tiles will be in the current generation.
     fn cached_tiles(&self, dim: u16) -> Option<VecDeque<FilmTile>> {
@@ -176,20 +181,13 @@ impl Film {
 
     /// Updates this `Film` with the pixel values in a [`FilmTile`].
     pub fn update_tile(&mut self, tile: &FilmTile) {
-        if tile.generation != self.generation {
+        if !self.matches(tile) {
             yuki_warn!(
-                "update_tile: Tile generation {} doesn't match film generation {}",
-                tile.generation,
-                self.generation
-            );
-            return;
-        }
-
-        if tile.film_id != self.id {
-            yuki_warn!(
-                "update_tile: Tile's film id {} doesn't match self id {}",
+                "update_tile: Tile {}:{} doesn't match film {}:{}",
                 tile.film_id,
-                self.id
+                tile.generation,
+                self.id,
+                self.generation
             );
             return;
         }
