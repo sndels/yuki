@@ -31,6 +31,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
         settings.sampler_settings,
         settings.scene_integrator,
         settings.film_settings,
+        false,
     );
 
     let (w, h, pixels) = match renderer.wait_result() {

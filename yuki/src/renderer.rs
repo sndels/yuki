@@ -124,6 +124,7 @@ impl Renderer {
         sampler_settings: SamplerSettings,
         integrator: IntegratorType,
         film_settings: FilmSettings,
+        mark_tiles: bool,
     ) {
         self.render_id += 1;
 
@@ -146,6 +147,7 @@ impl Renderer {
             sampler_settings,
             integrator,
             film_settings,
+            mark_tiles,
         })) {
             Ok(_) => {
                 self.render_in_progress = true;
@@ -249,6 +251,7 @@ fn launch_manager(
                             integrator_type: payload.integrator,
                             sampler: Arc::clone(&sampler),
                             film: Arc::clone(&payload.film),
+                            mark_tiles: payload.mark_tiles,
                         };
 
                         if let Err(SendError { .. }) = tx.send(Some(payload)) {
@@ -375,13 +378,15 @@ fn launch_worker(
                 assert!(payload.is_some(), "Active tile without payload");
 
                 let payload = payload.as_ref().unwrap();
-                yuki_trace!("Render thread {}: Mark tile {:?}", thread_id, tile.bb);
-                {
+                if payload.mark_tiles {
+                    yuki_trace!("Render thread {}: Mark tile {:?}", thread_id, tile.bb);
                     yuki_trace!("Render thread {}: Waiting for lock on film", thread_id);
                     let mut film = payload.film.lock().unwrap();
                     yuki_trace!("Render thread {}: Acquired film", thread_id);
 
-                    film.mark(&tile, Vec3::new(1.0, 0.0, 1.0));
+                    if film.matches(&tile) {
+                        film.mark(&tile, Vec3::new(1.0, 0.0, 1.0));
+                    }
 
                     yuki_trace!("Render thread {}: Releasing film", thread_id);
                 }
@@ -452,6 +457,7 @@ struct RenderManagerPayload {
     sampler_settings: SamplerSettings,
     integrator: IntegratorType,
     film_settings: FilmSettings,
+    mark_tiles: bool,
 }
 
 struct RenderThreadPayload {
@@ -462,6 +468,7 @@ struct RenderThreadPayload {
     integrator_type: IntegratorType,
     sampler: Arc<dyn Sampler>,
     film: Arc<Mutex<Film>>,
+    mark_tiles: bool,
 }
 
 impl Deref for RenderThreadPayload {

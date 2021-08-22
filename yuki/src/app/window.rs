@@ -135,6 +135,7 @@ impl Window {
         let mut cursor_state = CursorState::default();
         let mut mouse_gesture: Option<MouseGesture> = None;
         let mut camera_offset: Option<CameraOffset> = None;
+        let mut mark_tiles = false;
 
         event_loop.run(move |event, _, control_flow| {
             let gl_window = display.gl_window();
@@ -196,6 +197,7 @@ impl Window {
                         &mut scene_integrator,
                         &mut tone_map_type,
                         &mut load_settings,
+                        &mut mark_tiles,
                         &scene,
                         renderer.is_active(),
                         &status_messages,
@@ -234,6 +236,7 @@ impl Window {
                             sampler_settings,
                             scene_integrator,
                             film_settings,
+                            mark_tiles,
                         );
                         render_triggered = false;
                     } else {

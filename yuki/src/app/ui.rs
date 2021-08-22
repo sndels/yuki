@@ -105,6 +105,7 @@ impl UI {
         scene_integrator: &mut IntegratorType,
         tone_map_type: &mut ToneMapType,
         load_settings: &mut SceneLoadSettings,
+        mark_tiles: &mut bool,
         scene: &Arc<Scene>,
         render_in_progress: bool,
         status_messages: &Option<Vec<String>>,
@@ -147,6 +148,9 @@ impl UI {
                 ui.spacing();
 
                 generate_tone_map_settings(&ui, tone_map_type);
+                ui.spacing();
+
+                ui.checkbox(im_str!("Mark work tiles"), mark_tiles);
                 ui.spacing();
 
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
