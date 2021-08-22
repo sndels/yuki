@@ -22,7 +22,7 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
     - Single channel or luminance
     - Dynamic fitting of min,max
 - ~Non-blocking rendering
-  - Relaunch on most relevant setting changes
+  - Relevant ui changes cause a new render task
 - EXR export for the raw values or tone mapped output
   - [HDRView](https://github.com/wkjarosz/hdrview) is snappy for inspection and diffs
 - Basic mouse control for camera
@@ -40,6 +40,7 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
 - Integrator abstraction
   - Whitted
     - Direct diffuse lighting
+    - Shadows
     - Mirror specular reflections and transmission
   - Normals debug
   - BVH intersections debug
