@@ -23,7 +23,7 @@ mod macros;
 mod materials;
 mod math;
 mod renderer;
-mod samplers;
+mod sampling;
 mod scene;
 mod shapes;
 mod visibility;

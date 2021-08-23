@@ -19,7 +19,7 @@ use crate::{
     film::FilmSettings,
     integrators::{IntegratorType, WhittedParams},
     math::Vec2,
-    samplers::SamplerSettings,
+    sampling::SamplerSettings,
     scene::{Scene, SceneLoadSettings},
     yuki_error,
 };

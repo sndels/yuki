@@ -14,7 +14,7 @@ use crate::{
     film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::IntegratorType,
     math::Vec3,
-    samplers::{create_sampler, Sampler, SamplerSettings},
+    sampling::{create_sampler, Sampler, SamplerSettings},
     scene::Scene,
     yuki_debug, yuki_error, yuki_trace,
 };

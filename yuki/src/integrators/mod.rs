@@ -12,7 +12,7 @@ use crate::{
     camera::{Camera, CameraSample},
     film::FilmTile,
     math::{Point2, Ray, Vec2, Vec3},
-    samplers::Sampler,
+    sampling::Sampler,
     scene::Scene,
 };
 

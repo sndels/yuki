@@ -8,7 +8,7 @@ pub use renderpasses::{FilmicParams, HeatmapParams, ToneMapType};
 pub use window::Window;
 
 use crate::{
-    film::FilmSettings, integrators::IntegratorType, math::Vec2, samplers::SamplerSettings,
+    film::FilmSettings, integrators::IntegratorType, math::Vec2, sampling::SamplerSettings,
     scene::SceneLoadSettings,
 };
 

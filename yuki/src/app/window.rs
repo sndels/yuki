@@ -28,7 +28,7 @@ use crate::{
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Vec2, Vec3},
     renderer::Renderer,
-    samplers::SamplerSettings,
+    sampling::SamplerSettings,
     scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
 };
