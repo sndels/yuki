@@ -95,7 +95,7 @@ pub trait Integrator {
         // Of course, this is useful only for debug but the init hit is miniscule in comparison to render time
         let mut sampler = sampler
             .as_ref()
-            .clone(((tile.bb.p_min.x as u64) << 32) & (tile.bb.p_min.y as u64));
+            .clone(((tile.bb.p_min.x as u64) << 32) | (tile.bb.p_min.y as u64));
 
         let mut ray_count = 0;
         for p in tile.bb {
