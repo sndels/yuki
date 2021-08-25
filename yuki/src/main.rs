@@ -29,6 +29,7 @@ mod shapes;
 mod visibility;
 
 use app::{FilmicParams, HeatmapParams, ToneMapType};
+use integrators::{IntegratorType, WhittedParams};
 use math::Vec2;
 use std::{path::PathBuf, str::FromStr};
 
@@ -37,16 +38,19 @@ Yuki
 USAGE:
   yuki [OPTIONS]
 FLAGS:
-  -h, --help               Prints help information
+  -h, --help                  Prints help information
 OPTIONS:
-  --out=FILE               Path for EXR output
-  --scene=FILE             Path to scene file to load
-  --resolution=X,Y         Resolution to render at (default 640,480)
-  --integrator=TYPE        Integrator to use
-  --tonemap=TYPE,ARGS,...  Tonemap to use along with its settings
-                           Filmic,[EXPOSURE]\n
-                           Heatmap,[CHANNEL],[MIN],[MAX]
-                           Heatmap,[CHANNEL]  This uses min, max of the output
+  --out=FILE                  Path for EXR output
+  --scene=FILE                Path to scene file to load
+  --resolution=X,Y            Resolution to render at (default 640,480)
+  --integrator=TYPE,ARGS,...  Integrator to use
+                              Whitted,[MAX_DEPTH]
+                              Normals,
+                              BVHIntersections
+  --tonemap=TYPE,ARGS,...     Tonemap to use along with its settings
+                              Filmic,[EXPOSURE]
+                              Heatmap,[CHANNEL],[MIN],[MAX]
+                              Heatmap,[CHANNEL]  This uses min, max of the output
 ";
 // TODO: Headless output with given EXR name, raw/tonemapped output
 
@@ -171,8 +175,8 @@ fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args
         settings.film_settings.res = resolution;
     };
 
-    if let Some(integrator) = pargs.opt_value_from_str::<&'static str, String>("--integrator")? {
-        settings.scene_integrator = parse_enum(&integrator, "Unknown integrator type")?;
+    if let Some(integrator) = pargs.opt_value_from_fn("--integrator", parse_integrator)? {
+        settings.scene_integrator = integrator;
     }
 
     if let Some(tone_map) = pargs.opt_value_from_fn("--tonemap", parse_tone_map)? {
@@ -193,6 +197,21 @@ fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {
             cause: "Expected --resolution X,Y".into(),
         })
     }
+}
+
+fn parse_integrator(s: &str) -> Result<IntegratorType, pico_args::Error> {
+    let strs = s.split(',').collect::<Vec<&str>>();
+
+    let mut integrator = parse_enum(strs[0], "Unknown integraotor type")?;
+
+    match &mut integrator {
+        IntegratorType::Whitted(WhittedParams { ref mut max_depth }) => {
+            *max_depth = parse_num(strs[1], "Invalid max depth")?;
+        }
+        IntegratorType::Normals | IntegratorType::BVHIntersections => (),
+    }
+
+    Ok(integrator)
 }
 
 fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
