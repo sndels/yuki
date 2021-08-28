@@ -1,12 +1,18 @@
 mod stratified;
+mod uniform;
 
 pub use stratified::StratifiedSampler;
+pub use uniform::UniformSampler;
 
 use crate::math::{Point2, Vec2, Vec3};
 use std::sync::Arc;
+use strum::{EnumString, EnumVariantNames, ToString};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
 pub enum SamplerSettings {
+    UniformSampler {
+        pixel_samples: u32,
+    },
     StratifiedSampler {
         pixel_samples: Vec2<u16>,
         symmetric_dimensions: bool,
@@ -15,13 +21,21 @@ pub enum SamplerSettings {
 }
 
 pub fn create_sampler(settings: SamplerSettings, n_sampled_dimensions: usize) -> Arc<dyn Sampler> {
-    Arc::new(match settings {
+    match settings {
         SamplerSettings::StratifiedSampler {
             pixel_samples,
             jitter_samples,
             ..
-        } => StratifiedSampler::new(pixel_samples, jitter_samples, n_sampled_dimensions),
-    })
+        } => Arc::new(StratifiedSampler::new(
+            pixel_samples,
+            jitter_samples,
+            n_sampled_dimensions,
+        )),
+        SamplerSettings::UniformSampler { pixel_samples } => Arc::new(UniformSampler::new(
+            pixel_samples as u32,
+            n_sampled_dimensions,
+        )),
+    }
 }
 
 // Based on Physically Based Rendering 3rd ed.

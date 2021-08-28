@@ -253,6 +253,21 @@ fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, sp
 }
 
 /// Returns `true` if the value was changed.
+fn u32_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u32, min: u32, max: u32, speed: f32) -> bool {
+    let mut vi = *v as i64;
+
+    let value_changed = imgui::Drag::new(label)
+        .range((min as i64)..=(max as i64))
+        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+        .speed(speed)
+        .build(ui, &mut vi);
+
+    *v = u32::try_from(vi).unwrap();
+
+    value_changed
+}
+
+/// Returns `true` if the value was changed.
 fn vec2_u16_picker(
     ui: &imgui::Ui,
     label: &ImStr,
@@ -316,12 +331,23 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
 /// Returns `true` if `sampler_settings` was changed.
 fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerSettings) -> bool {
     let mut changed = false;
-
     imgui::TreeNode::new(im_str!("Sampler"))
         .default_open(true)
         .build(ui, || {
-            // TODO: Sampler picker
+            changed |= enum_combo_box(ui, im_str!("Sampler"), sampler_settings);
             match sampler_settings {
+                SamplerSettings::UniformSampler { pixel_samples } => {
+                    let width = ui.push_item_width(118.0);
+                    changed |= u32_picker(
+                        ui,
+                        im_str!("Pixel extent samples"),
+                        pixel_samples,
+                        1,
+                        (MAX_SAMPLES * MAX_SAMPLES) as u32,
+                        1.0,
+                    );
+                    width.pop(ui);
+                }
                 SamplerSettings::StratifiedSampler {
                     pixel_samples,
                     symmetric_dimensions,
