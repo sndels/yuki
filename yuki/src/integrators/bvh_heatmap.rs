@@ -2,6 +2,7 @@ use super::{Integrator, RadianceResult};
 use crate::{
     bvh::IntersectionResult,
     math::{Ray, Vec3},
+    sampling::Sampler,
     scene::Scene,
 };
 
@@ -11,7 +12,14 @@ use crate::{
 pub struct BVHIntersections {}
 
 impl Integrator for BVHIntersections {
-    fn li(&self, ray: Ray<f32>, scene: &Scene, _: u32, _: bool) -> RadianceResult {
+    fn li(
+        &self,
+        ray: Ray<f32>,
+        scene: &Scene,
+        _depth: u32,
+        _sampler: &mut Box<dyn Sampler>,
+        _collect_rays: bool,
+    ) -> RadianceResult {
         let IntersectionResult {
             hit,
             intersection_test_count,

@@ -5,6 +5,7 @@ use crate::{
     lights::LightSample,
     materials::{BxdfSample, BxdfType},
     math::{Ray, Vec3},
+    sampling::Sampler,
     scene::Scene,
     shapes::Hit,
 };
@@ -36,10 +37,13 @@ impl Whitted {
         si: &SurfaceInteraction,
         scene: &Scene,
         depth: u32,
+        sampler: &mut Box<dyn Sampler>,
         ray_type: BxdfType,
         collect_rays: bool,
     ) -> RadianceResult {
-        let BxdfSample { wi, f, sample_type } = si
+        let BxdfSample {
+            wi, f, sample_type, ..
+        } = si
             .bsdf
             .as_ref()
             .unwrap()
@@ -54,7 +58,7 @@ impl Whitted {
 
             let refl = Interaction::from(si).spawn_ray(wi);
 
-            let mut ret = self.li(refl, scene, depth + 1, collect_rays);
+            let mut ret = self.li(refl, scene, depth + 1, sampler, collect_rays);
             ret.li = mul(f, ret.li) * wi.dot_n(si.n).abs();
 
             ret
@@ -63,7 +67,14 @@ impl Whitted {
 }
 
 impl Integrator for Whitted {
-    fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32, collect_rays: bool) -> RadianceResult {
+    fn li(
+        &self,
+        ray: Ray<f32>,
+        scene: &Scene,
+        depth: u32,
+        sampler: &mut Box<dyn Sampler>,
+        collect_rays: bool,
+    ) -> RadianceResult {
         // TODO: Do color/spectrum class for this math
         fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
             Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
@@ -129,7 +140,14 @@ impl Integrator for Whitted {
                             li,
                             ray_scene_intersections,
                             mut rays,
-                        } = self.specular_contribution(&si, scene, depth, $t, collect_rays);
+                        } = self.specular_contribution(
+                            &si,
+                            scene,
+                            depth,
+                            sampler,
+                            $t,
+                            collect_rays,
+                        );
                         sum_li += li;
                         ray_count += ray_scene_intersections;
                         if !rays.is_empty() {

@@ -78,7 +78,14 @@ pub enum RayType {
 pub trait Integrator {
     /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.
     /// If called with `collect_rays` true, populates the list of rays launched.
-    fn li(&self, ray: Ray<f32>, scene: &Scene, depth: u32, collect_rays: bool) -> RadianceResult;
+    fn li(
+        &self,
+        ray: Ray<f32>,
+        scene: &Scene,
+        depth: u32,
+        sampler: &mut Box<dyn Sampler>,
+        collect_rays: bool,
+    ) -> RadianceResult;
 
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
@@ -112,7 +119,7 @@ pub trait Integrator {
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = self.li(ray, scene, 0, false);
+                let result = self.li(ray, scene, 0, &mut sampler, false);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

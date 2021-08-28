@@ -29,6 +29,7 @@ use crate::{
     math::{transforms::rotation, Point2, Vec2, Vec3},
     renderer::Renderer,
     sampling::SamplerSettings,
+    sampling::{Sampler, StratifiedSampler},
     scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
 };
@@ -709,13 +710,19 @@ fn launch_debug_ray(
 
         // TODO: Use the active scene integrator instead, add evaluated rays as return data?
         {
-            let p_film = Point2::new(film_px.x as f32, film_px.y as f32) + Vec2::new(0.5, 0.5);
-
-            let ray = camera.ray(&CameraSample { p_film });
+            let p_film = Point2::new(film_px.x as f32, film_px.y as f32);
 
             let integrator = scene_integrator.instantiate();
+            let mut sampler: Box<dyn Sampler> =
+                Box::new(StratifiedSampler::new(Vec2::from(1), false, 1));
+            sampler.start_pixel();
+            sampler.start_sample();
 
-            let result = integrator.li(ray, scene, 0, true);
+            let ray = camera.ray(&CameraSample {
+                p_film: p_film + sampler.get_2d(),
+            });
+
+            let result = integrator.li(ray, scene, 0, &mut sampler, true);
             Some(result.rays)
         }
     } else {
