@@ -14,13 +14,13 @@ pub enum SamplerSettings {
     },
 }
 
-pub fn create_sampler(settings: SamplerSettings) -> Arc<dyn Sampler> {
+pub fn create_sampler(settings: SamplerSettings, n_sampled_dimensions: usize) -> Arc<dyn Sampler> {
     Arc::new(match settings {
         SamplerSettings::StratifiedSampler {
             pixel_samples,
             jitter_samples,
             ..
-        } => StratifiedSampler::new(pixel_samples, jitter_samples),
+        } => StratifiedSampler::new(pixel_samples, jitter_samples, n_sampled_dimensions),
     })
 }
 
