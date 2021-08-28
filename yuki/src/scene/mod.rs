@@ -253,7 +253,7 @@ impl Scene {
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
 
         let light = Arc::new(PointLight::new(
-            &translation(Vec3::new(288.0, 547.0, -279.0)),
+            &translation(Vec3::new(288.0, 500.0, -279.0)),
             Vec3::from(240_000.0),
         ));
 
