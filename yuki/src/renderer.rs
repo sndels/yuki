@@ -226,7 +226,10 @@ fn launch_manager(
 
                 if let Some(mut payload) = payload {
                     let camera = Camera::new(payload.camera_params, payload.film_settings);
-                    let sampler = Arc::new(create_sampler(payload.sampler_settings, 1));
+                    let sampler = Arc::new(create_sampler(
+                        payload.sampler_settings,
+                        1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
+                    ));
 
                     // TODO: This would be faster as a proper batch queues with work stealing,
                     //       though the gains are likely only seen on interactive "frame rates"

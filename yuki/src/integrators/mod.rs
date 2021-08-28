@@ -40,6 +40,15 @@ impl IntegratorType {
             IntegratorType::Normals => Box::new(Normals {}),
         }
     }
+
+    pub fn n_sampled_dimensions(self) -> usize {
+        match self {
+            IntegratorType::Path(PathParams { max_depth }) => (max_depth.max(1) - 1) as usize, // Bounce dir per bounce
+            IntegratorType::Whitted(_)
+            | IntegratorType::BVHIntersections
+            | IntegratorType::Normals => 0,
+        }
+    }
 }
 
 impl Default for IntegratorType {

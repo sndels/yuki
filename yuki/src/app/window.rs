@@ -713,8 +713,11 @@ fn launch_debug_ray(
             let p_film = Point2::new(film_px.x as f32, film_px.y as f32);
 
             let integrator = scene_integrator.instantiate();
-            let mut sampler: Box<dyn Sampler> =
-                Box::new(StratifiedSampler::new(Vec2::from(1), false, 1));
+            let mut sampler: Box<dyn Sampler> = Box::new(StratifiedSampler::new(
+                Vec2::from(1),
+                false,
+                1 + scene_integrator.n_sampled_dimensions(), // Camera sample and whatever the sampler needs
+            ));
             sampler.start_pixel();
             sampler.start_sample();
 
