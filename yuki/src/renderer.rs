@@ -14,7 +14,7 @@ use crate::{
     film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::IntegratorType,
     math::Vec3,
-    sampling::{create_sampler, Sampler, SamplerSettings},
+    sampling::{Sampler, SamplerType},
     scene::Scene,
     yuki_debug, yuki_error, yuki_trace,
 };
@@ -121,7 +121,7 @@ impl Renderer {
         scene: Arc<Scene>,
         camera_params: CameraParameters,
         film: Arc<Mutex<Film>>,
-        sampler_settings: SamplerSettings,
+        sampler: SamplerType,
         integrator: IntegratorType,
         film_settings: FilmSettings,
         mark_tiles: bool,
@@ -144,7 +144,7 @@ impl Renderer {
             scene,
             camera_params,
             film,
-            sampler_settings,
+            sampler,
             integrator,
             film_settings,
             mark_tiles,
@@ -226,10 +226,9 @@ fn launch_manager(
 
                 if let Some(mut payload) = payload {
                     let camera = Camera::new(payload.camera_params, payload.film_settings);
-                    let sampler = Arc::new(create_sampler(
-                        payload.sampler_settings,
+                    let sampler = payload.sampler.instantiate(
                         1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
-                    ));
+                    );
 
                     // TODO: This would be faster as a proper batch queues with work stealing,
                     //       though the gains are likely only seen on interactive "frame rates"
@@ -457,7 +456,7 @@ struct RenderManagerPayload {
     scene: Arc<Scene>,
     camera_params: CameraParameters,
     film: Arc<Mutex<Film>>,
-    sampler_settings: SamplerSettings,
+    sampler: SamplerType,
     integrator: IntegratorType,
     film_settings: FilmSettings,
     mark_tiles: bool,

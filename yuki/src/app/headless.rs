@@ -28,7 +28,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
         scene,
         camera_params,
         Arc::clone(&film),
-        settings.sampler_settings,
+        settings.sampler,
         settings.scene_integrator,
         settings.film_settings,
         false,

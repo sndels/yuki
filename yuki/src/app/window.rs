@@ -28,8 +28,8 @@ use crate::{
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Vec2, Vec3},
     renderer::Renderer,
-    sampling::SamplerSettings,
-    sampling::{Sampler, StratifiedSampler},
+    sampling::Sampler,
+    sampling::SamplerType,
     scene::{Scene, SceneLoadSettings},
     yuki_error, yuki_info, yuki_trace,
 };
@@ -45,7 +45,7 @@ pub struct Window {
     film_settings: FilmSettings,
     film: Arc<Mutex<Film>>,
     scene_integrator: IntegratorType,
-    sampler_settings: SamplerSettings,
+    sampler: SamplerType,
 
     // Output
     tone_map_type: ToneMapType,
@@ -98,7 +98,7 @@ impl Window {
             ray_visualization,
             film_settings: settings.film_settings,
             scene_integrator: settings.scene_integrator,
-            sampler_settings: settings.sampler_settings,
+            sampler: settings.sampler,
             film,
             scene: Arc::new(scene),
             tone_map_type: settings.tone_map,
@@ -116,7 +116,7 @@ impl Window {
             mut ray_visualization,
             mut film_settings,
             mut scene_integrator,
-            mut sampler_settings,
+            mut sampler,
             mut film,
             mut scene,
             mut tone_map_type,
@@ -193,7 +193,7 @@ impl Window {
                     let mut frame_ui = ui.generate_frame(
                         window,
                         &mut film_settings,
-                        &mut sampler_settings,
+                        &mut sampler,
                         &mut camera_params,
                         &mut scene_integrator,
                         &mut tone_map_type,
@@ -234,7 +234,7 @@ impl Window {
                             Arc::clone(&scene),
                             active_camera_params,
                             Arc::clone(&film),
-                            sampler_settings,
+                            sampler,
                             scene_integrator,
                             film_settings,
                             mark_tiles,
@@ -408,6 +408,7 @@ impl Window {
                                     &scene,
                                     camera_params,
                                     scene_integrator,
+                                    sampler,
                                 ) {
                                     if let Err(why) = ray_visualization.set_rays(&display, &rays) {
                                         yuki_error!(
@@ -647,6 +648,7 @@ fn launch_debug_ray(
     scene: &Arc<Scene>,
     camera_params: CameraParameters,
     scene_integrator: IntegratorType,
+    sampler: SamplerType,
 ) -> Option<Vec<IntegratorRay>> {
     let window_px = cursor_state.position;
     yuki_info!(
@@ -713,11 +715,12 @@ fn launch_debug_ray(
             let p_film = Point2::new(film_px.x as f32, film_px.y as f32);
 
             let integrator = scene_integrator.instantiate();
-            let mut sampler: Box<dyn Sampler> = Box::new(StratifiedSampler::new(
-                Vec2::from(1),
-                false,
-                1 + scene_integrator.n_sampled_dimensions(), // Camera sample and whatever the sampler needs
-            ));
+            let mut sampler: Box<dyn Sampler> = sampler
+                .instantiate(
+                    1 + scene_integrator.n_sampled_dimensions(), // Camera sample and whatever the sampler needs
+                )
+                .as_ref()
+                .clone(0); // The interface is a bit clunky outside the renderer
             sampler.start_pixel();
             sampler.start_sample();
 

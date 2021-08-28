@@ -4,37 +4,35 @@ mod uniform;
 pub use stratified::StratifiedSampler;
 pub use uniform::UniformSampler;
 
+pub type StratifiedParams = stratified::Params;
+pub type UniformParams = uniform::Params;
+
 use crate::math::{Point2, Vec2, Vec3};
 use std::sync::Arc;
 use strum::{EnumString, EnumVariantNames, ToString};
 
 #[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
-pub enum SamplerSettings {
-    UniformSampler {
-        pixel_samples: u32,
-    },
-    StratifiedSampler {
-        pixel_samples: Vec2<u16>,
-        symmetric_dimensions: bool,
-        jitter_samples: bool,
-    },
+pub enum SamplerType {
+    Uniform(uniform::Params),
+    Stratified(stratified::Params),
 }
 
-pub fn create_sampler(settings: SamplerSettings, n_sampled_dimensions: usize) -> Arc<dyn Sampler> {
-    match settings {
-        SamplerSettings::StratifiedSampler {
-            pixel_samples,
-            jitter_samples,
-            ..
-        } => Arc::new(StratifiedSampler::new(
-            pixel_samples,
-            jitter_samples,
-            n_sampled_dimensions,
-        )),
-        SamplerSettings::UniformSampler { pixel_samples } => Arc::new(UniformSampler::new(
-            pixel_samples as u32,
-            n_sampled_dimensions,
-        )),
+impl SamplerType {
+    pub fn instantiate(self, n_sampled_dimensions: usize) -> Arc<dyn Sampler> {
+        match self {
+            SamplerType::Stratified(params) => {
+                Arc::new(StratifiedSampler::new(params, n_sampled_dimensions))
+            }
+            SamplerType::Uniform(params) => {
+                Arc::new(UniformSampler::new(params, n_sampled_dimensions))
+            }
+        }
+    }
+}
+
+impl Default for SamplerType {
+    fn default() -> Self {
+        SamplerType::Stratified(stratified::Params::default())
     }
 }
 

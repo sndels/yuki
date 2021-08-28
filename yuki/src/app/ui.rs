@@ -19,7 +19,7 @@ use crate::{
     film::FilmSettings,
     integrators::{IntegratorType, PathParams, WhittedParams},
     math::Vec2,
-    sampling::SamplerSettings,
+    sampling::{SamplerType, StratifiedParams, UniformParams},
     scene::{Scene, SceneLoadSettings},
     yuki_error,
 };
@@ -100,7 +100,7 @@ impl UI {
         &mut self,
         window: &glutin::window::Window,
         film_settings: &mut FilmSettings,
-        sampler_settings: &mut SamplerSettings,
+        sampler: &mut SamplerType,
         camera_params: &mut CameraParameters,
         scene_integrator: &mut IntegratorType,
         tone_map_type: &mut ToneMapType,
@@ -137,7 +137,7 @@ impl UI {
                 render_triggered |= generate_film_settings(&ui, film_settings);
                 ui.spacing();
 
-                render_triggered |= generate_sampler_settings(&ui, sampler_settings);
+                render_triggered |= generate_sampler_settings(&ui, sampler);
                 ui.spacing();
 
                 render_triggered |=
@@ -328,15 +328,15 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
     changed
 }
 
-/// Returns `true` if `sampler_settings` was changed.
-fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerSettings) -> bool {
+/// Returns `true` if `sampler` was changed.
+fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> bool {
     let mut changed = false;
     imgui::TreeNode::new(im_str!("Sampler"))
         .default_open(true)
         .build(ui, || {
-            changed |= enum_combo_box(ui, im_str!("Sampler"), sampler_settings);
-            match sampler_settings {
-                SamplerSettings::UniformSampler { pixel_samples } => {
+            changed |= enum_combo_box(ui, im_str!("Sampler"), sampler);
+            match sampler {
+                SamplerType::Uniform(UniformParams { pixel_samples }) => {
                     let width = ui.push_item_width(118.0);
                     changed |= u32_picker(
                         ui,
@@ -348,11 +348,11 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler_settings: &mut SamplerS
                     );
                     width.pop(ui);
                 }
-                SamplerSettings::StratifiedSampler {
+                SamplerType::Stratified(StratifiedParams {
                     pixel_samples,
                     symmetric_dimensions,
                     jitter_samples,
-                } => {
+                }) => {
                     if *symmetric_dimensions {
                         let width = ui.push_item_width(118.0);
                         changed |= u16_picker(

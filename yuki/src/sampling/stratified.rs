@@ -10,6 +10,23 @@ use rand_pcg::Pcg32;
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Stratified_Sampling.html
 
+#[derive(Copy, Clone)]
+pub struct Params {
+    pub pixel_samples: Vec2<u16>,
+    pub symmetric_dimensions: bool,
+    pub jitter_samples: bool,
+}
+
+impl Default for Params {
+    fn default() -> Self {
+        Self {
+            pixel_samples: Vec2::new(1, 1),
+            symmetric_dimensions: true,
+            jitter_samples: true,
+        }
+    }
+}
+
 pub struct StratifiedSampler {
     pixel_samples: Vec2<u16>,
     jitter_samples: bool,
@@ -25,19 +42,16 @@ pub struct StratifiedSampler {
 }
 
 impl StratifiedSampler {
-    pub fn new(
-        pixel_samples: Vec2<u16>,
-        jitter_samples: bool,
-        n_sampled_dimensions: usize,
-    ) -> Self {
+    pub fn new(params: Params, n_sampled_dimensions: usize) -> Self {
         // Known seed for debugging
         // let seed = 0x73B9642E74AC471C;
         // Random seed for normal use
         let seed = rand::thread_rng().gen();
-        let total_pixel_samples = (pixel_samples.x as usize) * (pixel_samples.y as usize);
+        let total_pixel_samples =
+            (params.pixel_samples.x as usize) * (params.pixel_samples.y as usize);
         Self {
-            pixel_samples,
-            jitter_samples,
+            pixel_samples: params.pixel_samples,
+            jitter_samples: params.jitter_samples,
             n_sampled_dimensions,
             current_pixel_sample: 0,
             samples_1d: vec![vec![0.0; total_pixel_samples]; n_sampled_dimensions],
@@ -56,8 +70,11 @@ impl Sampler for StratifiedSampler {
             // Pcg has uncorrelated streams so let's leverage that
             rng: Pcg32::new(self.rng_seed, seed),
             ..Self::new(
-                self.pixel_samples,
-                self.jitter_samples,
+                Params {
+                    pixel_samples: self.pixel_samples,
+                    symmetric_dimensions: false,
+                    jitter_samples: self.jitter_samples,
+                },
                 self.n_sampled_dimensions,
             )
         })
