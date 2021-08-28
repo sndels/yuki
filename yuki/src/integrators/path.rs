@@ -146,6 +146,15 @@ impl Integrator for Path {
                 break;
             };
 
+            // Russian roulette
+            if bounces > 3 {
+                let q = (1.0 - beta.y).max(0.05);
+                if sampler.get_1d() < q {
+                    break;
+                }
+                beta = mul(beta, Vec3::from(1.0 / (1.0 - q)));
+            }
+
             bounces += 1;
         }
 

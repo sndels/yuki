@@ -43,7 +43,7 @@ impl IntegratorType {
 
     pub fn n_sampled_dimensions(self) -> usize {
         match self {
-            IntegratorType::Path(PathParams { max_depth }) => (max_depth.max(1) - 1) as usize, // Bounce dir per bounce
+            IntegratorType::Path(PathParams { max_depth }) => (max_depth.max(1) - 1) as usize, // Bounce dir, russian roulette per bounce
             IntegratorType::Whitted(_)
             | IntegratorType::BVHIntersections
             | IntegratorType::Normals => 0,
