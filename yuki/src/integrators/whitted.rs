@@ -4,7 +4,7 @@ use crate::{
     interaction::{Interaction, SurfaceInteraction},
     lights::LightSample,
     materials::{BxdfSample, BxdfType},
-    math::{Ray, Vec3},
+    math::{Point2, Ray, Vec3},
     sampling::Sampler,
     scene::Scene,
     shapes::Hit,
@@ -43,11 +43,11 @@ impl Whitted {
     ) -> RadianceResult {
         let BxdfSample {
             wi, f, sample_type, ..
-        } = si
-            .bsdf
-            .as_ref()
-            .unwrap()
-            .sample_f(si.wo, BxdfType::SPECULAR | ray_type);
+        } = si.bsdf.as_ref().unwrap().sample_f(
+            si.wo,
+            Point2::new(0.0, 0.0),
+            BxdfType::SPECULAR | ray_type,
+        );
         if sample_type == BxdfType::NONE {
             RadianceResult::default()
         } else {

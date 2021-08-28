@@ -1,5 +1,5 @@
 use super::{cos_theta, fresnel, fresnel::Fresnel, refract, Bxdf, BxdfSample, BxdfType};
-use crate::math::{Normal, Vec3};
+use crate::math::{Normal, Point2, Vec3};
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission
@@ -20,7 +20,7 @@ impl Bxdf for Reflection {
         Vec3::from(0.0)
     }
 
-    fn sample_f(&self, wo: Vec3<f32>) -> BxdfSample {
+    fn sample_f(&self, wo: Vec3<f32>, _u: Point2<f32>) -> BxdfSample {
         // TODO: Do color/spectrum class for this math
         fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
             Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
@@ -32,8 +32,13 @@ impl Bxdf for Reflection {
         BxdfSample {
             wi,
             f,
+            pdf: 1.0,
             sample_type: self.flags(),
         }
+    }
+
+    fn pdf(&self, _w0: Vec3<f32>, _wi: Vec3<f32>) -> f32 {
+        1.0
     }
 
     fn flags(&self) -> BxdfType {
@@ -64,7 +69,7 @@ impl Bxdf for Transmission {
         Vec3::from(0.0)
     }
 
-    fn sample_f(&self, wo: Vec3<f32>) -> BxdfSample {
+    fn sample_f(&self, wo: Vec3<f32>, _u: Point2<f32>) -> BxdfSample {
         // TODO: Do color/spectrum class for this math
         fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
             Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
@@ -83,24 +88,22 @@ impl Bxdf for Transmission {
             Normal::new(0.0, 0.0, 1.0).faceforward(wo),
             eta_i / eta_t,
         )
-        .map_or_else(
-            || BxdfSample {
-                wi: Vec3::from(0.0),
-                f: Vec3::from(0.0),
-                sample_type: BxdfType::NONE,
-            },
-            |wi| {
-                let f = mul(
-                    self.t,
-                    Vec3::from(1.0) - self.fresnel.evaluate(cos_theta(wi)),
-                ) / cos_theta(wi).abs();
-                BxdfSample {
-                    wi,
-                    f,
-                    sample_type: self.flags(),
-                }
-            },
-        )
+        .map_or_else(BxdfSample::default, |wi| {
+            let f = mul(
+                self.t,
+                Vec3::from(1.0) - self.fresnel.evaluate(cos_theta(wi)),
+            ) / cos_theta(wi).abs();
+            BxdfSample {
+                wi,
+                f,
+                pdf: 1.0,
+                sample_type: self.flags(),
+            }
+        })
+    }
+
+    fn pdf(&self, _w0: Vec3<f32>, _wi: Vec3<f32>) -> f32 {
+        1.0
     }
 
     fn flags(&self) -> BxdfType {

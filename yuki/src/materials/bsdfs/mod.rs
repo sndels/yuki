@@ -6,7 +6,7 @@ pub use lambertian::Lambertian;
 
 use crate::{
     interaction::SurfaceInteraction,
-    math::{Normal, Vec3},
+    math::{Normal, Point2, Vec3},
 };
 
 use bitflags::bitflags;
@@ -28,7 +28,19 @@ bitflags! {
 pub struct BxdfSample {
     pub wi: Vec3<f32>,
     pub f: Vec3<f32>,
+    pub pdf: f32,
     pub sample_type: BxdfType,
+}
+
+impl Default for BxdfSample {
+    fn default() -> Self {
+        Self {
+            wi: Vec3::from(0.0),
+            f: Vec3::from(0.0),
+            pdf: 0.0,
+            sample_type: BxdfType::NONE,
+        }
+    }
 }
 
 /// Interface for an individual BRDF or BTDF function.
@@ -37,7 +49,10 @@ pub trait Bxdf {
     fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Vec3<f32>;
 
     /// Returns an incident light diretion and the value of the `Bxdf` for the given outgoing direction
-    fn sample_f(&self, wo: Vec3<f32>) -> BxdfSample;
+    fn sample_f(&self, wo: Vec3<f32>, u: Point2<f32>) -> BxdfSample;
+
+    /// Evaluate probability distribution function for the pair of directions.
+    fn pdf(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> f32;
 
     /// Returns the type flags for this `Bxdf`
     fn flags(&self) -> BxdfType;
@@ -113,40 +128,87 @@ impl Bsdf {
     }
 
     /// Samples the first `Bxdf` matching `sample_type`.
-    pub fn sample_f(&self, wo_world: Vec3<f32>, sample_type: BxdfType) -> BxdfSample {
-        // TODO: Materials with multiple matching lobes
-        assert!(
-            self.bxdfs
-                .iter()
-                .filter(|bxdf| bxdf.matches(sample_type))
-                .count()
-                <= 1,
-            "Sampling Bsdf with multiple matching lobes"
-        );
-
-        self.bxdfs
+    pub fn sample_f(
+        &self,
+        wo_world: Vec3<f32>,
+        u: Point2<f32>,
+        sample_type: BxdfType,
+    ) -> BxdfSample {
+        let matching_comps = self
+            .bxdfs
             .iter()
-            .find(|bxdf| bxdf.matches(sample_type))
-            .map_or_else(
-                || BxdfSample {
-                    wi: Vec3::from(0.0),
-                    f: Vec3::from(0.0),
-                    sample_type: BxdfType::NONE,
-                },
-                |bxdf| {
-                    let wo = self.world_to_local(wo_world);
+            .filter(|bxdf| bxdf.matches(sample_type))
+            .count();
+        if matching_comps == 0 {
+            return BxdfSample::default();
+        }
 
-                    let mut ret = bxdf.sample_f(wo);
-                    ret.wi = self.local_to_world(ret.wi);
+        #[allow(clippy::cast_sign_loss)] // Always expect u in [0, 1)
+        let comp = ((u[0] * (matching_comps as f32)).floor() as usize).min(matching_comps - 1);
 
-                    ret
-                },
-            )
+        let bxdf = self
+            .bxdfs
+            .iter()
+            .filter(|bxdf| bxdf.matches(sample_type))
+            .nth(comp)
+            .unwrap();
+
+        let wo = self.world_to_local(wo_world);
+        let u_remapped = Point2::new(u[0] * (matching_comps - comp) as f32, u[1]);
+
+        let BxdfSample {
+            wi: wi_local,
+            mut f,
+            mut pdf,
+            sample_type: sampled_type,
+        } = bxdf.sample_f(wo, u_remapped);
+        if pdf == 0.0 {
+            return BxdfSample::default();
+        }
+        let wi_world = self.local_to_world(wi_local);
+
+        // TODO: Verify this once multiple non-specular lobes are used
+        if !bxdf.flags().contains(BxdfType::SPECULAR) && matching_comps > 1 {
+            for b in &self.bxdfs {
+                if !std::ptr::eq(b as *const _, bxdf as *const _) && b.matches(sample_type) {
+                    pdf += b.pdf(wo, wi_local);
+                }
+            }
+        }
+        if matching_comps > 1 {
+            pdf /= matching_comps as f32;
+        }
+
+        // TODO: Verify this once multiple non-specular lobes are used
+        if !bxdf.flags().contains(BxdfType::SPECULAR) && matching_comps > 1 {
+            let reflect = wi_world.dot_n(self.n_geom) * wo_world.dot_n(self.n_geom) > 0.0;
+            f = Vec3::from(0.0);
+            for b in &self.bxdfs {
+                if b.matches(sample_type)
+                    && ((reflect && b.flags().contains(BxdfType::REFLECTION))
+                        || (!reflect && b.flags().contains(BxdfType::TRANSMISSION)))
+                {
+                    f += b.f(wo, wi_local);
+                }
+            }
+        }
+
+        // TODO: Verify type map makes sense for debug on 'all' query
+        BxdfSample {
+            wi: wi_world,
+            f,
+            pdf,
+            sample_type: sampled_type,
+        }
     }
 }
 
 fn cos_theta(w: Vec3<f32>) -> f32 {
     w.z
+}
+
+fn same_hemisphere(w: Vec3<f32>, wp: Vec3<f32>) -> bool {
+    w.z * wp.z > 0.0
 }
 
 // Returns the refracted direction for `wi` and `n` or `None` if total internal reflection happens.
