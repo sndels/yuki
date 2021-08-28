@@ -1,9 +1,11 @@
 mod bvh_heatmap;
 mod normals;
+mod path;
 mod whitted;
 
 use bvh_heatmap::BVHIntersections;
 use normals::Normals;
+use path::Path;
 use whitted::Whitted;
 
 use strum::{EnumString, EnumVariantNames, ToString};
@@ -19,10 +21,12 @@ use crate::{
 use std::sync::Arc;
 
 pub type WhittedParams = whitted::Params;
+pub type PathParams = path::Params;
 
 #[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
 pub enum IntegratorType {
     Whitted(whitted::Params),
+    Path(path::Params),
     BVHIntersections,
     Normals,
 }
@@ -31,6 +35,7 @@ impl IntegratorType {
     pub fn instantiate(self) -> Box<dyn Integrator> {
         match self {
             IntegratorType::Whitted(params) => Box::new(Whitted::new(params)),
+            IntegratorType::Path(params) => Box::new(Path::new(params)),
             IntegratorType::BVHIntersections => Box::new(BVHIntersections {}),
             IntegratorType::Normals => Box::new(Normals {}),
         }

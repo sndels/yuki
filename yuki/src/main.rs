@@ -29,7 +29,7 @@ mod shapes;
 mod visibility;
 
 use app::{FilmicParams, HeatmapParams, ToneMapType};
-use integrators::{IntegratorType, WhittedParams};
+use integrators::{IntegratorType, PathParams, WhittedParams};
 use math::Vec2;
 use std::{path::PathBuf, str::FromStr};
 
@@ -45,6 +45,7 @@ OPTIONS:
   --resolution=X,Y            Resolution to render at (default 640,480)
   --integrator=TYPE,ARGS,...  Integrator to use
                               Whitted,[MAX_DEPTH]
+                              Path,[MAX_DEPTH]
                               Normals,
                               BVHIntersections
   --tonemap=TYPE,ARGS,...     Tonemap to use along with its settings
@@ -205,7 +206,8 @@ fn parse_integrator(s: &str) -> Result<IntegratorType, pico_args::Error> {
     let mut integrator = parse_enum(strs[0], "Unknown integraotor type")?;
 
     match &mut integrator {
-        IntegratorType::Whitted(WhittedParams { ref mut max_depth }) => {
+        IntegratorType::Whitted(WhittedParams { ref mut max_depth })
+        | IntegratorType::Path(PathParams { ref mut max_depth }) => {
             *max_depth = parse_num(strs[1], "Invalid max depth")?;
         }
         IntegratorType::Normals | IntegratorType::BVHIntersections => (),
