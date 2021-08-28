@@ -15,7 +15,9 @@ pub struct StratifiedSampler {
     jitter_samples: bool,
     n_sampled_dimensions: usize,
     current_pixel_sample: usize,
+    samples_1d: Vec<Vec<f32>>,
     samples_2d: Vec<Vec<Point2<f32>>>,
+    current_1d_dimension: usize,
     current_2d_dimension: usize,
     rng: Pcg32,
     // Stored to clone the sampler with a different stream
@@ -38,7 +40,9 @@ impl StratifiedSampler {
             jitter_samples,
             n_sampled_dimensions,
             current_pixel_sample: 0,
+            samples_1d: vec![vec![0.0; total_pixel_samples]; n_sampled_dimensions],
             samples_2d: vec![vec![Point2::from(0.0); total_pixel_samples]; n_sampled_dimensions],
+            current_1d_dimension: 0,
             current_2d_dimension: 0,
             rng: Pcg32::new(seed, 0),
             rng_seed: seed,
@@ -65,7 +69,13 @@ impl Sampler for StratifiedSampler {
 
     fn start_pixel(&mut self) {
         self.current_pixel_sample = 0;
+        self.current_1d_dimension = 0;
         self.current_2d_dimension = 0;
+
+        for dim_samples in &mut self.samples_1d {
+            stratified_sample_1d(dim_samples, self.jitter_samples, &mut self.rng);
+            shuffle(dim_samples, &mut self.rng);
+        }
 
         for dim_samples in &mut self.samples_2d {
             stratified_sample_2d(
@@ -84,7 +94,14 @@ impl Sampler for StratifiedSampler {
     }
 
     fn get_1d(&mut self) -> f32 {
-        unimplemented!()
+        if self.current_1d_dimension < self.n_sampled_dimensions {
+            // Start sample adds 1 before we use the sample
+            let ret = self.samples_1d[self.current_1d_dimension][self.current_pixel_sample - 1];
+            self.current_1d_dimension += 1;
+            ret
+        } else {
+            self.rng.sample(Standard)
+        }
     }
 
     fn get_2d(&mut self) -> Point2<f32> {
@@ -100,6 +117,14 @@ impl Sampler for StratifiedSampler {
 }
 
 const ONE_MINUS_EPSILON: f32 = 1.0_f32 - f32::EPSILON;
+
+fn stratified_sample_1d(samples: &mut [f32], jitter: bool, rng: &mut Pcg32) {
+    let inv_n_samples = 1.0 / (samples.len() as f32);
+    for (i, sample) in samples.iter_mut().enumerate() {
+        let delta = if jitter { rng.sample(Standard) } else { 0.5 };
+        *sample = (((i as f32) + delta) * inv_n_samples).min(ONE_MINUS_EPSILON);
+    }
+}
 
 fn stratified_sample_2d(
     samples: &mut [Point2<f32>],
