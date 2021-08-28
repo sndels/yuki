@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
@@ -9,7 +10,7 @@ use crate::{
 };
 
 /// The settings for a `Film`.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct FilmSettings {
     /// The total film resolution.
     pub res: Vec2<u16>,

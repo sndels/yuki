@@ -11,6 +11,8 @@ use glutin::{
 };
 use std::{
     borrow::Cow,
+    fs::File,
+    io::BufWriter,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -213,6 +215,31 @@ impl Window {
                         &mut mouse_gesture,
                         &mut camera_offset,
                     );
+
+                    if frame_ui.save_settings {
+                        let settings = InitialSettings {
+                            film_settings,
+                            sampler,
+                            scene_integrator,
+                            tone_map: tone_map_type,
+                            load_settings: SceneLoadSettings {
+                                path: scene.load_settings.path.clone(),
+                                max_shapes_in_node: load_settings.max_shapes_in_node,
+                            },
+                        };
+
+                        match File::create("settings.json") {
+                            Ok(file) => {
+                                let writer = BufWriter::new(file);
+                                if let Err(why) = serde_json::to_writer_pretty(writer, &settings) {
+                                    yuki_error!("Failed to serialize settings: {}", why);
+                                }
+                            }
+                            Err(why) => {
+                                yuki_error!("Failed to create settings file: {}", why);
+                            }
+                        }
+                    }
 
                     let active_camera_params =
                         camera_offset.as_ref().map_or(camera_params, |offset| {

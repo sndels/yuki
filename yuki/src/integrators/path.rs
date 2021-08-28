@@ -10,10 +10,12 @@ use crate::{
     shapes::Hit,
 };
 
+use serde::{Deserialize, Serialize};
+
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Path_Tracing
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct Params {
     pub max_depth: u32,
 }

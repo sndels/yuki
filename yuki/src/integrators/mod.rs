@@ -8,6 +8,7 @@ use normals::Normals;
 use path::Path;
 use whitted::Whitted;
 
+use serde::{Deserialize, Serialize};
 use strum::{EnumString, EnumVariantNames, ToString};
 
 use crate::{
@@ -23,7 +24,7 @@ use std::sync::Arc;
 pub type WhittedParams = whitted::Params;
 pub type PathParams = path::Params;
 
-#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
+#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString)]
 pub enum IntegratorType {
     Whitted(whitted::Params),
     Path(path::Params),

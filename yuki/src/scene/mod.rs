@@ -11,10 +11,11 @@ use crate::{
     yuki_info,
 };
 use ply::PlyResult;
+use serde::{Deserialize, Serialize};
 
 use std::{path::PathBuf, sync::Arc, time::Instant};
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SceneLoadSettings {
     pub path: PathBuf,
     pub max_shapes_in_node: u16,

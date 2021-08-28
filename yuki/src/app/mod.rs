@@ -12,6 +12,9 @@ use crate::{
     scene::SceneLoadSettings,
 };
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize)]
 pub struct InitialSettings {
     pub film_settings: FilmSettings,
     pub sampler: SamplerType,

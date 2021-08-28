@@ -1,4 +1,5 @@
 use glium::Surface;
+use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, sync::Mutex};
 use strum::{EnumString, EnumVariantNames, ToString};
 
@@ -8,6 +9,7 @@ use crate::{
     yuki_debug, yuki_trace,
 };
 
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct FilmicParams {
     pub exposure: f32,
 }
@@ -18,6 +20,7 @@ impl Default for FilmicParams {
     }
 }
 
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct HeatmapParams {
     // No bounds forces re-evaluation of tight bounds
     pub bounds: Option<(f32, f32)>,
@@ -33,7 +36,7 @@ impl Default for HeatmapParams {
     }
 }
 
-#[derive(EnumVariantNames, ToString, EnumString)]
+#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString)]
 pub enum ToneMapType {
     Raw,
     Filmic(FilmicParams),
@@ -46,7 +49,7 @@ impl Default for ToneMapType {
     }
 }
 
-#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString, PartialEq)]
+#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString, PartialEq)]
 pub enum HeatmapChannel {
     Red = 0,
     Green = 1,

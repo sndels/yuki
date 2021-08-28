@@ -10,7 +10,9 @@ use crate::{
     shapes::Hit,
 };
 
-#[derive(Copy, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct Params {
     pub max_depth: u32,
 }

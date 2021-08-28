@@ -1,4 +1,5 @@
 use approx::{AbsDiffEq, RelativeEq};
+use serde::{Deserialize, Serialize};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
@@ -19,12 +20,15 @@ use super::{
 // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html
 
 /// A two-dimensional vector.
+#[allow(clippy::unsafe_derive_deserialize)] // This is a POD
 #[impl_vec]
 #[derive(
     Copy,
     Clone,
     Debug,
     Default,
+    Deserialize,
+    Serialize,
     PartialEq,
     AbsDiffEq,
     RelativeEq,

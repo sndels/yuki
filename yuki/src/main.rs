@@ -28,32 +28,17 @@ mod scene;
 mod shapes;
 mod visibility;
 
-use app::{FilmicParams, HeatmapParams, ToneMapType};
-use integrators::{IntegratorType, PathParams, WhittedParams};
-use math::Vec2;
-use std::{path::PathBuf, str::FromStr};
+use itertools::Itertools;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 const HELP: &str = "\
 Yuki
 USAGE:
   yuki [OPTIONS]
 FLAGS:
-  -h, --help                  Prints help information
+  -h, --help   Prints this help information
 OPTIONS:
-  --out=FILE                  Path for EXR output
-  --scene=FILE                Path to scene file to load
-  --resolution=X,Y            Resolution to render at (default 640,480)
-  --integrator=TYPE,ARGS,...  Integrator to use
-                              Whitted,[MAX_DEPTH]
-                              Path,[MAX_DEPTH]
-                              Normals,
-                              BVHIntersections
-  --tonemap=TYPE,ARGS,...     Tonemap to use along with its settings
-                              Filmic,[EXPOSURE]
-                              Heatmap,[CHANNEL],[MIN],[MAX]
-                              Heatmap,[CHANNEL]  This uses min, max of the output
-";
-// TODO: Headless output with given EXR name, raw/tonemapped output
+  --out=FILE   Path for EXR output";
 
 fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -109,159 +94,63 @@ fn main() {
         };
     }));
 
-    match parse_settings() {
-        Ok((settings, Some(out_path))) => {
-            app::headless::render(&out_path, settings);
-        }
-        Ok((settings, None)) => {
-            let window = app::Window::new("yuki", (1920, 1080), settings);
-            window.main_loop();
-        }
-        Err(why) => {
-            panic!("Parsing CLI arguments failed: {}", why);
-        }
-    };
-}
-
-fn parse_settings() -> Result<(app::InitialSettings, Option<PathBuf>), pico_args::Error> {
-    let mut pargs = pico_args::Arguments::from_env();
-
-    // Help has a higher priority and should be handled separately.
-    if pargs.contains(["-h", "--help"]) {
-        print!("{}", HELP);
-        std::process::exit(0);
-    }
-
-    let mut settings = app::InitialSettings::default();
-    let mut out_path = None;
-
-    if let Some(scene_path) = pargs.opt_value_from_str::<&'static str, PathBuf>("--scene")? {
-        settings.load_settings.path = if scene_path.has_root() {
-            scene_path
-        } else {
-            std::env::current_dir()
-                .expect("Invalid working directory")
-                .join(scene_path)
-        };
-    }
-
-    if let Some(path) = pargs.opt_value_from_str::<&'static str, PathBuf>("--out")? {
-        let extension = path
-            .extension()
-            .ok_or(pico_args::Error::ArgumentParsingFailed {
-                cause: "Path does not point to a file".into(),
-            })?
-            .to_string_lossy();
-        if extension != "exr" {
-            return Err(pico_args::Error::ArgumentParsingFailed {
-                cause: format!(
-                    "EXR output should have extension '.exr', got '{}'",
-                    extension
-                ),
-            });
-        }
-
-        let full_path = if path.has_root() {
-            path
-        } else {
-            std::env::current_dir()
-                .expect("Invalid working directory")
-                .join(path)
-        };
-
-        out_path = Some(full_path);
-    }
-
-    if let Some(resolution) = pargs.opt_value_from_fn("--resolution", parse_resolution)? {
-        settings.film_settings.res = resolution;
-    };
-
-    if let Some(integrator) = pargs.opt_value_from_fn("--integrator", parse_integrator)? {
-        settings.scene_integrator = integrator;
-    }
-
-    if let Some(tone_map) = pargs.opt_value_from_fn("--tonemap", parse_tone_map)? {
-        settings.tone_map = tone_map;
-    }
-
-    Ok((settings, out_path))
-}
-
-fn parse_resolution(s: &str) -> Result<Vec2<u16>, pico_args::Error> {
-    let strs = s.split(',').collect::<Vec<&str>>();
-    if strs.len() == 2 {
-        let x = parse_num(strs[0], "Invalid resolution X component")?;
-        let y = parse_num(strs[1], "Invalid resolution Y component")?;
-        Ok(Vec2::new(x, y))
-    } else {
-        Err(pico_args::Error::ArgumentParsingFailed {
-            cause: "Expected --resolution X,Y".into(),
-        })
-    }
-}
-
-fn parse_integrator(s: &str) -> Result<IntegratorType, pico_args::Error> {
-    let strs = s.split(',').collect::<Vec<&str>>();
-
-    let mut integrator = parse_enum(strs[0], "Unknown integraotor type")?;
-
-    match &mut integrator {
-        IntegratorType::Whitted(WhittedParams { ref mut max_depth })
-        | IntegratorType::Path(PathParams { ref mut max_depth }) => {
-            *max_depth = parse_num(strs[1], "Invalid max depth")?;
-        }
-        IntegratorType::Normals | IntegratorType::BVHIntersections => (),
-    }
-
-    Ok(integrator)
-}
-
-fn parse_tone_map(s: &str) -> Result<ToneMapType, pico_args::Error> {
-    let strs = s.split(',').collect::<Vec<&str>>();
-
-    let mut tonemap = parse_enum(strs[0], "Unknown tonemap type")?;
-
-    match &mut tonemap {
-        ToneMapType::Raw => (),
-        ToneMapType::Filmic(FilmicParams { ref mut exposure }) => {
-            *exposure = parse_num(strs[1], "Invalid filmic exposure")?;
-        }
-        ToneMapType::Heatmap(HeatmapParams {
-            ref mut channel,
-            ref mut bounds,
-        }) => {
-            *channel = parse_enum(strs[1], "Unknown heatmap channel")?;
-            if strs.len() == 4 {
-                *bounds = Some((
-                    parse_num(strs[2], "Invalid heatmap min")?,
-                    parse_num(strs[3], "Invalid heatmap max")?,
-                ));
-            } else if strs.len() > 2 {
-                return Err(pico_args::Error::ArgumentParsingFailed {
-                    cause: "Expected tone map type and 1 or 3 parameters".into(),
-                });
+    let args: Vec<String> = std::env::args().collect();
+    let (print_help, out_path) = match args.len() {
+        1 => (false, None),
+        2 => {
+            let arg = &args[1];
+            if arg == "--help" || arg == "-h" {
+                (true, None)
+            } else {
+                let parts: Vec<&str> = arg.split('=').collect();
+                if parts.len() != 2 {
+                    yuki_error!("Unexpected option '{}'", arg);
+                    (true, None)
+                } else {
+                    let (arg, value) = parts.iter().next_tuple().unwrap();
+                    if arg != &"--out" {
+                        yuki_error!("Unexpected option '{}'", arg);
+                        (true, None)
+                    } else {
+                        (false, Some(PathBuf::from(value)))
+                    }
+                }
             }
         }
+        _ => (true, None),
+    };
+
+    if print_help {
+        println!("{}", HELP);
+        return;
     }
 
-    Ok(tonemap)
+    let settings = match load_settings() {
+        Ok(settings) => settings,
+        Err(why) => {
+            panic!("Failed to load previous settings: {}", why);
+        }
+    };
+
+    if let Some(path) = out_path {
+        app::headless::render(&path, settings);
+    } else {
+        let window = app::Window::new("yuki", (1920, 1080), settings);
+        window.main_loop();
+    }
 }
 
-fn parse_num<T>(s: &str, err: &str) -> Result<T, pico_args::Error>
-where
-    T: FromStr,
-{
-    s.parse()
-        .map_err(|_| pico_args::Error::ArgumentParsingFailed {
-            cause: format!("{} '{}'", err, s),
-        })
-}
-
-fn parse_enum<T>(s: &str, err: &str) -> Result<T, pico_args::Error>
-where
-    T: FromStr,
-{
-    T::from_str(s).map_err(|_| pico_args::Error::ArgumentParsingFailed {
-        cause: format!("{} '{}'", err, s),
-    })
+fn load_settings() -> Result<app::InitialSettings, serde_json::Error> {
+    match File::open("settings.json") {
+        Ok(file) => {
+            let reader = BufReader::new(file);
+            let settings = serde_json::from_reader(reader)?;
+            yuki_info!("Found settings");
+            Ok(settings)
+        }
+        Err(why) => {
+            yuki_info!("Could not load settings: {}", why);
+            Ok(app::InitialSettings::default())
+        }
+    }
 }

@@ -6,11 +6,12 @@ use rand::{
     Rng,
 };
 use rand_pcg::Pcg32;
+use serde::{Deserialize, Serialize};
 
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Stratified_Sampling.html
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct Params {
     pub pixel_samples: Vec2<u16>,
     pub symmetric_dimensions: bool,

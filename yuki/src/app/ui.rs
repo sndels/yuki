@@ -123,6 +123,7 @@ impl UI {
         let ui = self.context.frame();
         let mut render_triggered = false;
         let mut write_exr = None;
+        let mut save_settings = false;
         // This should be collected for all windows
         let mut ui_hovered = false;
 
@@ -151,6 +152,9 @@ impl UI {
                 ui.spacing();
 
                 ui.checkbox(im_str!("Mark work tiles"), mark_tiles);
+                ui.spacing();
+
+                save_settings |= ui.button(im_str!("Save settings"), [100.0, 20.0]);
                 ui.spacing();
 
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
@@ -194,6 +198,7 @@ impl UI {
             write_exr,
             any_item_active,
             ui_hovered,
+            save_settings,
         }
     }
 }
@@ -212,6 +217,7 @@ pub struct FrameUI<'a> {
     pub write_exr: Option<WriteEXR>,
     pub any_item_active: bool,
     pub ui_hovered: bool,
+    pub save_settings: bool,
 }
 
 impl<'a> FrameUI<'a> {

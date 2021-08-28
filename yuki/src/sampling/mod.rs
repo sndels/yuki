@@ -8,10 +8,11 @@ pub type StratifiedParams = stratified::Params;
 pub type UniformParams = uniform::Params;
 
 use crate::math::{Point2, Vec2, Vec3};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use strum::{EnumString, EnumVariantNames, ToString};
 
-#[derive(Copy, Clone, EnumVariantNames, ToString, EnumString)]
+#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString)]
 pub enum SamplerType {
     Uniform(uniform::Params),
     Stratified(stratified::Params),
