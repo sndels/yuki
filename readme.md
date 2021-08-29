@@ -42,9 +42,13 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
     - Direct diffuse lighting
     - Shadows
     - Mirror specular reflections and transmission
+  - Path
+    - Russian roulette based on contribution after 3 bounces
   - Normals debug
   - BVH intersections debug
-- Stratified sampling
+- Samplers
+  - Uniform
+  - Stratified
 - Light types
   - Point
   - Spot
