@@ -118,7 +118,6 @@ impl Integrator for Whitted {
             let mut sum_li = scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
                 let LightSample { l, li, vis } = l.sample_li(&si);
                 if li != Vec3::from(0.0) {
-                    // TODO: Trace light visibility
                     let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                     if let Some(test) = vis {
                         if collect_rays {

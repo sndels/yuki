@@ -737,7 +737,6 @@ fn launch_debug_ray(
 
         let camera = Camera::new(camera_params, film_settings);
 
-        // TODO: Use the active scene integrator instead, add evaluated rays as return data?
         {
             let p_film = Point2::new(film_px.x as f32, film_px.y as f32);
 
