@@ -29,7 +29,7 @@ const MIN_RES: u16 = 64;
 const MAX_RES: u16 = 4096;
 const RES_STEP: u16 = 2;
 const TILE_STEP: u16 = 2;
-const MAX_SAMPLES: u16 = 32;
+const MAX_SAMPLES: u16 = 4096;
 
 pub struct UI {
     context: Context,
@@ -135,7 +135,7 @@ impl UI {
             .build(&ui, || {
                 ui_hovered = ui.is_window_hovered();
 
-                render_triggered |= generate_film_settings(&ui, film_settings);
+                render_triggered |= generate_film_settings(&ui, film_settings, mark_tiles);
                 ui.spacing();
 
                 render_triggered |= generate_sampler_settings(&ui, sampler);
@@ -151,13 +151,15 @@ impl UI {
                 generate_tone_map_settings(&ui, tone_map_type);
                 ui.spacing();
 
-                ui.checkbox(im_str!("Mark work tiles"), mark_tiles);
-                ui.spacing();
-
                 save_settings |= ui.button(im_str!("Save settings"), [100.0, 20.0]);
                 ui.spacing();
 
+                ui.separator();
+                ui.spacing();
+
                 render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+                ui.spacing();
+
                 if !render_in_progress {
                     if ui.button(im_str!("Write raw EXR"), [100.0, 20.0]) {
                         write_exr = Some(WriteEXR::Raw);
@@ -297,9 +299,12 @@ fn vec2_u16_picker(
 }
 
 /// Returns `true` if `film_settings` was changed.
-fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) -> bool {
+fn generate_film_settings(
+    ui: &imgui::Ui<'_>,
+    film_settings: &mut FilmSettings,
+    mark_tiles: &mut bool,
+) -> bool {
     let mut changed = false;
-
     imgui::TreeNode::new(im_str!("Film"))
         .default_open(true)
         .build(ui, || {
@@ -325,10 +330,11 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
                 width.pop(ui);
             }
 
-            if ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear) && film_settings.clear
-            {
-                changed = true;
-            }
+            changed |= ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
+                && film_settings.clear; // Relaunch doesn't make sense if clear is unset
+
+            // No need to relaunch for only tile marking
+            ui.checkbox(im_str!("Mark work tiles"), mark_tiles);
         });
 
     changed
@@ -340,7 +346,9 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
     imgui::TreeNode::new(im_str!("Sampler"))
         .default_open(true)
         .build(ui, || {
-            changed |= enum_combo_box(ui, im_str!("Sampler"), sampler);
+            changed |= enum_combo_box(ui, im_str!("##SamplerEnum"), sampler);
+
+            ui.indent();
             match sampler {
                 SamplerType::Uniform(UniformParams { pixel_samples }) => {
                     let width = ui.push_item_width(118.0);
@@ -349,7 +357,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                         im_str!("Pixel extent samples"),
                         pixel_samples,
                         1,
-                        (MAX_SAMPLES * MAX_SAMPLES) as u32,
+                        MAX_SAMPLES as u32,
                         1.0,
                     );
                     width.pop(ui);
@@ -359,6 +367,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                     symmetric_dimensions,
                     jitter_samples,
                 }) => {
+                    let max_dim = f64::from(MAX_SAMPLES).sqrt() as u16;
                     if *symmetric_dimensions {
                         let width = ui.push_item_width(118.0);
                         changed |= u16_picker(
@@ -366,7 +375,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                             im_str!("Pixel extent samples"),
                             &mut pixel_samples.x,
                             1,
-                            MAX_SAMPLES,
+                            max_dim,
                             1.0,
                         );
                         width.pop(ui);
@@ -377,7 +386,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                             im_str!("Pixel samples"),
                             pixel_samples,
                             1,
-                            MAX_SAMPLES,
+                            max_dim,
                             1.0,
                         );
                     }
@@ -389,6 +398,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                     ));
                 }
             }
+            ui.unindent();
         });
 
     changed
@@ -471,68 +481,77 @@ fn generate_scene_settings(
 
 /// Returns `true` if the integrator was changed.
 fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
-    let mut changed = enum_combo_box(ui, im_str!("Scene integrator"), integrator);
+    let mut changed = false;
+    imgui::TreeNode::new(im_str!("Integrator"))
+        .default_open(true)
+        .build(ui, || {
+            changed |= enum_combo_box(ui, im_str!("##IntegratorEnum"), integrator);
 
-    ui.indent();
-    match integrator {
-        IntegratorType::Whitted(WhittedParams { max_depth })
-        | IntegratorType::Path(PathParams { max_depth }) => {
-            let width = ui.push_item_width(118.0);
-            changed |= imgui::Drag::new(im_str!("Max depth"))
-                .range(1..=u32::MAX)
-                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                .build(ui, max_depth);
-            width.pop(ui);
-        }
-        IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
-    }
+            ui.indent();
+            match integrator {
+                IntegratorType::Whitted(WhittedParams { max_depth })
+                | IntegratorType::Path(PathParams { max_depth }) => {
+                    let width = ui.push_item_width(118.0);
+                    changed |= imgui::Drag::new(im_str!("Max depth##Integrator"))
+                        .range(1..=u32::MAX)
+                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                        .build(ui, max_depth);
+                    width.pop(ui);
+                }
+                IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
+            }
+            ui.unindent();
+        });
 
     changed
 }
 
 fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
-    enum_combo_box(ui, im_str!("Tone map"), params);
+    imgui::TreeNode::new(im_str!("Tone map"))
+        .default_open(true)
+        .build(ui, || {
+            enum_combo_box(ui, im_str!("##ToneMapEnum"), params);
+            ui.indent();
+            match params {
+                ToneMapType::Raw => (),
+                ToneMapType::Filmic(FilmicParams { exposure }) => {
+                    let width = ui.push_item_width(118.0);
+                    imgui::Drag::new(im_str!("Exposure##ToneMap"))
+                        .range(0.0..=f32::MAX)
+                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                        .speed(0.001)
+                        .display_format(im_str!("%.3f"))
+                        .build(ui, exposure);
+                    width.pop(ui);
+                }
+                ToneMapType::Heatmap(HeatmapParams { bounds, channel }) => {
+                    let changed = enum_combo_box(ui, im_str!("Channel##Heatmap"), channel);
+                    if changed {
+                        *bounds = None;
+                    }
 
-    ui.indent();
-    match params {
-        ToneMapType::Raw => (),
-        ToneMapType::Filmic(FilmicParams { exposure }) => {
-            let width = ui.push_item_width(118.0);
-            imgui::Drag::new(im_str!("Exposure"))
-                .range(0.0..=f32::MAX)
-                .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                .speed(0.001)
-                .display_format(im_str!("%.3f"))
-                .build(ui, exposure);
-            width.pop(ui);
-        }
-        ToneMapType::Heatmap(HeatmapParams { bounds, channel }) => {
-            let changed = enum_combo_box(ui, im_str!("Channel"), channel);
-            if changed {
-                *bounds = None;
+                    if let Some((min, max)) = bounds {
+                        let speed = ((*max - *min) / 100.0).max(0.001);
+                        let width = ui.push_item_width(118.0);
+                        imgui::Drag::new(im_str!("Min##Heatmap"))
+                            .range(0.0..=(*max - 0.001).max(0.0))
+                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                            .speed(speed)
+                            .display_format(im_str!("%.3f"))
+                            .build(ui, min);
+                        ui.same_line(0.0);
+                        imgui::Drag::new(im_str!("Max##Heatmap"))
+                            .range((*min + 0.001)..=f32::MAX)
+                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                            .speed(speed)
+                            .display_format(im_str!("%.3f"))
+                            .build(ui, max);
+                        width.pop(ui);
+                    }
+                }
             }
-
-            if let Some((min, max)) = bounds {
-                let speed = ((*max - *min) / 100.0).max(0.001);
-                let width = ui.push_item_width(118.0);
-                imgui::Drag::new(im_str!("Min"))
-                    .range(0.0..=(*max - 0.001).max(0.0))
-                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                    .speed(speed)
-                    .display_format(im_str!("%.3f"))
-                    .build(ui, min);
-                ui.same_line(0.0);
-                imgui::Drag::new(im_str!("Max"))
-                    .range((*min + 0.001)..=f32::MAX)
-                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
-                    .speed(speed)
-                    .display_format(im_str!("%.3f"))
-                    .build(ui, max);
-                width.pop(ui);
-            }
-        }
-    }
-    ui.unindent();
+            ui.unindent();
+        });
 }
 
 // Generates a combo box for `value` and returns true if it changed.
