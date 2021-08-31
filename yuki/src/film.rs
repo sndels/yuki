@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    math::{Bounds2, Point2, Vec2, Vec3},
+    math::{Bounds2, Point2, Spectrum, Vec2},
     yuki_debug, yuki_error, yuki_trace, yuki_warn,
 };
 
@@ -37,7 +37,7 @@ pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
     /// Pixel values in this tile stored in row-major RGB order.
-    pub pixels: Vec<Vec3<f32>>,
+    pub pixels: Vec<Spectrum<f32>>,
     // Generation of this tile.
     generation: u64,
     film_id: u32,
@@ -51,7 +51,7 @@ impl FilmTile {
 
         FilmTile {
             bb,
-            pixels: vec![Vec3::zeros(); width * height],
+            pixels: vec![Spectrum::zeros(); width * height],
             generation,
             film_id,
         }
@@ -63,7 +63,7 @@ pub struct Film {
     // Resolution of the stored pixel buffer.
     res: Vec2<u16>,
     // Pixel values.
-    pixels: Vec<Vec3<f32>>,
+    pixels: Vec<Spectrum<f32>>,
     // Indicator for changed pixel values.
     dirty: bool,
     // Generation of the pixel buffer and tiles in flight.
@@ -80,7 +80,7 @@ impl Film {
     pub fn new(res: Vec2<u16>) -> Self {
         Self {
             res,
-            pixels: vec![Vec3::zeros(); (res.x as usize) * (res.y as usize)],
+            pixels: vec![Spectrum::zeros(); (res.x as usize) * (res.y as usize)],
             dirty: true,
             generation: 0,
             id: rand::random::<u32>(),
@@ -99,7 +99,7 @@ impl Film {
     }
 
     /// Returns a reference to the the pixels of this `Film`.
-    pub fn pixels(&self) -> &Vec<Vec3<f32>> {
+    pub fn pixels(&self) -> &Vec<Spectrum<f32>> {
         &self.pixels
     }
 
@@ -149,7 +149,7 @@ impl Film {
     }
 
     /// Circles the given tile in this `Film` with a pixel border of `color`.
-    pub fn mark(&mut self, tile: &FilmTile, color: Vec3<f32>) {
+    pub fn mark(&mut self, tile: &FilmTile, color: Spectrum<f32>) {
         let (left, top, right, bottom) = (
             tile.bb.p_min.x as usize,
             tile.bb.p_min.y as usize,
@@ -225,7 +225,7 @@ impl Default for Film {
     fn default() -> Self {
         Self {
             res: Vec2::new(4, 4),
-            pixels: vec![Vec3::zeros(); 4 * 4],
+            pixels: vec![Spectrum::zeros(); 4 * 4],
             dirty: true,
             generation: 0,
             cached_tiles: None,

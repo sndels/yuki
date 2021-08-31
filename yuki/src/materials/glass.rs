@@ -2,16 +2,16 @@ use super::{
     bsdfs::{fresnel, specular, Bsdf},
     Material,
 };
-use crate::{interaction::SurfaceInteraction, math::Vec3};
+use crate::{interaction::SurfaceInteraction, math::Spectrum};
 
 pub struct Glass {
-    r: Vec3<f32>,
-    t: Vec3<f32>,
+    r: Spectrum<f32>,
+    t: Spectrum<f32>,
     eta: f32,
 }
 
 impl Glass {
-    pub fn new(r: Vec3<f32>, t: Vec3<f32>, eta: f32) -> Self {
+    pub fn new(r: Spectrum<f32>, t: Spectrum<f32>, eta: f32) -> Self {
         Self { r, t, eta }
     }
 }

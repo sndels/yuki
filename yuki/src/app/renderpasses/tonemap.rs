@@ -5,7 +5,7 @@ use strum::{EnumString, EnumVariantNames, ToString};
 
 use crate::{
     film::Film,
-    math::{Vec2, Vec3},
+    math::{Spectrum, Vec2},
     yuki_debug, yuki_trace,
 };
 
@@ -252,9 +252,9 @@ struct Vertex {
 glium::implement_vertex!(Vertex, position, uv);
 
 impl<'a> glium::texture::Texture2dDataSource<'a> for &'a Film {
-    type Data = Vec3<f32>;
+    type Data = Spectrum<f32>;
 
-    fn into_raw(self) -> glium::texture::RawImage2d<'a, Vec3<f32>> {
+    fn into_raw(self) -> glium::texture::RawImage2d<'a, Spectrum<f32>> {
         let Vec2 { x, y } = self.res();
         glium::texture::RawImage2d {
             data: Cow::from(self.pixels()),
@@ -399,12 +399,12 @@ pub fn find_min_max(film: &Mutex<Film>, channel: HeatmapChannel) -> Result<(f32,
     let film = film.lock().map_err(DrawError::FilmPoison)?;
     yuki_trace!("find_min_max: Acquired film");
 
-    let px_accessor: Box<dyn Fn(Vec3<f32>) -> f32> = match &channel {
+    let px_accessor: Box<dyn Fn(Spectrum<f32>) -> f32> = match &channel {
         HeatmapChannel::Red | HeatmapChannel::Green | HeatmapChannel::Blue => {
-            Box::new(|px: Vec3<f32>| px[channel as usize])
+            Box::new(|px: Spectrum<f32>| px[channel as usize])
         }
         HeatmapChannel::Luminance => {
-            Box::new(|px: Vec3<f32>| 0.2126 * px[0] + 0.7152 * px[1] + 0.0722 * px[2])
+            Box::new(|px: Spectrum<f32>| 0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b)
         }
     };
 

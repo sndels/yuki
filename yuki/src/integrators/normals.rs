@@ -1,7 +1,8 @@
 use super::{Integrator, RadianceResult};
 use crate::{
     bvh::IntersectionResult,
-    math::{Ray, Vec3},
+    interaction::SurfaceInteraction,
+    math::{Ray, Spectrum},
     sampling::Sampler,
     scene::Scene,
     shapes::Hit,
@@ -25,8 +26,11 @@ impl Integrator for Normals {
         let ray_count = 1;
 
         let color = match hit {
-            Some(Hit { si, .. }) => Vec3::from(si.n) / 2.0 + 0.5,
-            None => Vec3::from(0.0),
+            Some(Hit {
+                si: SurfaceInteraction { n, .. },
+                ..
+            }) => Spectrum::new(n.x, n.y, n.z) / 2.0 + 0.5,
+            None => Spectrum::zeros(),
         };
 
         RadianceResult {

@@ -4,7 +4,7 @@ use crate::{
     interaction::{Interaction, SurfaceInteraction},
     lights::LightSample,
     materials::{BxdfSample, BxdfType},
-    math::{Point2, Ray, Vec3},
+    math::{Point2, Ray, Spectrum},
     sampling::Sampler,
     scene::Scene,
     shapes::Hit,
@@ -53,15 +53,10 @@ impl Whitted {
         if sample_type == BxdfType::NONE {
             RadianceResult::default()
         } else {
-            // TODO: Do color/spectrum class for this math
-            fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-                Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
-            }
-
             let refl = Interaction::from(si).spawn_ray(wi);
 
             let mut ret = self.li(refl, scene, depth + 1, sampler, collect_rays);
-            ret.li = mul(f, ret.li) * wi.dot_n(si.n).abs();
+            ret.li = f * ret.li * wi.dot_n(si.n).abs();
 
             ret
         }
@@ -77,11 +72,6 @@ impl Integrator for Whitted {
         sampler: &mut Box<dyn Sampler>,
         collect_rays: bool,
     ) -> RadianceResult {
-        // TODO: Do color/spectrum class for this math
-        fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-            Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
-        }
-
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
         let min_debug_ray_length = {
@@ -115,9 +105,9 @@ impl Integrator for Whitted {
             }
 
             let mut ray_count = 1;
-            let mut sum_li = scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
+            let mut sum_li = scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                 let LightSample { l, li, vis } = l.sample_li(&si);
-                if li != Vec3::from(0.0) {
+                if !li.is_black() {
                     let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                     if let Some(test) = vis {
                         if collect_rays {
@@ -126,8 +116,8 @@ impl Integrator for Whitted {
                                 ray_type: RayType::Shadow,
                             });
                         }
-                        if f != Vec3::from(0.0) && test.unoccluded(scene) {
-                            return c + mul(f, li) * si.n.dot_v(l).clamp(0.0, 1.0);
+                        if !f.is_black() && test.unoccluded(scene) {
+                            return c + f * li * si.n.dot_v(l).clamp(0.0, 1.0);
                         }
                     }
                 }

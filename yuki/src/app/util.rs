@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     camera::CameraParameters,
-    math::Vec3,
+    math::Spectrum,
     scene::{Scene, SceneLoadSettings},
     yuki_info,
 };
@@ -80,13 +80,13 @@ pub fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
 pub fn write_exr(
     width: usize,
     height: usize,
-    pixels: &[Vec3<f32>],
+    pixels: &[Spectrum<f32>],
     path: &Path,
 ) -> Result<(), String> {
     yuki_info!("Writing out EXR");
     match exr::prelude::write_rgb_file(&path, width, height, |x, y| {
         let px = pixels[y * width + x];
-        (px.x, px.y, px.z)
+        (px.r, px.g, px.b)
     }) {
         Ok(_) => {
             yuki_info!("EXR written to '{}'", path.to_string_lossy());

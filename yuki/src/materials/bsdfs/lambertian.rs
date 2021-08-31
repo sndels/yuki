@@ -1,6 +1,6 @@
 use super::{cos_theta, same_hemisphere, Bxdf, BxdfSample, BxdfType};
 use crate::{
-    math::{Point2, Vec3},
+    math::{Point2, Spectrum, Vec3},
     sampling::cosine_sample_hemisphere,
 };
 
@@ -8,17 +8,17 @@ use crate::{
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Lambertian_Reflection
 
 pub struct Lambertian {
-    reflectance: Vec3<f32>,
+    reflectance: Spectrum<f32>,
 }
 
 impl Lambertian {
-    pub fn new(reflectance: Vec3<f32>) -> Self {
+    pub fn new(reflectance: Spectrum<f32>) -> Self {
         Self { reflectance }
     }
 }
 
 impl Bxdf for Lambertian {
-    fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Vec3<f32> {
+    fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Spectrum<f32> {
         self.reflectance * std::f32::consts::FRAC_1_PI
     }
 

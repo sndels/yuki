@@ -1,6 +1,6 @@
 use crate::{
     materials::{Glass, Material, Matte},
-    math::Vec3,
+    math::Spectrum,
     parse_element,
     scene::Result,
     yuki_error, yuki_info, yuki_trace,
@@ -16,7 +16,7 @@ pub fn parse_twosided<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut material: Arc<dyn Material> = Arc::new(Matte::new(Vec3::new(1.0, 0.0, 1.0)));
+    let mut material: Arc<dyn Material> = Arc::new(Matte::new(Spectrum::ones()));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -44,7 +44,7 @@ pub fn parse_diffuse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut reflectance = Vec3::new(0.5, 0.5, 0.5);
+    let mut reflectance = Spectrum::new(0.5, 0.5, 0.5);
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -73,8 +73,8 @@ pub fn parse_dielectric<T: std::io::Read>(
 ) -> Result<Arc<dyn Material>> {
     let mut int_ior = BK7_GLASS_IOR;
     let mut ext_ior = AIR_IOR;
-    let mut specular_reflectance = Vec3::new(1.0, 1.0, 1.0);
-    let mut specular_transmittance = Vec3::new(1.0, 1.0, 1.0);
+    let mut specular_reflectance = Spectrum::ones();
+    let mut specular_transmittance = Spectrum::ones();
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,

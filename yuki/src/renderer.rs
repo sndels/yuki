@@ -13,7 +13,7 @@ use crate::{
     camera::{Camera, CameraParameters},
     film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::IntegratorType,
-    math::Vec3,
+    math::Spectrum,
     sampling::{Sampler, SamplerType},
     scene::Scene,
     yuki_debug, yuki_error, yuki_trace,
@@ -387,7 +387,7 @@ fn launch_worker(
                     yuki_trace!("Render thread {}: Acquired film", thread_id);
 
                     if film.matches(&tile) {
-                        film.mark(&tile, Vec3::new(1.0, 0.0, 1.0));
+                        film.mark(&tile, Spectrum::new(1.0, 0.0, 1.0));
                     }
 
                     yuki_trace!("Render thread {}: Releasing film", thread_id);

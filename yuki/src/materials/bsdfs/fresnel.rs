@@ -1,9 +1,10 @@
-use crate::math::Vec3;
+use crate::math::Spectrum;
+
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission
 
 pub trait Fresnel {
-    fn evaluate(&self, cos_theta_i: f32) -> Vec3<f32>;
+    fn evaluate(&self, cos_theta_i: f32) -> Spectrum<f32>;
 }
 
 pub struct Dielectric {
@@ -18,7 +19,7 @@ impl Dielectric {
 }
 
 impl Fresnel for Dielectric {
-    fn evaluate(&self, mut cos_theta_i: f32) -> Vec3<f32> {
+    fn evaluate(&self, mut cos_theta_i: f32) -> Spectrum<f32> {
         cos_theta_i = cos_theta_i.clamp(-1.0, 1.0);
 
         let entering = cos_theta_i > 0.0;
@@ -34,7 +35,7 @@ impl Fresnel for Dielectric {
 
         let total_internal_reflection = sin_theta_t >= 1.0;
         if total_internal_reflection {
-            return Vec3::from(1.0);
+            return Spectrum::ones();
         }
 
         let cos_theta_t = (1.0 - sin_theta_t * sin_theta_t).max(0.0).sqrt();
@@ -44,6 +45,6 @@ impl Fresnel for Dielectric {
         let r_perpendicular = ((eta_i * cos_theta_i) - (eta_t * cos_theta_t))
             / ((eta_i * cos_theta_i) + (eta_t * cos_theta_t));
 
-        Vec3::from((r_parallel * r_parallel + r_perpendicular * r_perpendicular) / 2.0)
+        Spectrum::ones() * (r_parallel * r_parallel + r_perpendicular * r_perpendicular) / 2.0
     }
 }

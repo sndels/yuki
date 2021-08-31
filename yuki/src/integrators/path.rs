@@ -4,7 +4,7 @@ use crate::{
     interaction::Interaction,
     lights::LightSample,
     materials::{BxdfSample, BxdfType},
-    math::{Ray, Vec3},
+    math::{Ray, Spectrum},
     sampling::Sampler,
     scene::Scene,
     shapes::Hit,
@@ -47,11 +47,6 @@ impl Integrator for Path {
         sampler: &mut Box<dyn Sampler>,
         collect_rays: bool,
     ) -> RadianceResult {
-        // TODO: Do color/spectrum class for this math
-        fn mul(v1: Vec3<f32>, v2: Vec3<f32>) -> Vec3<f32> {
-            Vec3::new(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z)
-        }
-
         let min_debug_ray_length = {
             let bounds = scene.bvh.bounds();
             let i = bounds.maximum_extent();
@@ -59,8 +54,8 @@ impl Integrator for Path {
         };
 
         let mut collected_rays = Vec::new();
-        let mut incoming_radiance = Vec3::from(0.0);
-        let mut beta = Vec3::from(1.0);
+        let mut incoming_radiance = Spectrum::zeros();
+        let mut beta = Spectrum::ones();
         let mut bounces = 0;
         let mut ray_count = 0;
         let mut ray_type = RayType::Direct;
@@ -92,11 +87,10 @@ impl Integrator for Path {
                     });
                 }
 
-                incoming_radiance += mul(
-                    beta,
-                    scene.lights.iter().fold(Vec3::from(0.0), |c, l| {
+                incoming_radiance += beta
+                    * scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                         let LightSample { l, li, vis } = l.sample_li(&si);
-                        if li != Vec3::from(0.0) {
+                        if !li.is_black() {
                             let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                             if let Some(test) = vis {
                                 if collect_rays {
@@ -105,14 +99,13 @@ impl Integrator for Path {
                                         ray_type: RayType::Shadow,
                                     });
                                 }
-                                if f != Vec3::from(0.0) && test.unoccluded(scene) {
-                                    return c + mul(f, li) * si.n.dot_v(l).clamp(0.0, 1.0);
+                                if !f.is_black() && test.unoccluded(scene) {
+                                    return c + f * li * si.n.dot_v(l).clamp(0.0, 1.0);
                                 }
                             }
                         }
                         c
-                    }),
-                );
+                    });
 
                 let wo = -ray.d;
                 let BxdfSample {
@@ -126,12 +119,12 @@ impl Integrator for Path {
                     .unwrap()
                     .sample_f(wo, sampler.get_2d(), BxdfType::all());
 
-                if f == Vec3::from(0.0) || pdf == 0.0 {
+                if f.is_black() || pdf == 0.0 {
                     break;
                 }
 
                 // TODO: This should be the shading normal
-                beta = mul(beta, f * wi.dot_n(si.n).abs() / pdf);
+                beta *= f * wi.dot_n(si.n).abs() / pdf;
                 ray = Interaction::from(&si).spawn_ray(wi);
                 ray_type = if sample_type.contains(BxdfType::REFLECTION) {
                     RayType::Reflection
@@ -143,17 +136,17 @@ impl Integrator for Path {
             } else {
                 // TODO: pbrt doesn't do this on miss after first ray in path,
                 //       but on direct illumination estimate for previous hit
-                incoming_radiance += mul(beta, scene.background);
+                incoming_radiance += beta * scene.background;
                 break;
             };
 
             // Russian roulette
             if bounces > 3 {
-                let q = (1.0 - beta.y).max(0.05);
+                let q = (1.0 - beta.g).max(0.05);
                 if sampler.get_1d() < q {
                     break;
                 }
-                beta = mul(beta, Vec3::from(1.0 / (1.0 - q)));
+                beta *= Spectrum::ones() / (1.0 - q);
             }
 
             bounces += 1;

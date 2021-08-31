@@ -1,7 +1,7 @@
 use super::{Integrator, RadianceResult};
 use crate::{
     bvh::IntersectionResult,
-    math::{Ray, Vec3},
+    math::{Ray, Spectrum},
     sampling::Sampler,
     scene::Scene,
 };
@@ -27,7 +27,7 @@ impl Integrator for BVHIntersections {
         } = scene.bvh.intersect(ray);
         let ray_count = 1;
 
-        let color = Vec3::new(
+        let color = Spectrum::new(
             intersection_test_count as f32,
             intersection_count as f32,
             if hit.is_some() {

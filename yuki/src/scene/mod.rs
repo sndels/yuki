@@ -6,7 +6,7 @@ use crate::{
     camera::{CameraParameters, FoV},
     lights::{Light, PointLight},
     materials::{Glass, Material, Matte},
-    math::{transforms::translation, Point3, Transform, Vec3},
+    math::{transforms::translation, Point3, Spectrum, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     yuki_info,
 };
@@ -37,7 +37,7 @@ pub struct Scene {
     pub shapes: Arc<Vec<Arc<dyn Shape>>>,
     pub bvh: BoundingVolumeHierarchy,
     pub lights: Vec<Arc<dyn Light>>,
-    pub background: Vec3<f32>,
+    pub background: Spectrum<f32>,
 }
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -66,7 +66,7 @@ impl Scene {
     pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
         let load_start = Instant::now();
 
-        let white = Arc::new(Matte::new(Vec3::from(1.0))) as Arc<dyn Material>;
+        let white = Arc::new(Matte::new(Spectrum::ones())) as Arc<dyn Material>;
         let PlyResult { mesh, shapes } = ply::load(&settings.path, &white, None)?;
 
         let meshes = vec![mesh];
@@ -79,7 +79,7 @@ impl Scene {
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(5.0, 5.0, 0.0)),
-            Vec3::from(600.0),
+            Spectrum::ones() * 600.0,
         ));
 
         let cam_pos = Point3::new(2.0, 2.0, 2.0);
@@ -98,7 +98,7 @@ impl Scene {
                 shapes,
                 bvh,
                 lights: vec![light],
-                background: Vec3::from(0.0),
+                background: Spectrum::zeros(),
             },
             CameraParameters {
                 position: cam_pos,
@@ -125,9 +125,9 @@ impl Scene {
 
         // Materials
         // These are approximate as the originals are defined as spectrums
-        let white = Arc::new(Matte::new(Vec3::from(180.0) / 255.0));
-        let red = Arc::new(Matte::new(Vec3::new(180.0, 0.0, 0.0) / 255.0));
-        let green = Arc::new(Matte::new(Vec3::new(0.0, 180.0, 0.0) / 255.0));
+        let white = Arc::new(Matte::new(Spectrum::ones() * 180.0 / 255.0));
+        let red = Arc::new(Matte::new(Spectrum::new(180.0, 0.0, 0.0) / 255.0));
+        let green = Arc::new(Matte::new(Spectrum::new(0.0, 180.0, 0.0) / 255.0));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
@@ -244,18 +244,14 @@ impl Scene {
         shapes.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            Arc::new(Glass::new(
-                Vec3::new(1.0, 1.0, 1.0),
-                Vec3::new(1.0, 1.0, 1.0),
-                1.5,
-            )),
+            Arc::new(Glass::new(Spectrum::ones(), Spectrum::ones(), 1.5)),
         )));
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
 
         let light = Arc::new(PointLight::new(
             &translation(Vec3::new(288.0, 500.0, -279.0)),
-            Vec3::from(240_000.0),
+            Spectrum::ones() * 240_000.0,
         ));
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
@@ -272,7 +268,7 @@ impl Scene {
                 shapes,
                 bvh,
                 lights: vec![light],
-                background: Vec3::from(0.0),
+                background: Spectrum::zeros(),
             },
             CameraParameters {
                 position: cam_pos,

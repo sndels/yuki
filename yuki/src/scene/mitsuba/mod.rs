@@ -11,7 +11,7 @@ use crate::{
     find_attr,
     lights::Light,
     materials::Material,
-    math::{Ray, Vec3},
+    math::{Ray, Spectrum},
     scene::{ply::PlyResult, CameraParameters, Result, Scene, SceneLoadSettings},
     yuki_error, yuki_trace,
 };
@@ -33,7 +33,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
     let mut shapes = Vec::new();
     let mut materials: HashMap<String, Arc<dyn Material>> = HashMap::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
-    let mut background = Vec3::from(0.0);
+    let mut background = Spectrum::zeros();
     let mut camera_params = CameraParameters::default();
     let mut parser = EventReader::new(file_buf);
     let mut indent = String::new();

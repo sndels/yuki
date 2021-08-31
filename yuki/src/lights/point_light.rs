@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
-    math::{Point3, Transform, Vec3},
+    math::{Point3, Spectrum, Transform},
     visibility::VisibilityTester,
 };
 
@@ -10,12 +10,12 @@ use crate::{
 
 pub struct PointLight {
     p: Point3<f32>,
-    i: Vec3<f32>,
+    i: Spectrum<f32>,
 }
 
 impl PointLight {
     /// Creates a new `PointLight` with the given transform and intensity.
-    pub fn new(light_to_world: &Transform<f32>, i: Vec3<f32>) -> Self {
+    pub fn new(light_to_world: &Transform<f32>, i: Spectrum<f32>) -> Self {
         Self {
             p: light_to_world * Point3::new(0.0, 0.0, 0.0),
             i,

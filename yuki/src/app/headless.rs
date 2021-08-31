@@ -6,7 +6,7 @@ use super::{
 use crate::{
     expect,
     film::Film,
-    math::Vec3,
+    math::Spectrum,
     renderer::{RenderResult, Renderer},
     yuki_info,
 };
@@ -92,8 +92,9 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
                     "Failed to tone map film"
                 );
                 // TODO: This will explode if mapped texture format is not f32f32f32
-                let pixels =
-                    unsafe { tone_mapped_film.unchecked_read::<Vec<Vec3<f32>>, Vec3<f32>>() };
+                let pixels = unsafe {
+                    tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
+                };
 
                 (
                     tone_mapped_film.width() as usize,

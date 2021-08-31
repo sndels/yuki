@@ -4,7 +4,7 @@ use crate::{
     lights::{Light, PointLight, SpotLight},
     math::{
         transforms::{scale, translation},
-        Point3, Transform, Vec3,
+        Point3, Spectrum, Transform,
     },
     parse_element,
     scene::Result,
@@ -15,7 +15,7 @@ use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 use std::sync::Arc;
 
 pub enum Emitter {
-    Background { color: Vec3<f32> },
+    Background { color: Spectrum<f32> },
     Light { light: Arc<dyn Light> },
 }
 
@@ -43,8 +43,8 @@ pub fn parse<T: std::io::Read>(
 fn parse_constant_emitter<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
-) -> Result<Vec3<f32>> {
-    let mut radiance = Vec3::from(0.0);
+) -> Result<Spectrum<f32>> {
+    let mut radiance = Spectrum::zeros();
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -69,7 +69,7 @@ fn parse_point_light<T: std::io::Read>(
     mut indent: String,
 ) -> Result<Arc<PointLight>> {
     let mut position = Point3::from(0.0);
-    let mut intensity = Vec3::from(0.0);
+    let mut intensity = Spectrum::zeros();
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -119,7 +119,7 @@ fn parse_spot_light<T: std::io::Read>(
     mut indent: String,
 ) -> Result<Arc<SpotLight>> {
     let mut light_to_world = Transform::default();
-    let mut intensity = Vec3::from(0.0);
+    let mut intensity = Spectrum::zeros();
     let mut total_width_degrees = 0.0;
     let mut falloff_start_degrees = 0.0;
 

@@ -6,7 +6,7 @@ pub use lambertian::Lambertian;
 
 use crate::{
     interaction::SurfaceInteraction,
-    math::{Normal, Point2, Vec3},
+    math::{Normal, Point2, Spectrum, Vec3},
 };
 
 use bitflags::bitflags;
@@ -27,7 +27,7 @@ bitflags! {
 
 pub struct BxdfSample {
     pub wi: Vec3<f32>,
-    pub f: Vec3<f32>,
+    pub f: Spectrum<f32>,
     pub pdf: f32,
     pub sample_type: BxdfType,
 }
@@ -36,7 +36,7 @@ impl Default for BxdfSample {
     fn default() -> Self {
         Self {
             wi: Vec3::from(0.0),
-            f: Vec3::from(0.0),
+            f: Spectrum::zeros(),
             pdf: 0.0,
             sample_type: BxdfType::NONE,
         }
@@ -46,7 +46,7 @@ impl Default for BxdfSample {
 /// Interface for an individual BRDF or BTDF function.
 pub trait Bxdf {
     /// Evaluate distribution function for the pair of directions.
-    fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Vec3<f32>;
+    fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Spectrum<f32>;
 
     /// Returns an incident light diretion and the value of the `Bxdf` for the given outgoing direction
     fn sample_f(&self, wo: Vec3<f32>, u: Point2<f32>) -> BxdfSample;
@@ -108,13 +108,18 @@ impl Bsdf {
     }
 
     /// Evaluate distribution function for the pair of directions.
-    pub fn f(&self, wo_world: Vec3<f32>, wi_world: Vec3<f32>, bxdf_type: BxdfType) -> Vec3<f32> {
+    pub fn f(
+        &self,
+        wo_world: Vec3<f32>,
+        wi_world: Vec3<f32>,
+        bxdf_type: BxdfType,
+    ) -> Spectrum<f32> {
         let wo = self.world_to_local(wo_world);
         let wi = self.world_to_local(wi_world);
 
         let reflect = wi_world.dot_n(self.n_geom) * wo_world.dot_n(self.n_geom) > 0.0;
 
-        let mut f = Vec3::from(0.0);
+        let mut f = Spectrum::zeros();
         for bxdf in &self.bxdfs {
             if bxdf.matches(bxdf_type)
                 && ((reflect && bxdf.flags().contains(BxdfType::REFLECTION))
@@ -182,7 +187,7 @@ impl Bsdf {
         // TODO: Verify this once multiple non-specular lobes are used
         if !bxdf.flags().contains(BxdfType::SPECULAR) && matching_comps > 1 {
             let reflect = wi_world.dot_n(self.n_geom) * wo_world.dot_n(self.n_geom) > 0.0;
-            f = Vec3::from(0.0);
+            f = Spectrum::zeros();
             for b in &self.bxdfs {
                 if b.matches(sample_type)
                     && ((reflect && b.flags().contains(BxdfType::REFLECTION))

@@ -28,7 +28,7 @@ use crate::{
     expect,
     film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
-    math::{transforms::rotation, Point2, Vec2, Vec3},
+    math::{transforms::rotation, Point2, Spectrum, Vec2, Vec3},
     renderer::Renderer,
     sampling::Sampler,
     sampling::SamplerType,
@@ -352,7 +352,7 @@ impl Window {
                                         // TODO: This will explode if mapped texture format is not f32f32f32
                                         let pixels = unsafe {
                                             tone_mapped_film
-                                                .unchecked_read::<Vec<Vec3<f32>>, Vec3<f32>>()
+                                                .unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
                                         };
                                         (w, h, pixels)
                                     }
@@ -654,13 +654,13 @@ fn handle_scroll_event(
     }
 }
 
-impl glium::texture::Texture2dDataSink<Vec3<f32>> for Vec<Vec3<f32>> {
-    fn from_raw(data: Cow<'_, [Vec3<f32>]>, _: u32, _: u32) -> Self {
+impl glium::texture::Texture2dDataSink<Spectrum<f32>> for Vec<Spectrum<f32>> {
+    fn from_raw(data: Cow<'_, [Spectrum<f32>]>, _: u32, _: u32) -> Self {
         data.into()
     }
 }
 
-unsafe impl glium::texture::PixelValue for Vec3<f32> {
+unsafe impl glium::texture::PixelValue for Spectrum<f32> {
     fn get_format() -> glium::texture::ClientFormat {
         glium::texture::ClientFormat::F32F32F32
     }

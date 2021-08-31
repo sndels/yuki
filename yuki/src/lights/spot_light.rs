@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
-    math::{Point3, Transform, Vec3},
+    math::{Point3, Spectrum, Transform, Vec3},
     visibility::VisibilityTester,
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub struct SpotLight {
     world_to_light: Transform<f32>,
     p: Point3<f32>,
-    i: Vec3<f32>,
+    i: Spectrum<f32>,
     cos_total_width: f32,
     cos_falloff_start: f32,
 }
@@ -22,7 +22,7 @@ impl SpotLight {
     /// Identity transform has the light pointing down -Z.
     pub fn new(
         light_to_world: &Transform<f32>,
-        i: Vec3<f32>,
+        i: Spectrum<f32>,
         total_width_degrees: f32,
         falloff_start_degrees: f32,
     ) -> Self {
@@ -58,7 +58,7 @@ impl Light for SpotLight {
         let l = to_light / dist;
         let li = self.i * self.falloff(l) / dist_sqr;
 
-        let vis = if li == Vec3::from(0.0) {
+        let vis = if li.is_black() {
             None
         } else {
             Some(VisibilityTester::new(

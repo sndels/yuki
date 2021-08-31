@@ -14,7 +14,7 @@ use strum::{EnumString, EnumVariantNames, ToString};
 use crate::{
     camera::{Camera, CameraSample},
     film::FilmTile,
-    math::{Point2, Ray, Vec2, Vec3},
+    math::{Point2, Ray, Spectrum, Vec2},
     sampling::Sampler,
     scene::Scene,
 };
@@ -59,7 +59,7 @@ impl Default for IntegratorType {
 }
 
 pub struct RadianceResult {
-    pub li: Vec3<f32>,
+    pub li: Spectrum<f32>,
     pub ray_scene_intersections: usize,
     pub rays: Vec<IntegratorRay>,
 }
@@ -67,7 +67,7 @@ pub struct RadianceResult {
 impl Default for RadianceResult {
     fn default() -> Self {
         Self {
-            li: Vec3::from(0.0),
+            li: Spectrum::zeros(),
             ray_scene_intersections: 0,
             rays: Vec::new(),
         }
@@ -122,7 +122,7 @@ pub trait Integrator {
         let mut ray_count = 0;
         for p in tile.bb {
             sampler.start_pixel();
-            let mut color = Vec3::from(0.0);
+            let mut color = Spectrum::zeros();
             for _ in 0..sampler.samples_per_pixel() {
                 if early_termination_predicate() {
                     return ray_count;
