@@ -3,6 +3,7 @@ use crate::{
     math::Spectrum,
     parse_element,
     scene::Result,
+    textures::ConstantTexture,
     yuki_error, yuki_info, yuki_trace,
 };
 
@@ -16,7 +17,8 @@ pub fn parse_twosided<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut material: Arc<dyn Material> = Arc::new(Matte::new(Spectrum::ones()));
+    let mut material: Arc<dyn Material> =
+        Arc::new(Matte::new(Arc::new(ConstantTexture::new(Spectrum::ones()))));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -31,7 +33,10 @@ pub fn parse_twosided<T: std::io::Read>(
                 indent.truncate(indent.len() - 2);
             }
             "rgb" => {
-                material = Arc::new(Matte::new(parse_rgb(&attributes, "reflectance")?));
+                material = Arc::new(Matte::new(Arc::new(ConstantTexture::new(parse_rgb(
+                    &attributes,
+                    "reflectance",
+                )?))));
             }
             _ => return Err(format!("Unknown material data type '{}'", data_type).into()),
         }
@@ -44,7 +49,7 @@ pub fn parse_diffuse<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut reflectance = Spectrum::new(0.5, 0.5, 0.5);
+    let mut reflectance = Arc::new(ConstantTexture::new(Spectrum::new(0.5, 0.5, 0.5)));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -54,7 +59,8 @@ pub fn parse_diffuse<T: std::io::Read>(
         let data_type = name.local_name.as_str();
         match data_type {
             "rgb" => {
-                reflectance = parse_rgb(&attributes, "reflectance")?;
+                reflectance =
+                    Arc::new(ConstantTexture::new(parse_rgb(&attributes, "reflectance")?));
             }
             _ => return Err(format!("Unknown light data type '{}'", data_type).into()),
         }
@@ -73,8 +79,8 @@ pub fn parse_dielectric<T: std::io::Read>(
 ) -> Result<Arc<dyn Material>> {
     let mut int_ior = BK7_GLASS_IOR;
     let mut ext_ior = AIR_IOR;
-    let mut specular_reflectance = Spectrum::ones();
-    let mut specular_transmittance = Spectrum::ones();
+    let mut specular_reflectance = Arc::new(ConstantTexture::new(Spectrum::ones()));
+    let mut specular_transmittance = Arc::new(ConstantTexture::new(Spectrum::ones()));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -85,9 +91,9 @@ pub fn parse_dielectric<T: std::io::Read>(
         match data_type {
             "rgb" => {
                 if let Ok(v) = parse_rgb(&attributes, "specular_reflectance") {
-                    specular_reflectance = v;
+                    specular_reflectance = Arc::new(ConstantTexture::new(v));
                 } else if let Ok(v) = parse_rgb(&attributes, "specular_transmittance") {
-                    specular_transmittance = v;
+                    specular_transmittance = Arc::new(ConstantTexture::new(v));
                 } else {
                     return Err(format!(
                         "Unknown dielectric rgb data '{}'",

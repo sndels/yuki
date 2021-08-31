@@ -8,6 +8,7 @@ use crate::{
     materials::{Glass, Material, Matte},
     math::{transforms::translation, Point3, Spectrum, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
+    textures::ConstantTexture,
     yuki_info,
 };
 use ply::PlyResult;
@@ -66,7 +67,8 @@ impl Scene {
     pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
         let load_start = Instant::now();
 
-        let white = Arc::new(Matte::new(Spectrum::ones())) as Arc<dyn Material>;
+        let white = Arc::new(Matte::new(Arc::new(ConstantTexture::new(Spectrum::ones()))))
+            as Arc<dyn Material>;
         let PlyResult { mesh, shapes } = ply::load(&settings.path, &white, None)?;
 
         let meshes = vec![mesh];
@@ -125,9 +127,15 @@ impl Scene {
 
         // Materials
         // These are approximate as the originals are defined as spectrums
-        let white = Arc::new(Matte::new(Spectrum::ones() * 180.0 / 255.0));
-        let red = Arc::new(Matte::new(Spectrum::new(180.0, 0.0, 0.0) / 255.0));
-        let green = Arc::new(Matte::new(Spectrum::new(0.0, 180.0, 0.0) / 255.0));
+        let white = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
+            Spectrum::ones() * 180.0 / 255.0,
+        ))));
+        let red = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
+            Spectrum::new(180.0, 0.0, 0.0) / 255.0,
+        ))));
+        let green = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
+            Spectrum::new(0.0, 180.0, 0.0) / 255.0,
+        ))));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
@@ -244,7 +252,11 @@ impl Scene {
         shapes.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            Arc::new(Glass::new(Spectrum::ones(), Spectrum::ones(), 1.5)),
+            Arc::new(Glass::new(
+                Arc::new(ConstantTexture::new(Spectrum::ones())),
+                Arc::new(ConstantTexture::new(Spectrum::ones())),
+                1.5,
+            )),
         )));
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
