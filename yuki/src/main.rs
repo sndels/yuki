@@ -26,6 +26,7 @@ mod renderer;
 mod sampling;
 mod scene;
 mod shapes;
+mod textures;
 mod visibility;
 
 use itertools::Itertools;
