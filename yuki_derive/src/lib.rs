@@ -10,6 +10,7 @@ mod derive_trait;
 mod impl_bounds;
 mod impl_normal;
 mod impl_point;
+mod impl_spectrum;
 mod impl_vec;
 mod impl_vec_like;
 mod impl_vec_op;
@@ -17,6 +18,7 @@ mod impl_vec_op;
 use impl_bounds as bounds_impl;
 use impl_normal as normal_impl;
 use impl_point as point_impl;
+use impl_spectrum as spectrum_impl;
 use impl_vec as vec_impl;
 
 macro_rules! impl_t {
@@ -45,6 +47,7 @@ macro_rules! impl_t {
 }
 
 impl_t!(impl_bounds bounds_impl::bounds_impl);
+impl_t!(impl_spectrum spectrum_impl::spectrum_impl);
 impl_t!(impl_normal normal_impl::normal_impl);
 impl_t!(impl_point point_impl::point_impl);
 impl_t!(impl_vec vec_impl::vec_impl);
@@ -150,8 +153,12 @@ macro_rules! derive {
 // These are basically Op<"Vector"<T>> for "Vector"<T>
 derive!(Add add derive_math_op::vec_op);
 derive!(Sub sub derive_math_op::vec_op);
+derive!(Mul mul derive_math_op::vec_op);
+derive!(Div div derive_math_op::vec_op);
 derive!(AddAssign add_assign derive_math_op::vec_op);
 derive!(SubAssign sub_assign derive_math_op::vec_op);
+derive!(MulAssign mul_assign derive_math_op::vec_op);
+derive!(DivAssign div_assign derive_math_op::vec_op);
 // These are basically Op<T> for "Vector"<T>
 derive!(AddScalar add_scalar derive_math_op::vec_op);
 derive!(SubScalar sub_scalar derive_math_op::vec_op);

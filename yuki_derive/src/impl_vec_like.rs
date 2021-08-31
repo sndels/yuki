@@ -66,7 +66,7 @@ pub fn vec_like_impl(
     );
 
     let str_type = vec_type.to_string();
-    let component_count = if str_type == "Normal" {
+    let component_count = if str_type == "Normal" || str_type == "Spectrum" {
         3
     } else {
         match str_type.chars().last().unwrap().to_digit(10) {
