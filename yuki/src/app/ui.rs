@@ -465,7 +465,7 @@ fn generate_scene_settings(
                 let path = open_file_dialog(
                     "Open scene",
                     open_path,
-                    Some((&["*.ply", "*.xml"], "Supported scene formats")),
+                    Some((&["*.ply", "*.xml", "*.pbrt"], "Supported scene formats")),
                 )
                 .map_or_else(PathBuf::new, PathBuf::from);
                 (*load_settings).path = path;

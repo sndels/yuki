@@ -38,6 +38,16 @@ pub fn try_load_scene(
                     }
                     Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
                 },
+                "pbrt" => match Scene::pbrt_v3(settings) {
+                    Ok((scene, camera_params, film_settings, total_secs)) => {
+                        yuki_info!(
+                            "PBRT v3 scene loaded from {}",
+                            settings.path.file_name().unwrap().to_str().unwrap()
+                        );
+                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
+                    }
+                    Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
+                },
                 _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
             },
             None => Err("Expected a file with an extension".into()),

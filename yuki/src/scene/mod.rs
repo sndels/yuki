@@ -1,4 +1,5 @@
 mod mitsuba;
+mod pbrt;
 mod ply;
 
 use crate::{
@@ -45,6 +46,29 @@ pub struct Scene {
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 impl Scene {
+    /// Loads a pbrt-v3 scene
+    ///
+    /// Also returns the time it took to load in seconds.
+    pub fn pbrt_v3(
+        settings: &SceneLoadSettings,
+    ) -> Result<(Scene, CameraParameters, FilmSettings, f32)> {
+        let load_start = Instant::now();
+
+        let (scene, dynamic_params, film_settings) = match pbrt::load(settings) {
+            Ok(ret) => ret,
+            Err(why) => {
+                // TODO: Proper error type?
+                return Err(format!("{:?}", why).into());
+            }
+        };
+
+        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+
+        yuki_info!("pbrt-v3: Loading took {:.2}s in total", total_secs);
+
+        Ok((scene, dynamic_params, film_settings, total_secs))
+    }
+
     /// Loads a Mitsuba 2 scene
     ///
     /// Also returns the time it took to load in seconds.
