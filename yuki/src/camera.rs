@@ -82,7 +82,7 @@ impl Camera {
             }
             FoV::Y(_) => {
                 let ar = film_y / film_x;
-                (Vec2::new(-1.0 / ar, 1.0), Vec2::new(1.0 / ar, 1.0))
+                (Vec2::new(-1.0 / ar, -1.0), Vec2::new(1.0 / ar, 1.0))
             }
         };
         let screen_to_raster = &scale(film_x, film_y, 1.0)
