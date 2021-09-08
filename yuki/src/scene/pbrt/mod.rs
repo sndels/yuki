@@ -423,7 +423,7 @@ pub fn load(
             }
             Token::Rotate => {
                 let angle = get_f32!();
-                let axis= Vec3::new(get_f32!(), get_f32!(), get_f32!());
+                let axis = Vec3::new(get_f32!(), get_f32!(), get_f32!());
                 current_transform = &current_transform * &rotation(angle.to_radians(), axis);
             }
             Token::Sampler => ignore_type_definition!(Token::Sampler),

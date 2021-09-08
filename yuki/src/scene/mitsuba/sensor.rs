@@ -101,11 +101,12 @@ pub fn parse<T: std::io::Read>(
         * &rotation_euler(Vec3::new(-cam_euler.x, -cam_euler.y, cam_euler.z));
     // This should be changed to some sane distance in front of camera once we know the scene scale
     let target = &camera_to_world * Point3::new(0.0, 0.0, 1.0);
+    let up = &camera_to_world * Vec3::new(0.0, 1.0, 0.0);
 
     Ok(CameraParameters {
         position,
         target,
+        up,
         fov,
-        ..CameraParameters::default()
     })
 }

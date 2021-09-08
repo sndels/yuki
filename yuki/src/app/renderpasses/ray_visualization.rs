@@ -4,7 +4,7 @@ use crate::{
     camera::{CameraParameters, FoV},
     film::FilmSettings,
     integrators::{IntegratorRay, RayType},
-    math::{transforms::look_at, Bounds3, Matrix4x4, Point3, Transform, Vec3},
+    math::{transforms::look_at, Bounds3, Matrix4x4, Point3, Transform},
     yuki_trace,
 };
 
@@ -80,7 +80,7 @@ impl RayVisualization {
             let world_to_camera = look_at(
                 camera_params.position,
                 camera_params.target,
-                Vec3::new(0.0, 1.0, 0.0),
+                camera_params.up,
             );
 
             let camera_to_clip = {

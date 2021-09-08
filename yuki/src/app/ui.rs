@@ -18,7 +18,7 @@ use crate::{
     expect,
     film::FilmSettings,
     integrators::{IntegratorType, PathParams, WhittedParams},
-    math::Vec2,
+    math::{Vec2, Vec3},
     sampling::{SamplerType, StratifiedParams, UniformParams},
     scene::{Scene, SceneLoadSettings},
     yuki_error,
@@ -440,6 +440,11 @@ fn generate_scene_settings(
                             .display_format(im_str!("%.1f"))
                             .build(ui, fov);
                         width.pop(ui);
+                    }
+
+                    if ui.button(im_str!("Set +Y up"), [77.0, 20.0]) {
+                        camera_params.up = Vec3::new(0.0, 1.0, 0.0);
+                        changed = true;
                     }
                 });
 
