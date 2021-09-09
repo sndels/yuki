@@ -4,6 +4,7 @@ mod ply;
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::{CameraParameters, FoV},
+    film::FilmSettings,
     lights::{Light, PointLight},
     materials::{Glass, Material, Matte},
     math::{transforms::translation, Point3, Spectrum, Transform, Vec3},
@@ -47,16 +48,18 @@ impl Scene {
     /// Loads a Mitsuba 2 scene
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn mitsuba(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
+    pub fn mitsuba(
+        settings: &SceneLoadSettings,
+    ) -> Result<(Scene, CameraParameters, FilmSettings, f32)> {
         let load_start = Instant::now();
 
-        let (scene, dynamic_params) = mitsuba::load(settings)?;
+        let (scene, dynamic_params, film_settings) = mitsuba::load(settings)?;
 
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
         yuki_info!("Mitsuba 2.0: Loading took {:.2}s in total", total_secs);
 
-        Ok((scene, dynamic_params, total_secs))
+        Ok((scene, dynamic_params, film_settings, total_secs))
     }
 
     ///
@@ -64,7 +67,9 @@ impl Scene {
     /// on it at an angle.
     ///
     /// Also returns the time it took to load in seconds.
-    pub fn ply(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, f32)> {
+    pub fn ply(
+        settings: &SceneLoadSettings,
+    ) -> Result<(Scene, CameraParameters, FilmSettings, f32)> {
         let load_start = Instant::now();
 
         let white = Arc::new(Matte::new(Arc::new(ConstantTexture::new(Spectrum::ones()))))
@@ -108,13 +113,14 @@ impl Scene {
                 fov: cam_fov,
                 ..CameraParameters::default()
             },
+            FilmSettings::default(),
             total_secs,
         ))
     }
 
     /// Constructs the Cornell box holding a tall box and a sphere
     // Lifted from http://www.graphics.cornell.edu/online/box/data.html
-    pub fn cornell() -> (Arc<Scene>, CameraParameters, f32) {
+    pub fn cornell() -> (Arc<Scene>, CameraParameters, FilmSettings, f32) {
         let load_start = Instant::now();
 
         // Original uses a right-handed coordinate system so flip z
@@ -288,6 +294,7 @@ impl Scene {
                 fov: cam_fov,
                 ..CameraParameters::default()
             },
+            FilmSettings::default(),
             total_secs,
         )
     }

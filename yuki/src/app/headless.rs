@@ -20,9 +20,10 @@ use std::{
 pub fn render(exr_path: &Path, settings: InitialSettings) {
     let load_settings = settings.load_settings.unwrap_or_default();
 
-    let (scene, camera_params, _) = expect!(try_load_scene(&load_settings), "Scene loading failed");
+    let (scene, camera_params, scene_film_settings, _) =
+        expect!(try_load_scene(&load_settings), "Scene loading failed");
 
-    let film_settings = settings.film_settings.unwrap_or_default();
+    let film_settings = settings.film_settings.unwrap_or(scene_film_settings);
     let sampler = settings.sampler.unwrap_or_default();
     let scene_integrator = settings.scene_integrator.unwrap_or_default();
     let mut tone_map = settings.tone_map.unwrap_or_default();

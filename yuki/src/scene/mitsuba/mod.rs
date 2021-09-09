@@ -8,6 +8,7 @@ mod transform;
 
 use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
+    film::FilmSettings,
     find_attr,
     lights::Light,
     materials::Material,
@@ -24,7 +25,7 @@ use xml::{
     reader::{EventReader, XmlEvent},
 };
 
-pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
+pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, FilmSettings)> {
     let dir_path = settings.path.parent().unwrap().to_path_buf();
     let file = std::fs::File::open(settings.path.to_str().unwrap())?;
     let file_buf = std::io::BufReader::new(file);
@@ -35,6 +36,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
     let mut camera_params = CameraParameters::default();
+    let mut film_settings = FilmSettings::default();
     let mut parser = EventReader::new(file_buf);
     let mut indent = String::new();
     let mut ignore_level: Option<u32> = None;
@@ -73,7 +75,15 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
                                 }
                             }
                             "default" => {
-                                // TODO
+                                let (attr_name, attr_value) = (
+                                    find_attr!(&attributes, "name").as_str(),
+                                    find_attr!(&attributes, "value"),
+                                );
+                                match attr_name {
+                                    "resx" => film_settings.res.x = attr_value.as_str().parse()?,
+                                    "resy" => film_settings.res.y = attr_value.as_str().parse()?,
+                                    _ => (),
+                                }
                             }
                             "integrator" => {
                                 ignore_level = Some(0);
@@ -203,5 +213,6 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters)> {
             background,
         },
         camera_params,
+        film_settings,
     ))
 }

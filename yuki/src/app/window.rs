@@ -92,7 +92,7 @@ impl Window {
         let mut load_settings = settings.load_settings.unwrap_or_default();
 
         // Init with cornell here so scene is loaded on first frame and ui gets load time through the normal logic
-        let (scene, camera_params, _) = match try_load_scene(&load_settings) {
+        let (scene, camera_params, scene_film_settings, _) = match try_load_scene(&load_settings) {
             Ok(result) => result,
             Err(why) => {
                 yuki_error!("Scene loading failed: {}", why);
@@ -107,7 +107,7 @@ impl Window {
             ui,
             tone_map_film,
             ray_visualization,
-            film_settings: settings.film_settings.unwrap_or_default(),
+            film_settings: settings.film_settings.unwrap_or(scene_film_settings),
             scene_integrator: settings.scene_integrator.unwrap_or_default(),
             sampler: settings.sampler.unwrap_or_default(),
             film,
@@ -185,9 +185,10 @@ impl Window {
                     if load_settings.path.exists() {
                         renderer.kill();
                         match try_load_scene(&load_settings) {
-                            Ok((new_scene, new_camera_params, total_secs)) => {
+                            Ok((new_scene, new_camera_params, new_film_settings, total_secs)) => {
                                 scene = new_scene;
                                 camera_params = new_camera_params;
+                                film_settings= new_film_settings;
                                 ray_visualization.clear_rays();
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);

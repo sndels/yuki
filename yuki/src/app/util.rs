@@ -6,6 +6,7 @@ use std::{
 
 use crate::{
     camera::CameraParameters,
+    film::FilmSettings,
     math::Spectrum,
     scene::{Scene, SceneLoadSettings},
     yuki_info,
@@ -13,27 +14,27 @@ use crate::{
 
 pub fn try_load_scene(
     settings: &SceneLoadSettings,
-) -> Result<(Arc<Scene>, CameraParameters, f32), String> {
+) -> Result<(Arc<Scene>, CameraParameters, FilmSettings, f32), String> {
     if settings.path.exists() {
         match settings.path.extension() {
             Some(ext) => match ext.to_str().unwrap() {
                 "ply" => match Scene::ply(settings) {
-                    Ok((scene, camera_params, total_secs)) => {
+                    Ok((scene, camera_params, film_settings, total_secs)) => {
                         yuki_info!(
                             "PLY loaded from {}",
                             settings.path.file_name().unwrap().to_str().unwrap()
                         );
-                        Ok((Arc::new(scene), camera_params, total_secs))
+                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
                     }
                     Err(why) => Err(format!("Loading PLY failed: {}", why)),
                 },
                 "xml" => match Scene::mitsuba(settings) {
-                    Ok((scene, camera_params, total_secs)) => {
+                    Ok((scene, camera_params, film_settings, total_secs)) => {
                         yuki_info!(
                             "Mitsuba 2.0 scene loaded from {}",
                             settings.path.file_name().unwrap().to_str().unwrap()
                         );
-                        Ok((Arc::new(scene), camera_params, total_secs))
+                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
                     }
                     Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
                 },
