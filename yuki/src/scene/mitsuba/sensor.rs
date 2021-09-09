@@ -85,9 +85,6 @@ pub fn parse<T: std::io::Read>(
         return Err("Camera to world has scaling".into());
     }
 
-    if fov_axis != "x" {
-        return Err("Only horizontal fov is supported".into());
-    }
     let fov = match fov_axis.as_str() {
         "x" => FoV::X(fov_angle),
         "y" => FoV::Y(fov_angle),
