@@ -114,7 +114,7 @@ impl Scene {
 
     /// Constructs the Cornell box holding a tall box and a sphere
     // Lifted from http://www.graphics.cornell.edu/online/box/data.html
-    pub fn cornell() -> (Scene, CameraParameters, f32) {
+    pub fn cornell() -> (Arc<Scene>, CameraParameters, f32) {
         let load_start = Instant::now();
 
         // Original uses a right-handed coordinate system so flip z
@@ -273,7 +273,7 @@ impl Scene {
         let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
 
         (
-            Scene {
+            Arc::new(Scene {
                 name: "Cornell Box".into(),
                 load_settings: SceneLoadSettings::default(),
                 meshes,
@@ -281,7 +281,7 @@ impl Scene {
                 bvh,
                 lights: vec![light],
                 background: Spectrum::zeros(),
-            },
+            }),
             CameraParameters {
                 position: cam_pos,
                 target: cam_target,

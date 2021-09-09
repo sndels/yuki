@@ -89,8 +89,17 @@ impl Window {
             "Failed to create ray visualization render pass"
         );
 
+        let mut load_settings = settings.load_settings.unwrap_or_default();
+
         // Init with cornell here so scene is loaded on first frame and ui gets load time through the normal logic
-        let (scene, camera_params, _) = Scene::cornell();
+        let (scene, camera_params, _) = match try_load_scene(&load_settings) {
+            Ok(result) => result,
+            Err(why) => {
+                yuki_error!("Scene loading failed: {}", why);
+                Scene::cornell()
+            }
+        };
+        load_settings.path.clear();
 
         Window {
             event_loop,
@@ -102,9 +111,9 @@ impl Window {
             scene_integrator: settings.scene_integrator.unwrap_or_default(),
             sampler: settings.sampler.unwrap_or_default(),
             film,
-            scene: Arc::new(scene),
+            scene,
             tone_map_type: settings.tone_map.unwrap_or_default(),
-            load_settings: settings.load_settings.unwrap_or_default(),
+            load_settings,
             camera_params,
         }
     }

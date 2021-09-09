@@ -42,8 +42,7 @@ pub fn try_load_scene(
             None => Err("Expected a file with an extension".into()),
         }
     } else if settings.path.as_os_str().is_empty() {
-        let (scene, camera_params, total_secs) = Scene::cornell();
-        Ok((Arc::new(scene), camera_params, total_secs))
+        Ok(Scene::cornell())
     } else {
         Err(format!(
             "Scene does not exist '{}'",
