@@ -17,20 +17,26 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub fn render(exr_path: &Path, mut settings: InitialSettings) {
-    let (scene, camera_params, _) = expect!(
-        try_load_scene(&settings.load_settings),
-        "Scene loading failed"
-    );
-    let film = Arc::new(Mutex::new(Film::new(settings.film_settings.res)));
+pub fn render(exr_path: &Path, settings: InitialSettings) {
+    let load_settings = settings.load_settings.unwrap_or_default();
+
+    let (scene, camera_params, _) = expect!(try_load_scene(&load_settings), "Scene loading failed");
+
+    let film_settings = settings.film_settings.unwrap_or_default();
+    let sampler = settings.sampler.unwrap_or_default();
+    let scene_integrator = settings.scene_integrator.unwrap_or_default();
+    let mut tone_map = settings.tone_map.unwrap_or_default();
+
+    // TODO: Don't override film_settings if input has defined them
+    let film = Arc::new(Mutex::new(Film::new(film_settings.res)));
     let mut renderer = Renderer::new();
     renderer.launch(
         scene,
         camera_params,
         Arc::clone(&film),
-        settings.sampler,
-        settings.scene_integrator,
-        settings.film_settings,
+        sampler,
+        scene_integrator,
+        film_settings,
         false,
     );
 
@@ -38,7 +44,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
         Ok(RenderResult { secs, .. }) => {
             yuki_info!("Render finished in {:.2}s", secs);
 
-            if let ToneMapType::Raw = settings.tone_map {
+            if let ToneMapType::Raw = tone_map {
                 #[allow(clippy::match_wild_err_arm)]
                 // "Wild" ignore needed as err is Arc itself
                 match Arc::try_unwrap(film) {
@@ -60,10 +66,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
                 let context = expect!(
                     ContextBuilder::new().build_headless(
                         &event_loop,
-                        PhysicalSize::new(
-                            settings.film_settings.res.x as u32,
-                            settings.film_settings.res.y as u32
-                        )
+                        PhysicalSize::new(film_settings.res.x as u32, film_settings.res.y as u32)
                     ),
                     "Failed to create headless context"
                 );
@@ -77,7 +80,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
                 if let ToneMapType::Heatmap(HeatmapParams {
                     ref mut bounds,
                     channel,
-                }) = settings.tone_map
+                }) = tone_map
                 {
                     if bounds.is_none() {
                         *bounds = Some(expect!(
@@ -88,7 +91,7 @@ pub fn render(exr_path: &Path, mut settings: InitialSettings) {
                 }
 
                 let tone_mapped_film = expect!(
-                    tone_map_film.draw(&backend, &film, &settings.tone_map),
+                    tone_map_film.draw(&backend, &film, &tone_map),
                     "Failed to tone map film"
                 );
                 // TODO: This will explode if mapped texture format is not f32f32f32

@@ -98,13 +98,13 @@ impl Window {
             ui,
             tone_map_film,
             ray_visualization,
-            film_settings: settings.film_settings,
-            scene_integrator: settings.scene_integrator,
-            sampler: settings.sampler,
+            film_settings: settings.film_settings.unwrap_or_default(),
+            scene_integrator: settings.scene_integrator.unwrap_or_default(),
+            sampler: settings.sampler.unwrap_or_default(),
             film,
             scene: Arc::new(scene),
-            tone_map_type: settings.tone_map,
-            load_settings: settings.load_settings,
+            tone_map_type: settings.tone_map.unwrap_or_default(),
+            load_settings: settings.load_settings.unwrap_or_default(),
             camera_params,
         }
     }
@@ -218,14 +218,14 @@ impl Window {
 
                     if frame_ui.save_settings {
                         let settings = InitialSettings {
-                            film_settings,
-                            sampler,
-                            scene_integrator,
-                            tone_map: tone_map_type,
-                            load_settings: SceneLoadSettings {
+                            film_settings: Some(film_settings),
+                            sampler: Some(sampler),
+                            scene_integrator: Some(scene_integrator ),
+                            tone_map: Some(tone_map_type),
+                            load_settings:Some( SceneLoadSettings {
                                 path: scene.load_settings.path.clone(),
                                 max_shapes_in_node: load_settings.max_shapes_in_node,
-                            },
+                            }),
                         };
 
                         match File::create("settings.json") {
