@@ -15,6 +15,8 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
 ## Features
 
 ### UI
+- Settings from yaml
+  - Ui button that generates a full dump of current settings
 - Uniformly scaling film view
 - Tone mapping
   - Filmic ACES tonemap (Stephen Hill's fit) with exposure
@@ -29,6 +31,7 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
   - Trackball, planar track, dolly
   - Adapted from [Max Liani](https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/)
 - Rasterized debug rays
+- Headless rendering to .exr
 
 ### Renderer
 - Tile-based rendering
@@ -59,6 +62,8 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
 ### Scene formats (partially) supported
   - [PLY](http://paulbourke.net/dataformats/ply/)
   - [Mitsuba 2.0](https://mitsuba2.readthedocs.io/en/latest/)
+  - [pbrt-v3](https://www.pbrt.org/fileformat-v3)
+    - A simple Blender exporter is also included
 
 ## yuki_derive
 
