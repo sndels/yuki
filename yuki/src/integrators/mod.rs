@@ -52,6 +52,7 @@ impl IntegratorType {
     }
 }
 
+#[allow(clippy::derivable_impls)] // Can't derive Default for non unit variants, which Whitted is
 impl Default for IntegratorType {
     fn default() -> Self {
         IntegratorType::Whitted(whitted::Params::default())

@@ -31,6 +31,7 @@ impl SamplerType {
     }
 }
 
+#[allow(clippy::derivable_impls)] // Can't derive Default for non unit variants, which Stratifed is
 impl Default for SamplerType {
     fn default() -> Self {
         SamplerType::Stratified(stratified::Params::default())

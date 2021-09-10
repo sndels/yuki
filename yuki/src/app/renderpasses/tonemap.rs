@@ -43,6 +43,7 @@ pub enum ToneMapType {
     Heatmap(HeatmapParams),
 }
 
+#[allow(clippy::derivable_impls)] // Can't derive Default for non unit variants, which Filmic is
 impl Default for ToneMapType {
     fn default() -> Self {
         ToneMapType::Filmic(FilmicParams::default())

@@ -104,17 +104,17 @@ fn main() {
                 (true, None)
             } else {
                 let parts: Vec<&str> = arg.split('=').collect();
-                if parts.len() != 2 {
+                if parts.len() == 2 {
+                    let (arg_name, value) = parts.iter().next_tuple().unwrap();
+                    if arg_name == &"--out" {
+                        (false, Some(PathBuf::from(value)))
+                    } else {
+                        yuki_error!("Unexpected option '{}'", arg_name);
+                        (true, None)
+                    }
+                } else {
                     yuki_error!("Unexpected option '{}'", arg);
                     (true, None)
-                } else {
-                    let (arg, value) = parts.iter().next_tuple().unwrap();
-                    if arg != &"--out" {
-                        yuki_error!("Unexpected option '{}'", arg);
-                        (true, None)
-                    } else {
-                        (false, Some(PathBuf::from(value)))
-                    }
                 }
             }
         }

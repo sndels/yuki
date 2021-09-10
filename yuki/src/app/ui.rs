@@ -367,6 +367,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                     symmetric_dimensions,
                     jitter_samples,
                 }) => {
+                    #[allow(clippy::cast_sign_loss)] // MAX_SAMPLES is u16
                     let max_dim = f64::from(MAX_SAMPLES).sqrt() as u16;
                     if *symmetric_dimensions {
                         let width = ui.push_item_width(118.0);
