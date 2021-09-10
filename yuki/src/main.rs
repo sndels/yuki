@@ -141,11 +141,11 @@ fn main() {
     }
 }
 
-fn load_settings() -> Result<app::InitialSettings, serde_json::Error> {
-    match File::open("settings.json") {
+fn load_settings() -> Result<app::InitialSettings, serde_yaml::Error> {
+    match File::open("settings.yaml") {
         Ok(file) => {
             let reader = BufReader::new(file);
-            let settings = serde_json::from_reader(reader)?;
+            let settings = serde_yaml::from_reader(reader)?;
             yuki_info!("Found settings");
             Ok(settings)
         }

@@ -4,4 +4,4 @@ Cargo.lock
 *.log
 *.exr
 *.pyc
-settings.json
+settings.yaml

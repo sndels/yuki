@@ -238,10 +238,10 @@ impl Window {
                             }),
                         };
 
-                        match File::create("settings.json") {
+                        match File::create("settings.yaml") {
                             Ok(file) => {
                                 let writer = BufWriter::new(file);
-                                if let Err(why) = serde_json::to_writer_pretty(writer, &settings) {
+                                if let Err(why) = serde_yaml::to_writer(writer, &settings) {
                                     yuki_error!("Failed to serialize settings: {}", why);
                                 }
                             }
