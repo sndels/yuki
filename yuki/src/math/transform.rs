@@ -40,12 +40,6 @@ where
         Self { m, m_inv }
     }
 
-    /// Creates a new identity `Transform`.
-    pub fn default() -> Self {
-        let m = Matrix4x4::identity();
-        Self::new_full(m, m)
-    }
-
     /// Returns a reference to the [Matrix4x4] of this `Transformation`.
     pub fn m(&self) -> &Matrix4x4<T> {
         &self.m
@@ -93,6 +87,16 @@ where
             - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
         det < T::zero()
+    }
+}
+
+impl<T> Default for Transform<T>
+where
+    T: FloatValueType,
+{
+    fn default() -> Self {
+        let m = Matrix4x4::identity();
+        Self::new_full(m, m)
     }
 }
 

@@ -20,9 +20,9 @@ pub struct FilmSettings {
     pub clear: bool,
 }
 
-impl FilmSettings {
+impl Default for FilmSettings {
     /// Creates a new `FilmSettings` with `res` [640, 480], `tile_dim` [8,8] and clearing on with black color.
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             res: Vec2::new(640, 480),
             tile_dim: 16,

@@ -22,8 +22,8 @@ pub struct SceneLoadSettings {
     pub max_shapes_in_node: u16,
 }
 
-impl SceneLoadSettings {
-    pub fn default() -> Self {
+impl Default for SceneLoadSettings {
+    fn default() -> Self {
         Self {
             path: PathBuf::new(),
             max_shapes_in_node: 1,

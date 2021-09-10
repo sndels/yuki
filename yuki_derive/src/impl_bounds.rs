@@ -44,10 +44,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
         "Creates a new `{0}` around the two [{1}]s.",
         bounds_str, point_str
     );
-    let default_doc = format!(
-        "Creates a new `{0}` with minimum extents at [T::max_value](num::Bounded::max_value) and maximum extents at [T::min_value](num::Bounded::min_value).",
-        bounds_str
-    );
     let diagonal_doc = format!("Returns the [{0}] from `p_min` to `p_max`.", vec_str);
     let union_b_doc = format!(
         "Creates a new `{0}` that encompasses this `{0}` and another `{0}`.",
@@ -135,15 +131,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
                 Self {
                     p_min: p0.min(p1),
                     p_max: p0.max(p1),
-                }
-            }
-
-            #[doc = #default_doc]
-            #[inline]
-            pub fn default() -> Self {
-                Self {
-                    p_min: #point_ident::from(<#generic_param>::max_value()),
-                    p_max: #point_ident::from(<#generic_param>::min_value()),
                 }
             }
 
@@ -255,6 +242,17 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
                 let mut o = p - self.p_min;
                 #offset_scales
                 o
+            }
+        }
+
+        impl #impl_generics Default for #bounds_type
+        #where_clause
+        {
+            fn default() -> Self {
+                Self {
+                    p_min: #point_ident::from(<#generic_param>::max_value()),
+                    p_max: #point_ident::from(<#generic_param>::min_value()),
+                }
             }
         }
     }

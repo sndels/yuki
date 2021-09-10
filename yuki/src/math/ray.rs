@@ -28,15 +28,6 @@ where
         ret
     }
 
-    /// Creates a new infinite `Ray` from origin toward positive Y.
-    pub fn default() -> Self {
-        Self {
-            o: Point3::zeros(),
-            d: Vec3::new(T::zero(), T::one(), T::zero()),
-            t_max: T::infinity(),
-        }
-    }
-
     /// Checks if any of the members in this `Ray` contain NaNs.
     pub fn has_nans(&self) -> bool {
         self.o.has_nans() || self.d.has_nans() || self.t_max.is_nan()
@@ -45,6 +36,19 @@ where
     /// Finds the [Point3] on this `Ray` at distance `t`.
     pub fn point(&self, t: T) -> Point3<T> {
         self.o + self.d * t
+    }
+}
+
+impl<T> Default for Ray<T>
+where
+    T: FloatValueType,
+{
+    fn default() -> Self {
+        Self {
+            o: Point3::zeros(),
+            d: Vec3::new(T::zero(), T::one(), T::zero()),
+            t_max: T::infinity(),
+        }
     }
 }
 
