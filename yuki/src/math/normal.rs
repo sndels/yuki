@@ -61,8 +61,18 @@ where
 
     #[inline]
     /// Returns this `Normal`, or it flipped, such that it is in the same hemisphere as `v`.
-    pub fn faceforward(&self, v: Vec3<T>) -> Self {
+    pub fn faceforward_v(&self, v: Vec3<T>) -> Self {
         if self.dot_v(v) < T::zero() {
+            Normal::new(-self.x, -self.y, -self.z)
+        } else {
+            *self
+        }
+    }
+
+    #[inline]
+    /// Returns this `Normal`, or it flipped, such that it is in the same hemisphere as `n`.
+    pub fn faceforward_n(&self, n: Normal<T>) -> Self {
+        if self.dot(n) < T::zero() {
             Normal::new(-self.x, -self.y, -self.z)
         } else {
             *self

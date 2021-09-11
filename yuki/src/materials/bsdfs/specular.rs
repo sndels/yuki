@@ -75,7 +75,7 @@ impl Bxdf for Transmission {
         // Bsdf n = (0,0,1)
         refract(
             wo,
-            Normal::new(0.0, 0.0, 1.0).faceforward(wo),
+            Normal::new(0.0, 0.0, 1.0).faceforward_v(wo),
             eta_i / eta_t,
         )
         .map_or_else(BxdfSample::default, |wi| {
