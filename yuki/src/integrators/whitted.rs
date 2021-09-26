@@ -56,7 +56,7 @@ impl Whitted {
             let refl = Interaction::from(si).spawn_ray(wi);
 
             let mut ret = self.li(refl, scene, depth + 1, sampler, collect_rays);
-            ret.li = f * ret.li * wi.dot_n(si.n).abs();
+            ret.li = f * ret.li * wi.dot_n(si.shading.n).abs();
 
             ret
         }
@@ -117,7 +117,7 @@ impl Integrator for Whitted {
                             });
                         }
                         if !f.is_black() && test.unoccluded(scene) {
-                            return c + f * li * si.n.dot_v(l).clamp(0.0, 1.0);
+                            return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0);
                         }
                     }
                 }

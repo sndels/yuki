@@ -100,7 +100,7 @@ impl Integrator for Path {
                                     });
                                 }
                                 if !f.is_black() && test.unoccluded(scene) {
-                                    return c + f * li * si.n.dot_v(l).clamp(0.0, 1.0);
+                                    return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0);
                                 }
                             }
                         }
@@ -123,8 +123,7 @@ impl Integrator for Path {
                     break;
                 }
 
-                // TODO: This should be the shading normal
-                beta *= f * wi.dot_n(si.n).abs() / pdf;
+                beta *= f * wi.dot_n(si.shading.n).abs() / pdf;
                 ray = Interaction::from(&si).spawn_ray(wi);
                 ray_type = if sample_type.contains(BxdfType::REFLECTION) {
                     RayType::Reflection

@@ -67,24 +67,26 @@ pub trait Bxdf {
 pub struct Bsdf {
     bxdfs: Vec<Box<dyn Bxdf>>,
     n_geom: Normal<f32>,
-    // TODO: Shading normal
-    // TODO: These should be s_shading, t_shading
-    s_geom: Vec3<f32>,
-    t_geom: Vec3<f32>,
+    n_shading: Normal<f32>,
+    s_shading: Vec3<f32>,
+    t_shading: Vec3<f32>,
 }
 
 impl Bsdf {
+    /// Initializes `Bsdf` for given [`SurfaceInteraction`].
+    /// Note that [`SurfaceInteraction::set_shading_geometry()`] should be called before this
+    /// if shading geometry is different from the surface geometry
     pub fn new(si: &SurfaceInteraction) -> Self {
-        let n_geom = si.n;
-        // TODO: These should be from shading uv partial derivatives in relation to shading normal once uvs are implemented
-        let s_geom = si.dpdu.normalized();
-        let t_geom = Vec3::from(n_geom).cross(s_geom);
+        let n_shading = si.shading.n;
+        let s_shading = si.shading.dpdu.normalized();
+        let t_shading = Vec3::from(n_shading).cross(s_shading);
 
         Self {
             bxdfs: Vec::new(),
-            n_geom,
-            s_geom,
-            t_geom,
+            n_geom: si.n,
+            n_shading,
+            s_shading,
+            t_shading,
         }
     }
 
@@ -95,15 +97,19 @@ impl Bsdf {
 
     /// Transform `v` from world space to surface local.
     fn world_to_local(&self, v: Vec3<f32>) -> Vec3<f32> {
-        Vec3::new(v.dot(self.s_geom), v.dot(self.t_geom), v.dot_n(self.n_geom))
+        Vec3::new(
+            v.dot(self.s_shading),
+            v.dot(self.t_shading),
+            v.dot_n(self.n_shading),
+        )
     }
 
     /// Transform `v` from surface local to world space.
     fn local_to_world(&self, v: Vec3<f32>) -> Vec3<f32> {
         Vec3::new(
-            self.s_geom.x * v.x + self.t_geom.x * v.y + self.n_geom.x * v.z,
-            self.s_geom.y * v.x + self.t_geom.y * v.y + self.n_geom.y * v.z,
-            self.s_geom.z * v.x + self.t_geom.z * v.y + self.n_geom.z * v.z,
+            self.s_shading.x * v.x + self.t_shading.x * v.y + self.n_shading.x * v.z,
+            self.s_shading.y * v.x + self.t_shading.y * v.y + self.n_shading.y * v.z,
+            self.s_shading.z * v.x + self.t_shading.z * v.y + self.n_shading.z * v.z,
         )
     }
 
