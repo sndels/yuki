@@ -76,7 +76,7 @@ pub fn parse<T: std::io::Read>(
     });
 
     // Mitsuba's +X is to the left of +Z, ours to the right of it
-    transform = &transform * &scale(-1.0, 1.0, 1.0);
+    transform = &scale(-1.0, 1.0, 1.0) * &transform;
 
     if ply_abspath.is_none() {
         return Err("Mesh with no ply".into());
