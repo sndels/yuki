@@ -183,6 +183,7 @@ impl Scene {
                         Point3::new(552.8, 0.0, 0.0),
                         Point3::new(0.0, 0.0, 0.0),
                     ],
+                    Vec::new(),
                 )),
                 // Ceiling
                 Arc::new(Mesh::new(
@@ -194,6 +195,7 @@ impl Scene {
                         Point3::new(556.0, 548.8, 559.2),
                         Point3::new(0.0, 548.8, 559.2),
                     ],
+                    Vec::new(),
                 )),
                 // Back wall
                 Arc::new(Mesh::new(
@@ -205,6 +207,7 @@ impl Scene {
                         Point3::new(549.6, 0.0, 559.2),
                         Point3::new(0.0, 0.0, 559.2),
                     ],
+                    Vec::new(),
                 )),
                 // Right wall
                 Arc::new(Mesh::new(
@@ -216,6 +219,7 @@ impl Scene {
                         Point3::new(0.0, 0.0, 559.2),
                         Point3::new(0.0, 0.0, 0.0),
                     ],
+                    Vec::new(),
                 )),
                 // Left wall
                 Arc::new(Mesh::new(
@@ -227,6 +231,7 @@ impl Scene {
                         Point3::new(556.0, 548.8, 559.2),
                         Point3::new(556.0, 548.8, 0.0),
                     ],
+                    Vec::new(),
                 )),
             ];
 
@@ -267,6 +272,7 @@ impl Scene {
                     Point3::new(314.0, 0.0, 456.0),
                     Point3::new(265.0, 0.0, 296.0),
                 ],
+                Vec::new(),
             ));
 
             for v0 in (0..mesh.indices.len()).step_by(3) {

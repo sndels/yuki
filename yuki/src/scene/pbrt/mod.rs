@@ -12,7 +12,7 @@ use crate::{
     materials::{Glass, Material, Matte},
     math::{
         transforms::{rotation, scale, translation},
-        Point3, Spectrum, Transform, Vec3,
+        Normal, Point3, Spectrum, Transform, Vec3,
     },
     scene::{CameraParameters, Scene, SceneLoadSettings},
     shapes::{Mesh, Shape, Sphere, Triangle},
@@ -304,6 +304,10 @@ pub fn load(
                                 param_name,
                                 get_three_component_vector_params!(Point3, f32),
                             ),
+                            "normal" => param_set.add_normal(
+                                param_name,
+                                get_three_component_vector_params!(Normal, f32),
+                            ),
                             "blackbody" => {
                                 yuki_info!("'blackbody' not supported, falling back to default");
                                 drop(get_num_params!(f32));
@@ -488,8 +492,11 @@ pub fn load(
 
                         let default_points = Vec::new();
                         let points = Vec::from(params.find_points("P", &default_points));
+                        let default_normals = Vec::new();
+                        let normals = Vec::from(params.find_normals("N", &default_normals));
 
-                        let mesh = Arc::new(Mesh::new(&current_transform, indices, points));
+                        let mesh =
+                            Arc::new(Mesh::new(&current_transform, indices, points, normals));
                         shapes.extend((0..num_indices).step_by(3).map(|v0| {
                             Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(&material)))
                                 as Arc<dyn Shape>

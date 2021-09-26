@@ -3,7 +3,7 @@ use crate::{
     materials::Material,
     math::{
         transforms::{scale, translation},
-        Bounds3, Point3, Transform, Vec3,
+        Bounds3, Normal, Point3, Transform, Vec3,
     },
     shapes::{Mesh, Shape, Triangle},
     yuki_error, yuki_info,
@@ -60,14 +60,18 @@ pub fn load(
         (faces_start.elapsed().as_micros() as f32) * 1e-6
     );
 
-    let points_start = Instant::now();
-    let points: Vec<Point3<f32>> = vertices
-        .iter()
-        .map(|&Vertex { x, y, z }| Point3::new(x, y, z))
-        .collect();
+    let vertices_start = Instant::now();
+    let mut points = Vec::new();
+    let mut normals = Vec::new();
+    for Vertex { point, normal } in vertices {
+        points.push(point);
+        if let Some(n) = normal {
+            normals.push(n);
+        }
+    }
     yuki_info!(
-        "PLY: Converted vertices to points in {:.2}s",
-        (points_start.elapsed().as_micros() as f32) * 1e-6
+        "PLY: Extracted vertex attributes in {:.2}s",
+        (vertices_start.elapsed().as_micros() as f32) * 1e-6
     );
 
     let indices_start = Instant::now();
@@ -98,7 +102,7 @@ pub fn load(
     let trfn = transform.unwrap_or(
         &scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center)),
     );
-    let mesh = Arc::new(Mesh::new(&trfn, indices, points));
+    let mesh = Arc::new(Mesh::new(&trfn, indices, points, normals));
 
     let triangles_start = Instant::now();
     let shapes: Vec<Arc<dyn Shape>> = (0..mesh.indices.len())
@@ -201,26 +205,31 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
 }
 
 struct Vertex {
-    x: f32,
-    y: f32,
-    z: f32,
+    point: Point3<f32>,
+    normal: Option<Normal<f32>>,
 }
 
 impl ply_rs::ply::PropertyAccess for Vertex {
     fn new() -> Self {
         Self {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
+            point: Point3::zeros(),
+            normal: None,
         }
     }
 
     fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
         if let ply_rs::ply::Property::Float(v) = property {
             match key.as_str() {
-                "x" => self.x = v,
-                "y" => self.y = v,
-                "z" => self.z = v,
+                "x" => self.point.x = v,
+                "y" => self.point.y = v,
+                "z" => self.point.z = v,
+                // TODO: Do relevant plys have nx first?
+                "nx" => {
+                    self.normal = Some(Normal::new(0.0, 0.0, 0.0));
+                    self.normal.as_mut().unwrap().x = v;
+                }
+                "ny" => self.normal.as_mut().unwrap().y = v,
+                "nz" => self.normal.as_mut().unwrap().z = v,
                 _ => (),
             }
         }
