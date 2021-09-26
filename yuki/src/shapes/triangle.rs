@@ -181,4 +181,8 @@ impl Shape for Triangle {
         )
         .union_p(self.mesh.points[self.vertices[2]])
     }
+
+    fn transform_swaps_handedness(&self) -> bool {
+        self.mesh.transform_swaps_handedness
+    }
 }

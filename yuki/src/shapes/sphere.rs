@@ -16,6 +16,7 @@ pub struct Sphere {
     world_to_object: Transform<f32>,
     radius: f32,
     material: Arc<dyn Material>,
+    transform_swaps_handedness: bool,
 }
 
 impl Sphere {
@@ -26,6 +27,7 @@ impl Sphere {
             world_to_object: object_to_world.inverted(),
             radius,
             material,
+            transform_swaps_handedness: object_to_world.swaps_handedness(),
         }
     }
 }
@@ -114,5 +116,9 @@ impl Shape for Sphere {
 
     fn world_bound(&self) -> Bounds3<f32> {
         &self.object_to_world * Bounds3::new(Point3::from(-self.radius), Point3::from(self.radius))
+    }
+
+    fn transform_swaps_handedness(&self) -> bool {
+        self.transform_swaps_handedness
     }
 }

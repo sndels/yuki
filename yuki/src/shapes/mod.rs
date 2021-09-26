@@ -24,4 +24,6 @@ pub trait Shape: Send + Sync {
     fn intersect(&self, ray: Ray<f32>) -> Option<Hit>;
     /// Returns the world space AABB of the Shape
     fn world_bound(&self) -> Bounds3<f32>;
+    /// Returns `true` if the `Shape`s transform swaps coordinate system handedness
+    fn transform_swaps_handedness(&self) -> bool;
 }
