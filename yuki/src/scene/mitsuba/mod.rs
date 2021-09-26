@@ -204,7 +204,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, Fi
 
     Ok((
         Scene {
-            name: settings.path.file_stem().unwrap().to_str().unwrap().into(),
+            name: settings.path.file_name().unwrap().to_str().unwrap().into(),
             load_settings: settings.clone(),
             meshes,
             shapes,
