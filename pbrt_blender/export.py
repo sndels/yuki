@@ -199,36 +199,51 @@ def _export_obj(depsgraph, obj, f: TextIO):
         if len(mesh.loop_triangles) == 0:
             mesh.calc_loop_triangles()
 
+        # This should populate loop normals
+        mesh.calc_normals_split()
+
         if len(mesh.materials) > 0:
-            material_vertices = [{} for material in mesh.materials]
+            material_loops_content = [{} for material in mesh.materials]
+            material_loops = [[] for material in mesh.materials]
             material_tris = [[] for material in mesh.materials]
         else:
             # TODO: Special case for meshes that have a single material and use previous, simpler export instead?
-            material_vertices = [{}]
+            material_loops_content = [{}]
+            material_loops = [[]]
             material_tris = [[]]
 
         for tri in mesh.loop_triangles:
             mi = tri.material_index
-            vertices = material_vertices[mi]
+            loops = material_loops[mi]
+            loops_content = material_loops_content[mi]
             tris = material_tris[mi]
             indices = []
-            for vi in tri.vertices:
-                v = mesh.vertices[vi]
-                if v not in vertices:
-                    vertices[v] = len(vertices)
-                indices.append(vertices[v])
+            for li in tri.loops:
+                l = mesh.loops[li]
+                if l not in loops_content:
+                    if tri.use_smooth:
+                        loops.append((l, None))
+                    else:
+                        loops.append((l, tri.normal))
+                    loops_content[l] = len(loops) - 1
+                indices.append(loops_content[l])
             # Blender uses different winding order
             tris.append((indices[0], indices[2], indices[1]))
 
-        for (i, material) in enumerate(mesh.materials):
+        materials = mesh.materials if len(mesh.materials) > 0 else [None]
+        for (i, material) in enumerate(materials):
             tris = material_tris[i]
-            vertices = material_vertices[i]
+            loops = material_loops[i]
 
-            f.write(f"# {obj.name_full}:{material.name}\n")
+            if material is not None:
+                f.write(f"# {obj.name_full}:{material.name}\n")
+            else:
+                f.write(f"# {obj.name_full}\n")
             f.write(f"AttributeBegin\n")
 
             # TODO: Named materials, reuse
-            _export_material(material, f)
+            if material is not None:
+                _export_material(material, f)
 
             if not isclose3(pos, 0.0, 0.001):
                 f.write(f"  Translate {fstr3(pos[0], pos[2], pos[1])}\n")
@@ -248,12 +263,19 @@ def _export_obj(depsgraph, obj, f: TextIO):
             f.write("]\n")
 
             f.write(f'    "point P" [ ')
-            for v in vertices:
-                p = v.co
+            for (l, _) in loops:
+                p = mesh.vertices[l.vertex_index].co
                 f.write(f"{fstr3(p[0], p[2], p[1])} ")
             f.write("]\n")
 
-            # TODO: Normals
+            f.write(f'    "normal N" [ ')
+            for (l, face_n) in loops:
+                if face_n is not None:
+                    n = face_n
+                else:
+                    n = l.normal
+                f.write(f"{fstr3(n[0], n[2], n[1])} ")
+            f.write("]\n")
 
             f.write(f"AttributeEnd\n")
             f.write("\n")
