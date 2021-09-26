@@ -1,11 +1,13 @@
 mod bvh_heatmap;
-mod normals;
+mod geometry_normals;
 mod path;
+mod shading_normals;
 mod whitted;
 
 use bvh_heatmap::BVHIntersections;
-use normals::Normals;
+use geometry_normals::GeometryNormals;
 use path::Path;
+use shading_normals::ShadingNormals;
 use whitted::Whitted;
 
 use serde::{Deserialize, Serialize};
@@ -29,7 +31,8 @@ pub enum IntegratorType {
     Whitted(whitted::Params),
     Path(path::Params),
     BVHIntersections,
-    Normals,
+    GeometryNormals,
+    ShadingNormals,
 }
 
 impl IntegratorType {
@@ -38,7 +41,8 @@ impl IntegratorType {
             IntegratorType::Whitted(params) => Box::new(Whitted::new(params)),
             IntegratorType::Path(params) => Box::new(Path::new(params)),
             IntegratorType::BVHIntersections => Box::new(BVHIntersections {}),
-            IntegratorType::Normals => Box::new(Normals {}),
+            IntegratorType::GeometryNormals => Box::new(GeometryNormals {}),
+            IntegratorType::ShadingNormals => Box::new(ShadingNormals {}),
         }
     }
 
@@ -47,7 +51,8 @@ impl IntegratorType {
             IntegratorType::Path(PathParams { max_depth }) => (max_depth.max(1) - 1) as usize, // Bounce dir, russian roulette per bounce
             IntegratorType::Whitted(_)
             | IntegratorType::BVHIntersections
-            | IntegratorType::Normals => 0,
+            | IntegratorType::GeometryNormals
+            | IntegratorType::ShadingNormals => 0,
         }
     }
 }

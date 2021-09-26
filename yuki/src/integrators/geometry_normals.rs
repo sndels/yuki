@@ -11,9 +11,9 @@ use crate::{
 /// The first channel of returned color is the number of BVH intersections performed.
 /// The second channel is the number of BVH node hits found.
 /// The third channel is the number of BVH node hits found if the ray also hit scene geometry.
-pub struct Normals {}
+pub struct GeometryNormals {}
 
-impl Integrator for Normals {
+impl Integrator for GeometryNormals {
     fn li(
         &self,
         ray: Ray<f32>,

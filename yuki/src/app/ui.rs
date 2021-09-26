@@ -504,7 +504,9 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
                         .build(ui, max_depth);
                     width.pop(ui);
                 }
-                IntegratorType::BVHIntersections | IntegratorType::Normals { .. } => (),
+                IntegratorType::BVHIntersections
+                | IntegratorType::GeometryNormals
+                | IntegratorType::ShadingNormals => (),
             }
             ui.unindent();
         });
