@@ -101,14 +101,7 @@ impl Shape for Sphere {
                 * (theta_max - theta_min);
             (dpdu, dpdv)
         };
-        let mut si = &self.object_to_world
-            * SurfaceInteraction::new(
-                p,
-                dpdu,
-                dpdv,
-                -ray.d,
-                self.object_to_world.swaps_handedness(),
-            );
+        let mut si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self);
         si.bsdf = Some(self.material.compute_scattering_functions(&si));
 
         Some(Hit { t, si })

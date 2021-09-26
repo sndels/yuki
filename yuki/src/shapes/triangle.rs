@@ -4,7 +4,7 @@ use super::{mesh::Mesh, Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
     materials::Material,
-    math::{coordinate_system, Bounds3, Normal, Point2, Ray},
+    math::{coordinate_system, Bounds3, Normal, Point2, Ray, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -120,8 +120,14 @@ impl Shape for Triangle {
             return None;
         }
 
+        // Barycentric coordinates
+        let inv_det = 1.0 / det;
+        let b0 = e0 * inv_det;
+        let b1 = e1 * inv_det;
+        let b2 = e2 * inv_det;
+
         // World space distance to hit
-        let t = t_scaled / det;
+        let t = t_scaled * inv_det;
 
         // Partial derivatives
         // TODO: Use mesh shading uvs if present
@@ -148,27 +154,49 @@ impl Shape for Triangle {
             )
         };
 
-        // Geometry normal, flip for backface hits
-        let mut n = Normal::from(dp02.cross(dp12).normalized());
-        if self.mesh.transform_swaps_handedness {
-            n = -n;
+        let p_hit = p0 * b0 + p1 * b1 + p2 * b2;
+        let mut si = SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self);
+
+        // Authored mesh UVs might not preserve orientation, but winding order is typically constant
+        let n = Normal::from(dp02.cross(dp12).normalized());
+        if self.transform_swaps_handedness() {
+            si.n = -n;
+            si.shading.n = -n;
+        } else {
+            si.n = n;
+            si.shading.n = n;
         }
 
-        // TODO: Shading geometry
+        // Set up shading normals
+        if !self.mesh.normals.is_empty() {
+            let n0 = self.mesh.normals[self.vertices[0]];
+            let n1 = self.mesh.normals[self.vertices[1]];
+            let n2 = self.mesh.normals[self.vertices[2]];
 
-        // pbrt swaps normal direction if object_to_world swaps handedness.
-        // We won't need to since our normal is already calculated with world space
-        // vertex positions.
-        // NOTE: That has to change if/when animations are implemented and vertices are transformed here.
+            let ns = {
+                let n = Vec3::from(n0 * b0 + n1 * b1 + n2 * b2).normalized();
+                if n.len_sqr() > 0.0 {
+                    n.normalized()
+                } else {
+                    si.n.into()
+                }
+            };
 
-        let mut si = SurfaceInteraction {
-            p: ray.point(t),
-            dpdu,
-            dpdv,
-            wo: -ray.d,
-            n,
-            bsdf: None,
-        };
+            let (ss, ts) = {
+                let mut ss = si.dpdu.normalized();
+                let mut ts = ss.cross(ns);
+                if ts.len_sqr() > 0.0 {
+                    ts = ts.normalized();
+                    ss = ts.cross(ns);
+                    (ss, ts)
+                } else {
+                    coordinate_system(ns)
+                }
+            };
+
+            si.set_shading_geometry(ss, ts);
+        }
+
         si.bsdf = Some(self.material.compute_scattering_functions(&si));
 
         Some(Hit { t, si })

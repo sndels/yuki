@@ -1,6 +1,7 @@
 use crate::{
     materials::Bsdf,
     math::{Normal, Point3, Ray, Transform, Vec3},
+    shapes::Shape,
 };
 use std::{convert::From, ops::Mul};
 
@@ -58,43 +59,72 @@ impl Interaction {
     }
 }
 
+pub struct ShadingGeometry {
+    pub n: Normal<f32>,
+    pub dpdu: Vec3<f32>,
+    pub dpdv: Vec3<f32>,
+}
+
+impl<'a> Mul<&ShadingGeometry> for &'a Transform<f32> {
+    type Output = ShadingGeometry;
+
+    fn mul(self, other: &ShadingGeometry) -> ShadingGeometry {
+        ShadingGeometry {
+            n: (self * other.n).normalized(),
+            dpdu: self * other.dpdu,
+            dpdv: self * other.dpdv,
+        }
+    }
+}
+
 // Info for a point on a surface
 pub struct SurfaceInteraction {
-    /// World position
     pub p: Point3<f32>,
     pub dpdu: Vec3<f32>,
     pub dpdv: Vec3<f32>,
-    /// View direction in world
-    pub wo: Vec3<f32>,
-    /// Surface normal
     pub n: Normal<f32>,
-    /// Material
+    pub shading: ShadingGeometry,
+    pub wo: Vec3<f32>,
     pub bsdf: Option<Bsdf>,
+    shape_transform_swaps_handedness: bool,
 }
 
 impl SurfaceInteraction {
+    /// Creates a new `SurfaceInteraction` with its surface geometry populated and shading geometry initialized to match the surface geometry.
     pub fn new(
         p: Point3<f32>,
+        wo: Vec3<f32>,
         dpdu: Vec3<f32>,
         dpdv: Vec3<f32>,
-        wo: Vec3<f32>,
-        should_reverse_normals: bool,
+        shape: &dyn Shape,
     ) -> Self {
+        let shape_transform_swaps_handedness = shape.transform_swaps_handedness();
         let n = {
-            let mut n = Normal::from(dpdu.cross(dpdv).normalized());
-            if should_reverse_normals {
-                n *= -1.0;
+            let n = Normal::from(dpdu.cross(dpdv).normalized());
+            if shape_transform_swaps_handedness {
+                -n
+            } else {
+                n
             }
-            n
         };
         Self {
             p,
             dpdu,
             dpdv,
             n,
+            shading: ShadingGeometry { n, dpdu, dpdv },
             wo,
             bsdf: None,
+            shape_transform_swaps_handedness,
         }
+    }
+
+    pub fn set_shading_geometry(&mut self, dpdus: Vec3<f32>, dpdvs: Vec3<f32>) {
+        self.shading.n = Normal::from(dpdus.cross(dpdvs)).normalized();
+        self.n = self.n.faceforward_n(self.shading.n);
+
+        self.shading.dpdu = dpdus;
+        self.shading.dpdv = dpdvs;
     }
 }
 
@@ -102,14 +132,23 @@ impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
     type Output = SurfaceInteraction;
 
     fn mul(self, other: SurfaceInteraction) -> SurfaceInteraction {
-        SurfaceInteraction {
+        let n = (self * other.n).normalized();
+        let mut shading = self * &other.shading;
+        shading.n = shading.n.faceforward_n(n);
+
+        let mut ret = SurfaceInteraction {
             p: self * other.p,
             dpdu: self * other.dpdu,
             dpdv: self * other.dpdv,
-            wo: self * other.wo,
-            n: self * other.n,
+            wo: (self * other.wo).normalized(),
+            n,
+            shading,
             bsdf: other.bsdf,
-        }
+            shape_transform_swaps_handedness: other.shape_transform_swaps_handedness,
+        };
+        ret.shading.n = ret.shading.n.faceforward_n(ret.n);
+
+        ret
     }
 }
 
