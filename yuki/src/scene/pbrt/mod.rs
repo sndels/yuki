@@ -56,6 +56,7 @@ pub enum LoadError {
     Content(String),
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ParserError {
     error_type: ParserErrorType,

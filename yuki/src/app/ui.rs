@@ -575,7 +575,7 @@ where
     // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
     let im_str_t_names = t_names
         .iter()
-        .map(|n| n.as_ref())
+        .map(std::convert::AsRef::as_ref)
         .collect::<Vec<&imgui::ImStr>>();
 
     let mut current_t = T::VARIANTS

@@ -178,9 +178,7 @@ where
             indxr[col] = irow;
             indxc[col] = icol;
 
-            if mi[icol][icol] == T::zero() {
-                panic!("Can't invert, singular matrix");
-            }
+            assert!(mi[icol][icol] != T::zero(), "Can't invert, singular matrix");
 
             // Let's make the diagonal a 1
             let pivinv = T::one() / mi[icol][icol];
