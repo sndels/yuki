@@ -1,8 +1,10 @@
 pub mod fresnel;
 mod lambertian;
+mod oren_nayar;
 pub mod specular;
 
 pub use lambertian::Lambertian;
+pub use oren_nayar::OrenNayar;
 
 use crate::{
     interaction::SurfaceInteraction,
