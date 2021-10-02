@@ -218,6 +218,36 @@ fn cos_theta(w: Vec3<f32>) -> f32 {
     w.z
 }
 
+fn cos_2_theta(w: Vec3<f32>) -> f32 {
+    w.z * w.z
+}
+
+fn sin_2_theta(w: Vec3<f32>) -> f32 {
+    (1.0 - cos_2_theta(w)).max(0.0)
+}
+
+fn sin_theta(w: Vec3<f32>) -> f32 {
+    sin_2_theta(w).sqrt()
+}
+
+fn sin_phi(w: Vec3<f32>) -> f32 {
+    let sin_theta = sin_theta(w);
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.x / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+fn cos_phi(w: Vec3<f32>) -> f32 {
+    let sin_theta = sin_theta(w);
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.y / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
 fn same_hemisphere(w: Vec3<f32>, wp: Vec3<f32>) -> bool {
     w.z * wp.z > 0.0
 }
