@@ -315,15 +315,21 @@ def _export_material(material, f):
             color_value = color.default_value
 
         roughness = bsdf.inputs["Roughness"]
-        if len(roughness.links) > 0 or roughness.default_value > 0.001:
-            _warn(f"{material.name_full}: Non-zero diffuse roughness is not supported.")
+        if len(roughness.links) > 0:
+            _warn(
+                f"{material.name_full}: Unexpected input connection to diffuse roughness. Using default roughness."
+            )
+            sigma = 0.0
+        else:
+            # This might not be 100% correct but it seems kind of close
+            sigma = math.degrees(roughness.default_value)
 
         normal = bsdf.inputs["Normal"]
         if len(normal.links) > 0:
             _warn(f"{material.name_full}: Diffuse normal map is not supported.")
 
         f.write(
-            f'Material "matte" "rgb Kd" [ {fstr3(color_value[0], color_value[1], color_value[2])} ]\n'
+            f'Material "matte" "rgb Kd" [ {fstr3(color_value[0], color_value[1], color_value[2])} ] "float sigma" {sigma}\n'
         )
     elif bsdf.type == "BSDF_GLASS":
         color = bsdf.inputs["Color"]

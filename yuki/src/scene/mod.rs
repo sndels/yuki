@@ -96,8 +96,10 @@ impl Scene {
     ) -> Result<(Scene, CameraParameters, FilmSettings, f32)> {
         let load_start = Instant::now();
 
-        let white = Arc::new(Matte::new(Arc::new(ConstantTexture::new(Spectrum::ones()))))
-            as Arc<dyn Material>;
+        let white = Arc::new(Matte::new(
+            Arc::new(ConstantTexture::new(Spectrum::ones())),
+            Arc::new(ConstantTexture::new(0.0)),
+        )) as Arc<dyn Material>;
         let PlyResult { mesh, shapes } = ply::load(&settings.path, &white, None)?;
 
         let meshes = vec![mesh];
@@ -157,15 +159,18 @@ impl Scene {
 
         // Materials
         // These are approximate as the originals are defined as spectrums
-        let white = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
-            Spectrum::ones() * 180.0 / 255.0,
-        ))));
-        let red = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
-            Spectrum::new(180.0, 0.0, 0.0) / 255.0,
-        ))));
-        let green = Arc::new(Matte::new(Arc::new(ConstantTexture::new(
-            Spectrum::new(0.0, 180.0, 0.0) / 255.0,
-        ))));
+        let white = Arc::new(Matte::new(
+            Arc::new(ConstantTexture::new(Spectrum::ones() * 180.0 / 255.0)),
+            Arc::new(ConstantTexture::new(0.0)),
+        ));
+        let red = Arc::new(Matte::new(
+            Arc::new(ConstantTexture::new(Spectrum::new(180.0, 0.0, 0.0) / 255.0)),
+            Arc::new(ConstantTexture::new(0.0)),
+        ));
+        let green = Arc::new(Matte::new(
+            Arc::new(ConstantTexture::new(Spectrum::new(0.0, 180.0, 0.0) / 255.0)),
+            Arc::new(ConstantTexture::new(0.0)),
+        ));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();

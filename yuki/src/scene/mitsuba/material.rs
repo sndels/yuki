@@ -13,12 +13,15 @@ use approx::abs_diff_eq;
 use std::sync::Arc;
 use xml::{attribute::OwnedAttribute, name::OwnedName, reader::EventReader};
 
+// TODO: This does not support glass now. Make "bsdf" -parsing generic, move it out of mod.rs
 pub fn parse_twosided<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<dyn Material>> {
-    let mut material: Arc<dyn Material> =
-        Arc::new(Matte::new(Arc::new(ConstantTexture::new(Spectrum::ones()))));
+    let mut material: Arc<dyn Material> = Arc::new(Matte::new(
+        Arc::new(ConstantTexture::new(Spectrum::ones())),
+        Arc::new(ConstantTexture::new(0.0)),
+    ));
 
     parse_element!(parser, indent, |name: &OwnedName,
                                     attributes: Vec<OwnedAttribute>,
@@ -33,10 +36,10 @@ pub fn parse_twosided<T: std::io::Read>(
                 indent.truncate(indent.len() - 2);
             }
             "rgb" => {
-                material = Arc::new(Matte::new(Arc::new(ConstantTexture::new(parse_rgb(
-                    &attributes,
-                    "reflectance",
-                )?))));
+                material = Arc::new(Matte::new(
+                    Arc::new(ConstantTexture::new(parse_rgb(&attributes, "reflectance")?)),
+                    Arc::new(ConstantTexture::new(0.0)),
+                ));
             }
             _ => return Err(format!("Unknown material data type '{}'", data_type).into()),
         }
@@ -67,7 +70,10 @@ pub fn parse_diffuse<T: std::io::Read>(
         Ok(())
     });
 
-    Ok(Arc::new(Matte::new(reflectance)))
+    Ok(Arc::new(Matte::new(
+        reflectance,
+        Arc::new(ConstantTexture::new(0.0)),
+    )))
 }
 
 const BK7_GLASS_IOR: f32 = 1.5046;

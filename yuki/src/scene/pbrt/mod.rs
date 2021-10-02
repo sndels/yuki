@@ -441,8 +441,15 @@ pub fn load(
                         let kd = graphics_state
                             .material_params
                             .find_spectrum("Kd", Spectrum::new(0.5, 0.5, 0.5));
-                        Arc::new(Matte::new(Arc::new(ConstantTexture::new(kd))))
-                            as Arc<dyn Material>
+                        // Matte expects sigma as radians instead of degrees
+                        let sigma = graphics_state
+                            .material_params
+                            .find_f32("sigma", 0.0)
+                            .to_radians();
+                        Arc::new(Matte::new(
+                            Arc::new(ConstantTexture::new(kd)),
+                            Arc::new(ConstantTexture::new(sigma.to_radians())),
+                        )) as Arc<dyn Material>
                     }
                     "glass" => {
                         let kr = graphics_state
@@ -461,9 +468,10 @@ pub fn load(
                     }
                     t => {
                         yuki_info!("Unsupported material type '{}'. Using default matte.", t);
-                        Arc::new(Matte::new(Arc::new(ConstantTexture::new(
-                            Spectrum::ones() * 0.5,
-                        )))) as Arc<dyn Material>
+                        Arc::new(Matte::new(
+                            Arc::new(ConstantTexture::new(Spectrum::ones() * 0.5)),
+                            Arc::new(ConstantTexture::new(0.0)),
+                        )) as Arc<dyn Material>
                     }
                 };
                 match shape_type.as_str() {
