@@ -124,12 +124,15 @@ def export_scene(depsgraph, scene, filename) -> bool:
         if "Background" in scene.world.node_tree.nodes:
             bg_node = scene.world.node_tree.nodes["Background"]
             if (
-                len(bg_node.outputs[0].links) == 1
-                and bg_node.outputs[0].links[0].to_socket.node.name == "World Output"
+                len(bg_node.outputs["Background"].links) == 1
+                and bg_node.outputs["Background"].links[0].to_socket.node.name
+                == "World Output"
             ):
-                bg_color = bg_node.inputs[0].default_value
+                bg_color = bg_node.inputs["Color"].default_value
+                strength = bg_node.inputs["Strength"].default_value
+                # TODO: Check for links
                 f.write(
-                    f'LightSource "infinite" "rgb L" [ {fstr3(bg_color[0], bg_color[1], bg_color[2])} ]\n'
+                    f'LightSource "infinite" "rgb L" [ {fstr3(bg_color[0] * strength, bg_color[1] * strength, bg_color[2] * strength)} ]\n'
                 )
                 f.write("\n")
         else:
