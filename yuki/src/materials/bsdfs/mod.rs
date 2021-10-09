@@ -3,10 +3,12 @@ mod lambertian;
 mod microfacet;
 mod oren_nayar;
 pub mod specular;
+mod trowbridge_reitz;
 
 pub use lambertian::Lambertian;
 pub use microfacet::{MicrofacetDistribution, MicrofacetReflection};
 pub use oren_nayar::OrenNayar;
+pub use trowbridge_reitz::TrowbridgeReitzDistribution;
 
 use crate::{
     interaction::SurfaceInteraction,
