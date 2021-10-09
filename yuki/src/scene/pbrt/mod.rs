@@ -523,6 +523,21 @@ pub fn load(
                 let params = get_param_set!();
                 // TODO: Named materials
                 let material = match graphics_state.material_type.as_str() {
+                    "glass" => {
+                        let kr = graphics_state
+                            .material_params
+                            .find_spectrum("Kr", Spectrum::ones());
+                        let kt = graphics_state
+                            .material_params
+                            .find_spectrum("Kt", Spectrum::ones());
+                        let eta = graphics_state.material_params.find_f32("eta", 1.5);
+
+                        Arc::new(Glass::new(
+                            Arc::new(ConstantTexture::new(kr)),
+                            Arc::new(ConstantTexture::new(kt)),
+                            eta,
+                        )) as Arc<dyn Material>
+                    }
                     "glossy" => {
                         let rs = graphics_state
                             .material_params
@@ -546,21 +561,6 @@ pub fn load(
                         Arc::new(Matte::new(
                             Arc::new(ConstantTexture::new(kd)),
                             Arc::new(ConstantTexture::new(sigma.to_radians())),
-                        )) as Arc<dyn Material>
-                    }
-                    "glass" => {
-                        let kr = graphics_state
-                            .material_params
-                            .find_spectrum("Kr", Spectrum::ones());
-                        let kt = graphics_state
-                            .material_params
-                            .find_spectrum("Kt", Spectrum::ones());
-                        let eta = graphics_state.material_params.find_f32("eta", 1.5);
-
-                        Arc::new(Glass::new(
-                            Arc::new(ConstantTexture::new(kr)),
-                            Arc::new(ConstantTexture::new(kt)),
-                            eta,
                         )) as Arc<dyn Material>
                     }
                     "metal" => {
