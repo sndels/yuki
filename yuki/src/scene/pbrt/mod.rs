@@ -388,7 +388,7 @@ pub fn load(
                 #[allow(clippy::cast_sign_loss)] // Resolution is always positive
                 let res_x = params.find_i32("xresolution", 640) as u16;
                 #[allow(clippy::cast_sign_loss)] // Resolution is always positive
-                let res_y = params.find_i32("yresolution", 640) as u16;
+                let res_y = params.find_i32("yresolution", 480) as u16;
 
                 render_options.film_settings.res.x = res_x;
                 render_options.film_settings.res.y = res_y;
