@@ -7,7 +7,7 @@ use crate::{
     camera::{CameraParameters, FoV},
     film::FilmSettings,
     lights::{Light, PointLight},
-    materials::{Glass, Material, Matte},
+    materials::{Glass, Material, Matte, Metal},
     math::{transforms::translation, Point3, Spectrum, Transform, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     textures::ConstantTexture,
@@ -171,6 +171,21 @@ impl Scene {
             Arc::new(ConstantTexture::new(Spectrum::new(0.0, 180.0, 0.0) / 255.0)),
             Arc::new(ConstantTexture::new(0.0)),
         ));
+        let copper = Arc::new(Metal::new(
+            Arc::new(ConstantTexture::new(Spectrum::new(
+                0.271_05, 0.676_93, 1.316_40,
+            ))),
+            Arc::new(ConstantTexture::new(Spectrum::new(
+                3.60920, 2.62480, 2.29210,
+            ))),
+            Arc::new(ConstantTexture::new(0.01)),
+            true,
+        ));
+        let glass = Arc::new(Glass::new(
+            Arc::new(ConstantTexture::new(Spectrum::ones())),
+            Arc::new(ConstantTexture::new(Spectrum::ones())),
+            1.5,
+        ));
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
@@ -284,7 +299,7 @@ impl Scene {
                 shapes.push(Arc::new(Triangle::new(
                     Arc::clone(&mesh),
                     v0,
-                    Arc::<Matte>::clone(&white),
+                    Arc::<Glass>::clone(&glass),
                 )));
             }
             meshes.push(mesh);
@@ -293,11 +308,7 @@ impl Scene {
         shapes.push(Arc::new(Sphere::new(
             &translation(Vec3::new(186.0, 82.5, -168.5)),
             82.5,
-            Arc::new(Glass::new(
-                Arc::new(ConstantTexture::new(Spectrum::ones())),
-                Arc::new(ConstantTexture::new(Spectrum::ones())),
-                1.5,
-            )),
+            copper,
         )));
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
