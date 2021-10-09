@@ -232,16 +232,15 @@ fn sin_theta(w: Vec3<f32>) -> f32 {
     sin_2_theta(w).sqrt()
 }
 
-fn sin_phi(w: Vec3<f32>) -> f32 {
-    let sin_theta = sin_theta(w);
-    if sin_theta == 0.0 {
-        1.0
-    } else {
-        (w.x / sin_theta).clamp(-1.0, 1.0)
-    }
+fn tan_theta(w: Vec3<f32>) -> f32 {
+    sin_theta(w) / cos_theta(w)
 }
 
-fn cos_phi(w: Vec3<f32>) -> f32 {
+fn tan_2_theta(w: Vec3<f32>) -> f32 {
+    sin_2_theta(w) / cos_2_theta(w)
+}
+
+fn sin_phi(w: Vec3<f32>) -> f32 {
     let sin_theta = sin_theta(w);
     if sin_theta == 0.0 {
         1.0
@@ -250,8 +249,29 @@ fn cos_phi(w: Vec3<f32>) -> f32 {
     }
 }
 
+fn sin_2_phi(w: Vec3<f32>) -> f32 {
+    sin_phi(w) * sin_phi(w)
+}
+
+fn cos_phi(w: Vec3<f32>) -> f32 {
+    let sin_theta = sin_theta(w);
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.x / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+fn cos_2_phi(w: Vec3<f32>) -> f32 {
+    cos_phi(w) * cos_phi(w)
+}
+
 fn same_hemisphere(w: Vec3<f32>, wp: Vec3<f32>) -> bool {
     w.z * wp.z > 0.0
+}
+
+fn spherical_direction(sin_theta: f32, cos_theta: f32, phi: f32) -> Vec3<f32> {
+    Vec3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta)
 }
 
 // Returns the refracted direction for `wi` and `n` or `None` if total internal reflection happens.
@@ -267,4 +287,8 @@ fn refract(wi: Vec3<f32>, n: Normal<f32>, eta: f32) -> Option<Vec3<f32>> {
 
     let cos_theta_t = (1.0 - sin_2_theta_t).sqrt();
     Some(-wi * eta + Vec3::from(n) * (eta * cos_theta_i - cos_theta_t))
+}
+
+fn reflect(wo: Vec3<f32>, n: Vec3<f32>) -> Vec3<f32> {
+    -wo + n * 2.0 * wo.dot(n)
 }
