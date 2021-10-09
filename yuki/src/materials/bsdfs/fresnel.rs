@@ -2,6 +2,7 @@ use crate::math::Spectrum;
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission
+// https://www.pbr-book.org/3ed-2018/Reflection_Models/Fresnel_Incidence_Effects
 
 pub trait Fresnel {
     fn evaluate(&self, cos_theta_i: f32) -> Spectrum<f32>;
@@ -90,5 +91,27 @@ impl Fresnel for Conductor {
         let rp = rs * (t3 - t4) / (t3 + t4);
 
         (rp + rs) * 0.5
+    }
+}
+
+pub struct Schlick {
+    rs: Spectrum<f32>,
+}
+
+impl Schlick {
+    pub fn new(rs: Spectrum<f32>) -> Self {
+        Self { rs }
+    }
+}
+
+impl Fresnel for Schlick {
+    fn evaluate(&self, mut cos_theta_i: f32) -> Spectrum<f32> {
+        fn pow5(v: f32) -> f32 {
+            (v * v) * (v * v) * v
+        }
+
+        cos_theta_i = cos_theta_i.clamp(-1.0, 1.0);
+
+        self.rs + (Spectrum::ones() - self.rs) * pow5(1.0 - cos_theta_i)
     }
 }
