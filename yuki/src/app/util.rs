@@ -46,7 +46,7 @@ pub fn try_load_scene(
                         );
                         Ok((Arc::new(scene), camera_params, film_settings, total_secs))
                     }
-                    Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
+                    Err(why) => Err(format!("Loading PBRT v3 scene failed: {}", why)),
                 },
                 _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
             },
