@@ -1,9 +1,11 @@
 pub mod fresnel;
 mod lambertian;
+mod microfacet;
 mod oren_nayar;
 pub mod specular;
 
 pub use lambertian::Lambertian;
+pub use microfacet::{MicrofacetDistribution, MicrofacetReflection};
 pub use oren_nayar::OrenNayar;
 
 use crate::{
@@ -23,7 +25,8 @@ bitflags! {
         const REFLECTION    = 0b00001;
         const TRANSMISSION  = 0b00010;
         const DIFFUSE       = 0b00100;
-        const SPECULAR      = 0b01000;
+        const GLOSSY        = 0b01000;
+        const SPECULAR      = 0b10000;
     }
 }
 
