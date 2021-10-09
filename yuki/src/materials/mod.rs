@@ -1,10 +1,12 @@
 mod bsdfs;
 mod glass;
 mod matte;
+mod metal;
 
 pub use bsdfs::{Bsdf, BxdfSample, BxdfType};
 pub use glass::Glass;
 pub use matte::Matte;
+pub use metal::Metal;
 
 use crate::interaction::SurfaceInteraction;
 
