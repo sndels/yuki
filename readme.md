@@ -57,7 +57,12 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
   - Spot
 - Material types (pbrt's Material/BSDF/BxDF abstraction)
   - Matte
+    - Lambertian for rough, Oren-Nayar otherwise
   - Glass
+    - Perfect only
+  - Metal
+    - Torrance-Sparrow with Trowbridge-Reitz/GGX distribution and Fresnel equations for conductors
+- Geometric and shading normals
 
 ### Scene formats (partially) supported
   - [PLY](http://paulbourke.net/dataformats/ply/)
