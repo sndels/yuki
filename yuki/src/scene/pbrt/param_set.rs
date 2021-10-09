@@ -11,6 +11,7 @@ where
 
 #[derive(Clone, Default)]
 pub struct ParamSet {
+    bools: Vec<ParamSetItem<bool>>,
     floats: Vec<ParamSetItem<f32>>,
     integers: Vec<ParamSetItem<i32>>,
     points: Vec<ParamSetItem<Point3<f32>>>,
@@ -20,6 +21,10 @@ pub struct ParamSet {
 }
 
 impl ParamSet {
+    pub fn add_bool(&mut self, name: String, values: Vec<bool>) {
+        self.bools.push(ParamSetItem { name, values });
+    }
+
     pub fn add_f32(&mut self, name: String, values: Vec<f32>) {
         self.floats.push(ParamSetItem { name, values });
     }
@@ -42,6 +47,10 @@ impl ParamSet {
 
     pub fn add_string(&mut self, name: String, values: Vec<String>) {
         self.strings.push(ParamSetItem { name, values });
+    }
+
+    pub fn find_bool(&self, name: &str, default: bool) -> bool {
+        find_param_value(name, &self.bools, default)
     }
 
     pub fn find_f32(&self, name: &str, default: f32) -> f32 {

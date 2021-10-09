@@ -157,6 +157,16 @@ pub fn load(
             };
         }
 
+        macro_rules! match_bool {
+            ($s:ident) => {
+                match $s.as_str() {
+                    "true" => true,
+                    "false" => false,
+                    t => match_unexpected_token_err!(t),
+                }
+            };
+        }
+
         macro_rules! try_get_string {
             () => {{
                 match get_next_token!() {
@@ -230,6 +240,32 @@ pub fn load(
             }};
         }
 
+        macro_rules! get_bool_params {
+            () => {{
+                match get_next_token!() {
+                    Token::String(s) => {
+                        vec![match_bool!(s)]
+                    }
+                    Token::LeftBracket => {
+                        let mut values = Vec::new();
+                        loop {
+                            match get_next_token!() {
+                                Token::String(s) => {
+                                    values.push(match_bool!(s));
+                                }
+                                Token::RightBracket => {
+                                    break;
+                                }
+                                t => match_unexpected_token_err!(t),
+                            }
+                        }
+                        values
+                    }
+                    t => match_unexpected_token_err!(t),
+                }
+            }};
+        }
+
         macro_rules! get_string_params {
             () => {{
                 match get_next_token!() {
@@ -295,6 +331,7 @@ pub fn load(
                 loop {
                     match get_param_def!() {
                         Ok((type_name, param_name)) => match type_name.as_str() {
+                            "bool" => param_set.add_bool(param_name, get_bool_params!()),
                             "float" => param_set.add_f32(param_name, get_num_params!(f32)),
                             "integer" => param_set.add_i32(param_name, get_num_params!(i32)),
                             "string" => param_set.add_string(param_name, get_string_params!()),
