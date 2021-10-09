@@ -1,3 +1,4 @@
+mod cie;
 mod lexer;
 mod param_set;
 
