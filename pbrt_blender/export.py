@@ -369,6 +369,33 @@ def _export_material(material, f):
             f'  "rgb Kt" [ {fstr3(color_value[0], color_value[1], color_value[2])} ]\n'
         )
         f.write(f'  "float eta" {fstr(ior_value)}\n')
+    elif bsdf.type == "BSDF_GLOSSY":
+        color = bsdf.inputs["Color"]
+        if len(color.links) > 0:
+            _warn(
+                f"{material.name_full}: Unexpected input connection to glossy color. Using default color."
+            )
+            rs = (0.5, 0.5, 0.5)
+        else:
+            rs = color.default_value
+
+        roughness = bsdf.inputs["Roughness"]
+        if len(roughness.links) > 0:
+            _warn(
+                f"{material.name_full}: Unexpected input connection to glossy roughness. Using default roughness."
+            )
+            roughness_value = 0.5
+        else:
+            # This might not be 100% correct but it seems kind of close
+            roughness_value = roughness.default_value
+
+        normal = bsdf.inputs["Normal"]
+        if len(normal.links) > 0:
+            _warn(f"{material.name_full}: Glossy normal map is not supported.")
+
+        f.write(
+            f'Material "glossy" "rgb Rs" [ {fstr3(rs[0], rs[1], rs[2])} ] "float roughness" {roughness_value}\n'
+        )
 
 
 def fstr(v: float) -> str:

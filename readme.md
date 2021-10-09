@@ -62,6 +62,9 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
     - Perfect only
   - Metal
     - Torrance-Sparrow with Trowbridge-Reitz/GGX distribution and Fresnel equations for conductors
+  - Glossy
+    - Torrance-Sparrow with Trowbridge-Reitz/GGX distribution and Schlick's Fresnel approximation
+    - Approximates Blender's Glossy BSDF
 - Geometric and shading normals
 
 ### Scene formats (partially) supported

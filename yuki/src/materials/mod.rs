@@ -1,10 +1,12 @@
 mod bsdfs;
 mod glass;
+mod glossy;
 mod matte;
 mod metal;
 
 pub use bsdfs::{Bsdf, BxdfSample, BxdfType};
 pub use glass::Glass;
+pub use glossy::Glossy;
 pub use matte::Matte;
 pub use metal::Metal;
 

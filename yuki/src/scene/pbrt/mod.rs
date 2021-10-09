@@ -11,7 +11,7 @@ use crate::{
     camera::FoV,
     film::FilmSettings,
     lights::{Light, PointLight},
-    materials::{Glass, Material, Matte, Metal},
+    materials::{Glass, Glossy, Material, Matte, Metal},
     math::{
         transforms::{rotation, scale, translation},
         Normal, Point3, Spectrum, Transform, Vec3,
@@ -523,6 +523,17 @@ pub fn load(
                 let params = get_param_set!();
                 // TODO: Named materials
                 let material = match graphics_state.material_type.as_str() {
+                    "glossy" => {
+                        let rs = graphics_state
+                            .material_params
+                            .find_spectrum("Rs", Spectrum::new(0.5, 0.5, 0.5));
+                        let roughness = graphics_state.material_params.find_f32("roughness", 0.5);
+                        Arc::new(Glossy::new(
+                            Arc::new(ConstantTexture::new(rs)),
+                            Arc::new(ConstantTexture::new(roughness)),
+                            false,
+                        )) as Arc<dyn Material>
+                    }
                     "matte" => {
                         let kd = graphics_state
                             .material_params
