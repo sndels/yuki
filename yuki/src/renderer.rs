@@ -53,43 +53,6 @@ impl Renderer {
         self.render_in_progress
     }
 
-    /// Waits for the render task to end and returns its result
-    pub fn wait_result(&mut self) -> Result<RenderStatus, String> {
-        if self.render_in_progress {
-            loop {
-                if let Ok(msg) = self.manager.as_ref().unwrap().rx.recv() {
-                    match msg {
-                        RenderManagerMessage::Finished {
-                            render_id,
-                            elapsed_s,
-                            ray_count,
-                        } => {
-                            if render_id == self.render_id {
-                                yuki_debug!("check_status: Render job has finished");
-                                self.render_in_progress = false;
-
-                                return Ok(RenderStatus::Finished {
-                                    elapsed_s,
-                                    ray_count,
-                                });
-                            }
-                            assert!(
-                                render_id < self.render_id,
-                                "Render result appears to be from the future"
-                            );
-                            yuki_debug!("check_status: Stale render job has finished");
-                        }
-                        RenderManagerMessage::Progress { .. } => (),
-                    }
-                } else {
-                    panic!("Render manager disconnected");
-                }
-            }
-        } else {
-            Err("No render in progress".into())
-        }
-    }
-
     /// Returns the `RenderResult` if the task has finished.
     pub fn check_status(&mut self) -> Option<RenderStatus> {
         let mut ret = None;

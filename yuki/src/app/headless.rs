@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     expect,
-    film::Film,
+    film::{Film, FilmSettings},
     math::Spectrum,
     renderer::{RenderStatus, Renderer},
     yuki_info,
@@ -13,8 +13,10 @@ use crate::{
 use glium::backend::glutin::headless::Headless;
 use glutin::{dpi::PhysicalSize, event_loop::EventLoop, ContextBuilder};
 use std::{
+    io::Write,
     path::Path,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 pub fn render(exr_path: &Path, settings: InitialSettings) {
@@ -26,9 +28,8 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
     let film_settings = settings.film_settings.unwrap_or(scene_film_settings);
     let sampler = settings.sampler.unwrap_or_default();
     let scene_integrator = settings.scene_integrator.unwrap_or_default();
-    let mut tone_map = settings.tone_map.unwrap_or_default();
+    let tone_map = settings.tone_map.unwrap_or_default();
 
-    // TODO: Don't override film_settings if input has defined them
     let film = Arc::new(Mutex::new(Film::new(film_settings.res)));
     let mut renderer = Renderer::new();
     renderer.launch(
@@ -41,13 +42,16 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
         false,
     );
 
-    let (w, h, pixels) = match renderer.wait_result() {
-        Ok(status) => {
+    let mut max_line_length = 0;
+    loop {
+        if let Some(status) = renderer.check_status() {
             match status {
                 RenderStatus::Finished { elapsed_s, .. } => {
+                    // Progress rewrites its line, but let's have a new line for end logs
+                    println!();
                     yuki_info!("Render finished in {:.2}s", elapsed_s);
 
-                    if let ToneMapType::Raw = tone_map {
+                    let (w, h, pixels) = if let ToneMapType::Raw = tone_map {
                         #[allow(clippy::match_wild_err_arm)]
                         // "Wild" ignore needed as err is Arc itself
                         match Arc::try_unwrap(film) {
@@ -67,61 +71,80 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
                             }
                         }
                     } else {
-                        let event_loop = EventLoop::new();
-                        let context = expect!(
-                            ContextBuilder::new().build_headless(
-                                &event_loop,
-                                PhysicalSize::new(
-                                    film_settings.res.x as u32,
-                                    film_settings.res.y as u32
-                                )
-                            ),
-                            "Failed to create headless context"
-                        );
-                        let backend =
-                            expect!(Headless::new(context), "Failed to create headless backend");
+                        apply_tone_map(tone_map, film, film_settings)
+                    };
 
-                        let mut tone_map_film = expect!(
-                            ToneMapFilm::new(&backend),
-                            "Failed to create tone map render pass"
-                        );
-
-                        if let ToneMapType::Heatmap(HeatmapParams {
-                            ref mut bounds,
-                            channel,
-                        }) = tone_map
-                        {
-                            if bounds.is_none() {
-                                *bounds = Some(expect!(
-                                    find_min_max(&film, channel),
-                                    "Failed to find film min, max"
-                                ));
-                            }
-                        }
-
-                        let tone_mapped_film = expect!(
-                            tone_map_film.draw(&backend, &film, &tone_map),
-                            "Failed to tone map film"
-                        );
-                        // TODO: This will explode if mapped texture format is not f32f32f32
-                        let pixels = unsafe {
-                            tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
-                        };
-
-                        (
-                            tone_mapped_film.width() as usize,
-                            tone_mapped_film.height() as usize,
-                            pixels,
-                        )
-                    }
+                    expect!(write_exr(w, h, &pixels, exr_path,), "");
+                    break;
                 }
-                RenderStatus::Progress { .. } => {
-                    panic!("Got 'Progress' instead of 'Finished' from wait_result()");
+                RenderStatus::Progress {
+                    tiles_done,
+                    tiles_total,
+                    approx_remaining_s,
+                    current_rays_per_s,
+                    ..
+                } => {
+                    let line = format!(
+                        "Tile {}/{} | ~{:.2}s to go | {:>4.2} Mrays/s",
+                        tiles_done,
+                        tiles_total,
+                        approx_remaining_s,
+                        current_rays_per_s * 1e-6
+                    );
+                    max_line_length = max_line_length.max(line.len());
+
+                    print!("\r{:<width$}", line, width = max_line_length);
+                    std::io::stdout().flush().unwrap();
                 }
             }
         }
-        Err(why) => panic!("Render failed: {}", why),
-    };
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
 
-    expect!(write_exr(w, h, &pixels, exr_path,), "");
+fn apply_tone_map(
+    mut tone_map: ToneMapType,
+    film: Arc<Mutex<Film>>,
+    film_settings: FilmSettings,
+) -> (usize, usize, Vec<Spectrum<f32>>) {
+    let event_loop = EventLoop::new();
+    let context = expect!(
+        ContextBuilder::new().build_headless(
+            &event_loop,
+            PhysicalSize::new(film_settings.res.x as u32, film_settings.res.y as u32)
+        ),
+        "Failed to create headless context"
+    );
+    let backend = expect!(Headless::new(context), "Failed to create headless backend");
+
+    let mut tone_map_film = expect!(
+        ToneMapFilm::new(&backend),
+        "Failed to create tone map render pass"
+    );
+
+    if let ToneMapType::Heatmap(HeatmapParams {
+        ref mut bounds,
+        channel,
+    }) = tone_map
+    {
+        if bounds.is_none() {
+            *bounds = Some(expect!(
+                find_min_max(&film, channel),
+                "Failed to find film min, max"
+            ));
+        }
+    }
+
+    let tone_mapped_film = expect!(
+        tone_map_film.draw(&backend, &film, &tone_map),
+        "Failed to tone map film"
+    );
+    // TODO: This will explode if mapped texture format is not f32f32f32
+    let pixels = unsafe { tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>() };
+
+    (
+        tone_mapped_film.width() as usize,
+        tone_mapped_film.height() as usize,
+        pixels,
+    )
 }
