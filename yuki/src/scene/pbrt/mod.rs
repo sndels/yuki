@@ -348,11 +348,9 @@ pub fn load(
                                 get_three_component_vector_params!(Spectrum, f32),
                             ),
                             "spectrum" => {
-                                // TODO: support spectrum from file
                                 let token = get_next_token!();
                                 let values = match token {
                                     Token::String(spd_file) => {
-                                        // TODO: Relative from current pbrt file
                                         let spd_path = parent_path.join(PathBuf::from(spd_file));
                                         let file = File::open(spd_path).map_err(LoadError::Io)?;
                                         let reader = BufReader::new(file);
@@ -717,7 +715,6 @@ fn try_split_param_def(def: &str) -> Option<(String, String)> {
     }
 }
 
-// TODO: Why is this always grayscale, same values?
 fn sampled_spectrum_into_rgb(lambda: &[f32], samples: &[f32]) -> Spectrum<f32> {
     assert!(
         lambda.len() == samples.len(),
