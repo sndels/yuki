@@ -62,7 +62,7 @@ impl Scene {
             }
         };
 
-        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+        let total_secs = load_start.elapsed().as_secs_f32();
 
         yuki_info!("pbrt-v3: Loading took {:.2}s in total", total_secs);
 
@@ -79,7 +79,7 @@ impl Scene {
 
         let (scene, dynamic_params, film_settings) = mitsuba::load(settings)?;
 
-        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+        let total_secs = load_start.elapsed().as_secs_f32();
 
         yuki_info!("Mitsuba 2.0: Loading took {:.2}s in total", total_secs);
 
@@ -119,7 +119,7 @@ impl Scene {
         let cam_target = Point3::new(0.0, 0.0, 0.0);
         let cam_fov = FoV::X(40.0);
 
-        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+        let total_secs = load_start.elapsed().as_secs_f32();
 
         yuki_info!("PLY: Loading took {:.2}s in total", total_secs);
 
@@ -322,7 +322,7 @@ impl Scene {
         let cam_target = Point3::new(278.0, 273.0, -260.0);
         let cam_fov = FoV::X(40.0);
 
-        let total_secs = (load_start.elapsed().as_micros() as f32) * 1e-6;
+        let total_secs = load_start.elapsed().as_secs_f32();
 
         (
             Arc::new(Scene {

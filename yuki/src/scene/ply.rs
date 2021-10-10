@@ -47,7 +47,7 @@ pub fn load(
     yuki_info!(
         "PLY: Parsed {} vertices in {:.2}s",
         vertices.len(),
-        (vertices_start.elapsed().as_micros() as f32) * 1e-6
+        vertices_start.elapsed().as_secs_f32()
     );
 
     let faces_start = Instant::now();
@@ -57,7 +57,7 @@ pub fn load(
     yuki_info!(
         "PLY: Parsed {} faces in {:.2}s",
         faces.len(),
-        (faces_start.elapsed().as_micros() as f32) * 1e-6
+        faces_start.elapsed().as_secs_f32()
     );
 
     let vertices_start = Instant::now();
@@ -71,7 +71,7 @@ pub fn load(
     }
     yuki_info!(
         "PLY: Extracted vertex attributes in {:.2}s",
-        (vertices_start.elapsed().as_micros() as f32) * 1e-6
+        vertices_start.elapsed().as_secs_f32()
     );
 
     let indices_start = Instant::now();
@@ -89,7 +89,7 @@ pub fn load(
     }
     yuki_info!(
         "PLY: Converted faces to an index buffer in {:.2}s",
-        (indices_start.elapsed().as_micros() as f32) * 1e-6
+        indices_start.elapsed().as_secs_f32()
     );
 
     // Find bounds and transform to fit in (-1,-1,-1),(1,1,1) in world space
@@ -114,7 +114,7 @@ pub fn load(
     yuki_info!(
         "PLY: Gathered {} triangles in {:.2}s",
         shapes.len(),
-        (triangles_start.elapsed().as_micros() as f32) * 1e-6
+        triangles_start.elapsed().as_secs_f32()
     );
 
     Ok(PlyResult { mesh, shapes })

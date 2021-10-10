@@ -63,7 +63,7 @@ impl BoundingVolumeHierarchy {
         } = ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
         yuki_info!(
             "BVH: Built the tree in {:.2}s",
-            (build_start.elapsed().as_micros() as f32) * 1e-6
+            build_start.elapsed().as_secs_f32()
         );
 
         std::mem::swap(Arc::get_mut(&mut ret.shapes).unwrap(), &mut ordered_shapes);
@@ -73,7 +73,7 @@ impl BoundingVolumeHierarchy {
         ret.flatten_tree(root, 0);
         yuki_info!(
             "BVH: Flattened the tree in {:.2}s",
-            (flatten_start.elapsed().as_micros() as f32) * 1e-6
+            flatten_start.elapsed().as_secs_f32()
         );
 
         let shapes_arc = Arc::clone(&ret.shapes);
