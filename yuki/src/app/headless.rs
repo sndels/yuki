@@ -16,7 +16,7 @@ use std::{
     io::Write,
     path::Path,
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub fn render(exr_path: &Path, settings: InitialSettings) {
@@ -32,6 +32,8 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
 
     let film = Arc::new(Mutex::new(Film::new(film_settings.res)));
     let mut renderer = Renderer::new();
+
+    let render_start = Instant::now();
     renderer.launch(
         scene,
         camera_params,
@@ -45,8 +47,10 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
     let mut max_line_length = 0;
     loop {
         if let Some(status) = renderer.check_status() {
+            let elapsed_s = render_start.elapsed().as_secs_f32();
+
             match status {
-                RenderStatus::Finished { elapsed_s, .. } => {
+                RenderStatus::Finished { .. } => {
                     // Progress rewrites its line, but let's have a new line for end logs
                     println!();
                     yuki_info!("Render finished in {:.2}s", elapsed_s);
@@ -85,9 +89,10 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
                     ..
                 } => {
                     let line = format!(
-                        "Tile {}/{} | ~{:.2}s to go | {:>4.2} Mrays/s",
+                        "Tile {}/{} | {:.1}s elapsed, ~{:.0}s remaining | {:>4.2} Mrays/s",
                         tiles_done,
                         tiles_total,
+                        elapsed_s,
                         approx_remaining_s,
                         current_rays_per_s * 1e-6
                     );

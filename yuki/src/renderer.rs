@@ -28,7 +28,6 @@ pub enum RenderStatus {
         current_rays_per_s: f32,
     },
     Finished {
-        elapsed_s: f32,
         ray_count: usize,
     },
 }
@@ -62,16 +61,12 @@ impl Renderer {
                     Ok(msg) => match msg {
                         RenderManagerMessage::Finished {
                             render_id,
-                            elapsed_s,
                             ray_count,
                         } => {
                             if render_id == self.render_id {
                                 yuki_debug!("check_status: Render job has finished");
                                 self.render_in_progress = false;
-                                ret = Some(RenderStatus::Finished {
-                                    elapsed_s,
-                                    ray_count,
-                                });
+                                ret = Some(RenderStatus::Finished { ray_count });
                                 break;
                             } else {
                                 yuki_debug!("check_status: Stale render job has finished");
@@ -207,7 +202,6 @@ fn launch_manager(
             let mut ray_count = 0;
             let avg_tile_window = 2 * thread_count;
             let mut tile_infos = VecDeque::new();
-            let mut render_start = Instant::now();
 
             // Blocking recv to avoid spinlock when there is no need to message the parent
             let mut previous_message = match from_parent.recv() {
@@ -256,7 +250,6 @@ fn launch_manager(
 
                     active_tiles_done = 0;
                     active_tiles_total = tile_count;
-                    render_start = Instant::now();
                     ray_count = 0;
 
                     for (tx, _) in children.values() {
@@ -351,10 +344,8 @@ fn launch_manager(
 
                     if task_finished {
                         yuki_trace!("Render manager: Report back");
-                        let elapsed_s = (render_start.elapsed().as_micros() as f32) * 1e-6;
                         if let Err(why) = to_parent.send(RenderManagerMessage::Finished {
                             render_id: active_render_id,
-                            elapsed_s,
                             ray_count,
                         }) {
                             yuki_error!(
@@ -546,7 +537,6 @@ enum RenderManagerMessage {
     },
     Finished {
         render_id: usize,
-        elapsed_s: f32,
         ray_count: usize,
     },
 }

@@ -148,6 +148,7 @@ impl Window {
         let mut mouse_gesture: Option<MouseGesture> = None;
         let mut camera_offset: Option<CameraOffset> = None;
         let mut mark_tiles = false;
+        let mut last_render_start = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
             let gl_window = display.gl_window();
@@ -251,6 +252,7 @@ impl Window {
                         // Make sure film matches settings
                         // This leaves the previous film hanging until all threads have dropped it
                         film = film_or_new(&film, film_settings);
+                        last_render_start = Instant::now();
                         renderer.launch(
                             Arc::clone(&scene),
                             active_camera_params,
@@ -266,7 +268,7 @@ impl Window {
                         yuki_trace!("main_loop: Render job tracked");
 
                         if let Some(status) = renderer.check_status() {
-                            status_messages = Some(render_status_messages(status));
+                            status_messages = Some(render_status_messages(status, last_render_start));
                         }
                     }
 
@@ -755,12 +757,11 @@ fn launch_debug_ray(
     collected_rays
 }
 
-fn render_status_messages(status: RenderStatus) -> Vec<String> {
+fn render_status_messages(status: RenderStatus, render_start: Instant) -> Vec<String> {
+    let elapsed_s = render_start.elapsed().as_secs_f32();
+
     match status {
-        RenderStatus::Finished {
-            ray_count,
-            elapsed_s,
-        } => {
+        RenderStatus::Finished { ray_count } => {
             vec![
                 format!("Render finished in {:.2}s", elapsed_s),
                 format!("{:.2} Mrays/s", ((ray_count as f32) / elapsed_s) * 1e-6),
@@ -775,8 +776,10 @@ fn render_status_messages(status: RenderStatus) -> Vec<String> {
         } => {
             vec![
                 format!("Render threads running: {}", active_threads),
-                // TODO: Elapsed time, timer here in window
-                format!("~{:.2}s remaining", approx_remaining_s),
+                format!(
+                    "{:.1}s elapsed, ~{:.0}s remaining",
+                    elapsed_s, approx_remaining_s
+                ),
                 format!("{}/{} tiles", tiles_done, tiles_total),
                 format!("{:.2} Mrays/s", current_rays_per_s * 1e-6),
             ]
