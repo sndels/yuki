@@ -7,7 +7,7 @@ use crate::{
     expect,
     film::Film,
     math::Spectrum,
-    renderer::{RenderResult, Renderer},
+    renderer::{RenderStatus, Renderer},
     yuki_info,
 };
 use glium::backend::glutin::headless::Headless;
@@ -42,69 +42,82 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
     );
 
     let (w, h, pixels) = match renderer.wait_result() {
-        Ok(RenderResult { secs, .. }) => {
-            yuki_info!("Render finished in {:.2}s", secs);
+        Ok(status) => {
+            match status {
+                RenderStatus::Finished { elapsed_s, .. } => {
+                    yuki_info!("Render finished in {:.2}s", elapsed_s);
 
-            if let ToneMapType::Raw = tone_map {
-                #[allow(clippy::match_wild_err_arm)]
-                // "Wild" ignore needed as err is Arc itself
-                match Arc::try_unwrap(film) {
-                    Ok(film) => {
-                        let film =
-                            expect!(film.into_inner(), "Failed to pull Film out of its Mutex");
+                    if let ToneMapType::Raw = tone_map {
+                        #[allow(clippy::match_wild_err_arm)]
+                        // "Wild" ignore needed as err is Arc itself
+                        match Arc::try_unwrap(film) {
+                            Ok(film) => {
+                                let film = expect!(
+                                    film.into_inner(),
+                                    "Failed to pull Film out of its Mutex"
+                                );
+                                (
+                                    film.res().x as usize,
+                                    film.res().y as usize,
+                                    film.pixels().clone(),
+                                )
+                            }
+                            Err(_) => {
+                                panic!("Failed to pull Film out of its Arc");
+                            }
+                        }
+                    } else {
+                        let event_loop = EventLoop::new();
+                        let context = expect!(
+                            ContextBuilder::new().build_headless(
+                                &event_loop,
+                                PhysicalSize::new(
+                                    film_settings.res.x as u32,
+                                    film_settings.res.y as u32
+                                )
+                            ),
+                            "Failed to create headless context"
+                        );
+                        let backend =
+                            expect!(Headless::new(context), "Failed to create headless backend");
+
+                        let mut tone_map_film = expect!(
+                            ToneMapFilm::new(&backend),
+                            "Failed to create tone map render pass"
+                        );
+
+                        if let ToneMapType::Heatmap(HeatmapParams {
+                            ref mut bounds,
+                            channel,
+                        }) = tone_map
+                        {
+                            if bounds.is_none() {
+                                *bounds = Some(expect!(
+                                    find_min_max(&film, channel),
+                                    "Failed to find film min, max"
+                                ));
+                            }
+                        }
+
+                        let tone_mapped_film = expect!(
+                            tone_map_film.draw(&backend, &film, &tone_map),
+                            "Failed to tone map film"
+                        );
+                        // TODO: This will explode if mapped texture format is not f32f32f32
+                        let pixels = unsafe {
+                            tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
+                        };
+
                         (
-                            film.res().x as usize,
-                            film.res().y as usize,
-                            film.pixels().clone(),
+                            tone_mapped_film.width() as usize,
+                            tone_mapped_film.height() as usize,
+                            pixels,
                         )
                     }
-                    Err(_) => {
-                        panic!("Failed to pull Film out of its Arc");
-                    }
                 }
-            } else {
-                let event_loop = EventLoop::new();
-                let context = expect!(
-                    ContextBuilder::new().build_headless(
-                        &event_loop,
-                        PhysicalSize::new(film_settings.res.x as u32, film_settings.res.y as u32)
-                    ),
-                    "Failed to create headless context"
-                );
-                let backend = expect!(Headless::new(context), "Failed to create headless backend");
-
-                let mut tone_map_film = expect!(
-                    ToneMapFilm::new(&backend),
-                    "Failed to create tone map render pass"
-                );
-
-                if let ToneMapType::Heatmap(HeatmapParams {
-                    ref mut bounds,
-                    channel,
-                }) = tone_map
-                {
-                    if bounds.is_none() {
-                        *bounds = Some(expect!(
-                            find_min_max(&film, channel),
-                            "Failed to find film min, max"
-                        ));
-                    }
+                RenderStatus::Progress { .. } => {
+                    panic!("Got 'Progress' instead of 'Finished' from wait_result()");
                 }
-
-                let tone_mapped_film = expect!(
-                    tone_map_film.draw(&backend, &film, &tone_map),
-                    "Failed to tone map film"
-                );
-                // TODO: This will explode if mapped texture format is not f32f32f32
-                let pixels = unsafe {
-                    tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
-                };
-
-                (
-                    tone_mapped_film.width() as usize,
-                    tone_mapped_film.height() as usize,
-                    pixels,
-                )
             }
         }
         Err(why) => panic!("Render failed: {}", why),

@@ -29,7 +29,7 @@ use crate::{
     film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Spectrum, Vec2, Vec3},
-    renderer::Renderer,
+    renderer::{RenderStatus, Renderer},
     sampling::Sampler,
     sampling::SamplerType,
     scene::{Scene, SceneLoadSettings},
@@ -169,18 +169,6 @@ impl Window {
                 Event::RedrawRequested(_) => {
                     let redraw_start = Instant::now();
                     yuki_trace!("main_loop: RedrawRequested");
-                    if renderer.is_active() {
-                        let film_ref_count = Arc::strong_count(&film);
-                        let mut messages = Vec::new();
-                        if film_ref_count > 1 {
-                            // Film is held by UI and each render worker
-                            // The render manager will also hold a ref while messaging workers
-                            // so this will also briefly flash a count with an extra thread
-                            messages
-                                .push(format!("Render threads running: {}", film_ref_count - 1));
-                        }
-                        status_messages = Some(messages);
-                    }
 
                     if load_settings.path.exists() {
                         renderer.kill();
@@ -259,10 +247,6 @@ impl Window {
 
                     if render_triggered {
                         yuki_info!("main_loop: Render triggered");
-                        // Make sure there is no render task running on when a new one is launched
-                        // Need replace since the thread handle needs to be moved out
-                        yuki_trace!("main_loop: Checking for an existing render job");
-
                         yuki_info!("main_loop: Launching render job");
                         // Make sure film matches settings
                         // This leaves the previous film hanging until all threads have dropped it
@@ -276,17 +260,13 @@ impl Window {
                             film_settings,
                             mark_tiles,
                         );
+                        status_messages = Some(vec![ "Render started".to_string() ]);
                         render_triggered = false;
                     } else {
                         yuki_trace!("main_loop: Render job tracked");
-                        if let Some(result) = renderer.check_result() {
-                            status_messages = Some(vec![
-                                format!("Render finished in {:.2}s", result.secs),
-                                format!(
-                                    "{:.2} Mrays/s",
-                                    ((result.ray_count as f32) / result.secs) * 1e-6
-                                ),
-                            ]);
+
+                        if let Some(status) = renderer.check_status() {
+                            status_messages = Some(render_status_messages(status));
                         }
                     }
 
@@ -773,4 +753,33 @@ fn launch_debug_ray(
     };
 
     collected_rays
+}
+
+fn render_status_messages(status: RenderStatus) -> Vec<String> {
+    match status {
+        RenderStatus::Finished {
+            ray_count,
+            elapsed_s,
+        } => {
+            vec![
+                format!("Render finished in {:.2}s", elapsed_s),
+                format!("{:.2} Mrays/s", ((ray_count as f32) / elapsed_s) * 1e-6),
+            ]
+        }
+        RenderStatus::Progress {
+            active_threads,
+            tiles_done,
+            tiles_total,
+            approx_remaining_s,
+            current_rays_per_s,
+        } => {
+            vec![
+                format!("Render threads running: {}", active_threads),
+                // TODO: Elapsed time, timer here in window
+                format!("~{:.2}s remaining", approx_remaining_s),
+                format!("{}/{} tiles", tiles_done, tiles_total),
+                format!("{:.2} Mrays/s", current_rays_per_s * 1e-6),
+            ]
+        }
+    }
 }

@@ -19,10 +19,18 @@ use crate::{
     yuki_debug, yuki_error, yuki_trace,
 };
 
-#[derive(Copy, Clone)]
-pub struct RenderResult {
-    pub secs: f32,
-    pub ray_count: usize,
+pub enum RenderStatus {
+    Progress {
+        active_threads: usize,
+        tiles_done: usize,
+        tiles_total: usize,
+        approx_remaining_s: f32,
+        current_rays_per_s: f32,
+    },
+    Finished {
+        elapsed_s: f32,
+        ray_count: usize,
+    },
 }
 
 pub struct Renderer {
@@ -46,26 +54,33 @@ impl Renderer {
     }
 
     /// Waits for the render task to end and returns its result
-    pub fn wait_result(&mut self) -> Result<RenderResult, String> {
+    pub fn wait_result(&mut self) -> Result<RenderStatus, String> {
         if self.render_in_progress {
             loop {
-                if let Ok(RenderManagerResult {
-                    render_id,
-                    secs,
-                    ray_count,
-                }) = self.manager.as_ref().unwrap().rx.recv()
-                {
-                    if render_id == self.render_id {
-                        yuki_debug!("check_result: Render job has finished");
-                        self.render_in_progress = false;
+                if let Ok(msg) = self.manager.as_ref().unwrap().rx.recv() {
+                    match msg {
+                        RenderManagerMessage::Finished {
+                            render_id,
+                            elapsed_s,
+                            ray_count,
+                        } => {
+                            if render_id == self.render_id {
+                                yuki_debug!("check_status: Render job has finished");
+                                self.render_in_progress = false;
 
-                        return Ok(RenderResult { secs, ray_count });
+                                return Ok(RenderStatus::Finished {
+                                    elapsed_s,
+                                    ray_count,
+                                });
+                            }
+                            assert!(
+                                render_id < self.render_id,
+                                "Render result appears to be from the future"
+                            );
+                            yuki_debug!("check_status: Stale render job has finished");
+                        }
+                        RenderManagerMessage::Progress { .. } => (),
                     }
-                    assert!(
-                        render_id < self.render_id,
-                        "Render result appears to be from the future"
-                    );
-                    yuki_debug!("check_result: Stale render job has finished");
                 } else {
                     panic!("Render manager disconnected");
                 }
@@ -76,36 +91,65 @@ impl Renderer {
     }
 
     /// Returns the `RenderResult` if the task has finished.
-    pub fn check_result(&mut self) -> Option<RenderResult> {
+    pub fn check_status(&mut self) -> Option<RenderStatus> {
+        let mut ret = None;
         if self.manager.is_some() && self.render_in_progress {
-            match self.manager.as_ref().unwrap().rx.try_recv() {
-                Ok(RenderManagerResult {
-                    render_id,
-                    secs,
-                    ray_count,
-                }) => {
-                    if render_id == self.render_id {
-                        yuki_debug!("check_result: Render job has finished");
-                        self.render_in_progress = false;
-                        Some(RenderResult { secs, ray_count })
-                    } else {
-                        yuki_debug!("check_result: Stale render job has finished");
-                        None
-                    }
+            loop {
+                match self.manager.as_ref().unwrap().rx.try_recv() {
+                    Ok(msg) => match msg {
+                        RenderManagerMessage::Finished {
+                            render_id,
+                            elapsed_s,
+                            ray_count,
+                        } => {
+                            if render_id == self.render_id {
+                                yuki_debug!("check_status: Render job has finished");
+                                self.render_in_progress = false;
+                                ret = Some(RenderStatus::Finished {
+                                    elapsed_s,
+                                    ray_count,
+                                });
+                                break;
+                            } else {
+                                yuki_debug!("check_status: Stale render job has finished");
+                                break;
+                            }
+                        }
+                        RenderManagerMessage::Progress {
+                            render_id,
+                            active_threads,
+                            tiles_done,
+                            tiles_total,
+                            approx_remaining_s,
+                            current_rays_per_s,
+                        } => {
+                            if render_id == self.render_id {
+                                yuki_debug!("check_status: Render job has progressed");
+                                ret = Some(RenderStatus::Progress {
+                                    active_threads,
+                                    tiles_done,
+                                    tiles_total,
+                                    approx_remaining_s,
+                                    current_rays_per_s,
+                                });
+                            } else {
+                                yuki_debug!("check_status: Stale render job has progressed");
+                            }
+                        }
+                    },
+                    Err(why) => match why {
+                        TryRecvError::Empty => {
+                            yuki_debug!("check_status: Render job still running");
+                            break;
+                        }
+                        TryRecvError::Disconnected => {
+                            panic!("check_status: Render manager has been terminated");
+                        }
+                    },
                 }
-                Err(why) => match why {
-                    TryRecvError::Empty => {
-                        yuki_debug!("check_result: Render job still running");
-                        None
-                    }
-                    TryRecvError::Disconnected => {
-                        panic!("check_result: Render manager has been terminated");
-                    }
-                },
             }
-        } else {
-            None
         }
+        ret
     }
 
     pub fn kill(&mut self) {
@@ -166,7 +210,7 @@ impl Drop for Renderer {
 }
 
 fn launch_manager(
-    to_parent: Sender<RenderManagerResult>,
+    to_parent: Sender<RenderManagerMessage>,
     from_parent: Receiver<Option<RenderManagerPayload>>,
 ) -> JoinHandle<()> {
     std::thread::spawn(move || {
@@ -193,9 +237,13 @@ fn launch_manager(
 
         // Wait for children to finish
         'thread: loop {
+            let mut active_tiles_total = 0;
+            let mut active_tiles_done = 0;
             let mut active_render_id = 0;
             let mut active_children = 0;
             let mut ray_count = 0;
+            let avg_tile_window = 2 * thread_count;
+            let mut tile_infos = VecDeque::new();
             let mut render_start = Instant::now();
 
             // Blocking recv to avoid spinlock when there is no need to message the parent
@@ -235,14 +283,18 @@ fn launch_manager(
                     //       since sync only happens on tile pop (and film write).
                     //       Visible rendering order could be retained by distributing the
                     //       batches as interleaved (tiles i, 2*i, 3*i, ...)
-                    let tiles = Arc::new(Mutex::new(film_tiles(
-                        &mut payload.film,
-                        payload.film_settings,
-                    )));
+                    let (tiles, tile_count) = {
+                        let tiles = film_tiles(&mut payload.film, payload.film_settings);
+                        let tile_count = tiles.len();
+                        (Arc::new(Mutex::new(tiles)), tile_count)
+                    };
 
                     active_render_id = payload.render_id;
 
+                    active_tiles_done = 0;
+                    active_tiles_total = tile_count;
                     render_start = Instant::now();
+                    ray_count = 0;
 
                     for (tx, _) in children.values() {
                         let payload = RenderThreadPayload {
@@ -265,18 +317,70 @@ fn launch_manager(
                 } else {
                     let prev_active_children = active_children;
 
-                    while let Ok(RenderThreadResult {
-                        thread_id,
-                        render_id,
-                        ray_count: rays,
-                    }) = from_children.try_recv()
-                    {
-                        if render_id == active_render_id {
-                            yuki_trace!("Render manager: Worker {} finished", thread_id);
-                            active_children -= 1;
-                            ray_count += rays;
-                        } else {
-                            yuki_trace!("Render manager: Worker {} finished stale work", thread_id);
+                    while let Ok(msg) = from_children.try_recv() {
+                        match msg {
+                            RenderThreadMessage::Finished(ThreadInfo {
+                                thread_id,
+                                render_id,
+                            }) => {
+                                if render_id == active_render_id {
+                                    yuki_trace!("Render manager: Worker {} finished", thread_id);
+                                    active_children -= 1;
+                                } else {
+                                    yuki_trace!(
+                                        "Render manager: Worker {} finished stale work",
+                                        thread_id
+                                    );
+                                }
+                            }
+                            RenderThreadMessage::TileDone {
+                                info,
+                                ray_count: rays,
+                                elapsed_s,
+                            } => {
+                                if info.render_id == active_render_id {
+                                    ray_count += rays;
+
+                                    if tile_infos.len() >= avg_tile_window {
+                                        tile_infos.pop_front();
+                                    }
+                                    tile_infos.push_back((elapsed_s, rays));
+
+                                    active_tiles_done += 1;
+
+                                    let avg_s_per_tile =
+                                        tile_infos.iter().map(|(s, _)| s).sum::<f32>()
+                                            / (tile_infos.len() as f32);
+
+                                    let approx_remaining_s = avg_s_per_tile
+                                        * ((active_tiles_total - active_tiles_done) as f32)
+                                        / (active_children as f32);
+
+                                    let current_rays_per_s = tile_infos
+                                        .iter()
+                                        // Sum of averages to downplay overtly expensive threads
+                                        .map(|&(s, r)| (r as f32) / s)
+                                        .sum::<f32>()
+                                        / (tile_infos.len() as f32)
+                                        * (active_children as f32);
+
+                                    if let Err(why) =
+                                        to_parent.send(RenderManagerMessage::Progress {
+                                            render_id: active_render_id,
+                                            active_threads: active_children,
+                                            tiles_done: active_tiles_done,
+                                            tiles_total: active_tiles_total,
+                                            approx_remaining_s,
+                                            current_rays_per_s,
+                                        })
+                                    {
+                                        yuki_error!(
+                                            "Render manager: Error sending progress to parent: {}",
+                                            why
+                                        );
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -284,13 +388,16 @@ fn launch_manager(
 
                     if task_finished {
                         yuki_trace!("Render manager: Report back");
-                        let secs = (render_start.elapsed().as_micros() as f32) * 1e-6;
-                        if let Err(why) = to_parent.send(RenderManagerResult {
+                        let elapsed_s = (render_start.elapsed().as_micros() as f32) * 1e-6;
+                        if let Err(why) = to_parent.send(RenderManagerMessage::Finished {
                             render_id: active_render_id,
-                            secs,
+                            elapsed_s,
                             ray_count,
                         }) {
-                            yuki_error!("Render manager: Error notifying parent: {}", why);
+                            yuki_error!(
+                                "Render manager: Error notifying parent on finish: {}",
+                                why
+                            );
                         };
                         break 'work;
                     }
@@ -313,13 +420,16 @@ fn launch_manager(
 
 fn launch_worker(
     thread_id: usize,
-    to_parent: &Sender<RenderThreadResult>,
+    to_parent: &Sender<RenderThreadMessage>,
     from_parent: &Receiver<Option<RenderThreadPayload>>,
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
 
     'thread: loop {
-        let mut ray_count = 0;
+        let mut thread_info = ThreadInfo {
+            render_id: 0,
+            thread_id,
+        };
         let mut payload: Option<RenderThreadPayload> = None;
 
         // Blocking recv to avoid spinlock when there is no need to message to parent
@@ -341,8 +451,8 @@ fn launch_worker(
                 match newest_msg.take().unwrap() {
                     Ok(Some(new_payload)) => {
                         yuki_debug!("Render thread {}: Received new payload", thread_id);
+                        thread_info.render_id = new_payload.render_id;
                         payload = Some(new_payload);
-                        ray_count = 0;
                     }
                     Ok(None) => {
                         yuki_debug!("Render thread {}: Killed by parent", thread_id);
@@ -362,12 +472,12 @@ fn launch_worker(
                 if payload.is_some() && tile.is_none() {
                     yuki_trace!("Render thread {}: Signal done", thread_id);
 
-                    if let Err(why) = to_parent.send(RenderThreadResult {
-                        render_id: payload.as_ref().unwrap().render_id,
-                        thread_id,
-                        ray_count,
-                    }) {
-                        yuki_error!("Render thread {}: Error: {}", thread_id, why);
+                    if let Err(why) = to_parent.send(RenderThreadMessage::Finished(thread_info)) {
+                        yuki_error!(
+                            "Render thread {}: Error notifying parent on finish: {}",
+                            thread_id,
+                            why
+                        );
                     };
 
                     break 'work;
@@ -378,6 +488,8 @@ fn launch_worker(
 
             if let Some(mut tile) = tile {
                 assert!(payload.is_some(), "Active tile without payload");
+
+                let tile_start = Instant::now();
 
                 let payload = payload.as_ref().unwrap();
                 if payload.mark_tiles {
@@ -396,7 +508,7 @@ fn launch_worker(
                 yuki_trace!("Render thread {}: Render tile {:?}", thread_id, tile.bb);
                 let mut interrupted = false;
                 let integrator = payload.integrator_type.instantiate();
-                ray_count += integrator.render(
+                let ray_count = integrator.render(
                     &payload.scene,
                     &payload.camera,
                     &payload.sampler,
@@ -427,27 +539,58 @@ fn launch_worker(
 
                         yuki_trace!("Render thread {}: Releasing film", thread_id);
                     }
+
+                    if let Err(why) = to_parent.send(RenderThreadMessage::TileDone {
+                        info: thread_info,
+                        ray_count,
+                        elapsed_s: tile_start.elapsed().as_secs_f32(),
+                    }) {
+                        yuki_error!(
+                            "Render thread {}: Error notifying parent on tile done: {}",
+                            thread_id,
+                            why
+                        );
+                    };
                 }
             }
         }
     }
 }
 
-struct RenderThreadResult {
-    render_id: usize,
-    thread_id: usize,
-    ray_count: usize,
+enum RenderThreadMessage {
+    TileDone {
+        info: ThreadInfo,
+        ray_count: usize,
+        elapsed_s: f32,
+    },
+    Finished(ThreadInfo),
 }
 
-struct RenderManagerResult {
+#[derive(Clone, Copy)]
+struct ThreadInfo {
     render_id: usize,
-    secs: f32,
-    ray_count: usize,
+    thread_id: usize,
+}
+
+enum RenderManagerMessage {
+    Progress {
+        render_id: usize,
+        active_threads: usize,
+        tiles_done: usize,
+        tiles_total: usize,
+        approx_remaining_s: f32,
+        current_rays_per_s: f32,
+    },
+    Finished {
+        render_id: usize,
+        elapsed_s: f32,
+        ray_count: usize,
+    },
 }
 
 struct RenderManager {
     tx: Sender<Option<RenderManagerPayload>>,
-    rx: Receiver<RenderManagerResult>,
+    rx: Receiver<RenderManagerMessage>,
     handle: JoinHandle<()>,
 }
 
