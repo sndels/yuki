@@ -72,6 +72,8 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
   - [Mitsuba 2.0](https://mitsuba2.readthedocs.io/en/latest/)
   - [pbrt-v3](https://www.pbrt.org/fileformat-v3)
     - A simple Blender exporter is also included
+    - `glossy` material type
+      - Takes in `spectrum/rgb Rs` and `float roughness`, which match Blender's Glossy BSDF parameters
 
 ## yuki_derive
 
