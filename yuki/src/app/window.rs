@@ -268,7 +268,7 @@ impl Window {
                         yuki_trace!("main_loop: Render job tracked");
 
                         if let Some(status) = renderer.check_status() {
-                            status_messages = Some(render_status_messages(status, last_render_start));
+                            status_messages = Some(render_status_messages(&status, last_render_start));
                         }
                     }
 
@@ -757,10 +757,10 @@ fn launch_debug_ray(
     collected_rays
 }
 
-fn render_status_messages(status: RenderStatus, render_start: Instant) -> Vec<String> {
+fn render_status_messages(status: &RenderStatus, render_start: Instant) -> Vec<String> {
     let elapsed_s = render_start.elapsed().as_secs_f32();
 
-    match status {
+    match *status {
         RenderStatus::Finished { ray_count } => {
             vec![
                 format!("Render finished in {:.2}s", elapsed_s),

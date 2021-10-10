@@ -55,11 +55,11 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
                     println!();
                     yuki_info!("Render finished in {:.2}s", elapsed_s);
 
-                    let (w, h, pixels) = if let ToneMapType::Raw = tone_map {
-                        #[allow(clippy::match_wild_err_arm)]
-                        // "Wild" ignore needed as err is Arc itself
-                        match Arc::try_unwrap(film) {
-                            Ok(film) => {
+                    #[allow(clippy::match_wild_err_arm)]
+                    // "Wild" ignore needed as err is Arc itself
+                    match Arc::try_unwrap(film) {
+                        Ok(film) => {
+                            let (w, h, pixels) = if let ToneMapType::Raw = tone_map {
                                 let film = expect!(
                                     film.into_inner(),
                                     "Failed to pull Film out of its Mutex"
@@ -69,17 +69,16 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
                                     film.res().y as usize,
                                     film.pixels().clone(),
                                 )
-                            }
-                            Err(_) => {
-                                panic!("Failed to pull Film out of its Arc");
-                            }
+                            } else {
+                                apply_tone_map(tone_map, &film, film_settings)
+                            };
+                            expect!(write_exr(w, h, &pixels, exr_path,), "");
+                            break;
                         }
-                    } else {
-                        apply_tone_map(tone_map, film, film_settings)
-                    };
-
-                    expect!(write_exr(w, h, &pixels, exr_path,), "");
-                    break;
+                        Err(_) => {
+                            panic!("Failed to pull Film out of its Arc");
+                        }
+                    }
                 }
                 RenderStatus::Progress {
                     tiles_done,
@@ -109,7 +108,7 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
 
 fn apply_tone_map(
     mut tone_map: ToneMapType,
-    film: Arc<Mutex<Film>>,
+    film: &Mutex<Film>,
     film_settings: FilmSettings,
 ) -> (usize, usize, Vec<Spectrum<f32>>) {
     let event_loop = EventLoop::new();
@@ -134,14 +133,14 @@ fn apply_tone_map(
     {
         if bounds.is_none() {
             *bounds = Some(expect!(
-                find_min_max(&film, channel),
+                find_min_max(film, channel),
                 "Failed to find film min, max"
             ));
         }
     }
 
     let tone_mapped_film = expect!(
-        tone_map_film.draw(&backend, &film, &tone_map),
+        tone_map_film.draw(&backend, film, &tone_map),
         "Failed to tone map film"
     );
     // TODO: This will explode if mapped texture format is not f32f32f32

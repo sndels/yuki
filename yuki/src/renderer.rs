@@ -68,10 +68,9 @@ impl Renderer {
                                 self.render_in_progress = false;
                                 ret = Some(RenderStatus::Finished { ray_count });
                                 break;
-                            } else {
-                                yuki_debug!("check_status: Stale render job has finished");
-                                break;
                             }
+                            yuki_debug!("check_status: Stale render job has finished");
+                            break;
                         }
                         RenderManagerMessage::Progress {
                             render_id,
