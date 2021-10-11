@@ -2,7 +2,7 @@ mod cie;
 mod lexer;
 mod param_set;
 
-use cie::{CIE_LAMBDA, CIE_SCALE, CIE_X, CIE_Y, CIE_Z, N_CIE_SAMPLES};
+use cie::{x_fit_1931, y_fit_1931, z_fit_1931};
 use lexer::{FileLocation, Lexer, LexerError, LexerErrorType, Token};
 use param_set::ParamSet;
 
@@ -734,16 +734,17 @@ fn sampled_spectrum_into_rgb(lambda: &[f32], samples: &[f32]) -> Spectrum<f32> {
         sampled_spectrum_into_rgb(&sorted_lambda, &sorted_samples);
     };
 
+    // Riemann sum
     let mut xyz = (0.0, 0.0, 0.0);
-    for i in 0..N_CIE_SAMPLES {
-        let val = interpolate_spectrum_samples(lambda, samples, CIE_LAMBDA[i] as f32);
-        xyz.0 += val * (CIE_X[i] as f32);
-        xyz.1 += val * (CIE_Y[i] as f32);
-        xyz.2 += val * (CIE_Z[i] as f32);
+    for (&l, &s) in lambda.iter().zip(samples.iter()) {
+        xyz.0 += x_fit_1931(l) * s;
+        xyz.1 += y_fit_1931(l) * s;
+        xyz.2 += z_fit_1931(l) * s;
     }
-    xyz.0 *= CIE_SCALE as f32;
-    xyz.1 *= CIE_SCALE as f32;
-    xyz.2 *= CIE_SCALE as f32;
+    let sum_scale = (lambda.last().unwrap() - lambda.first().unwrap()) / (lambda.len() as f32);
+    xyz.0 *= sum_scale;
+    xyz.1 *= sum_scale;
+    xyz.2 *= sum_scale;
 
     #[allow(clippy::excessive_precision)] // In case f64 is used at some point
     Spectrum::new(
@@ -751,33 +752,6 @@ fn sampled_spectrum_into_rgb(lambda: &[f32], samples: &[f32]) -> Spectrum<f32> {
         -0.969_256 * xyz.0 + 1.875_991 * xyz.1 + 0.041_556 * xyz.2,
         0.055_648 * xyz.0 - 0.204_043 * xyz.1 + 1.057_311 * xyz.2,
     )
-}
-
-fn interpolate_spectrum_samples(lambda: &[f32], samples: &[f32], l: f32) -> f32 {
-    assert!(lambda.len() > 1, "Expected at least two spectrum samples");
-    assert!(lambda.iter().is_sorted(), "Spectrum samples aren't sorted");
-
-    if l <= *lambda.first().unwrap() {
-        return *samples.first().unwrap();
-    }
-
-    if l >= *lambda.last().unwrap() {
-        return *samples.last().unwrap();
-    }
-
-    let offset = lambda.iter().position(|la| la >= &l).unwrap() - 1;
-
-    let l0 = lambda[offset];
-    let l1 = lambda[offset + 1];
-    assert!(
-        l >= l0 && l <= l1,
-        "Finding sample interpolation position failed",
-    );
-
-    let t = (l - l0) / (l1 - l0);
-    let s0 = samples[offset];
-    let s1 = samples[offset + 1];
-    t.lerp(s0, s1)
 }
 
 const N_COPPER_SAMPLES: usize = 56;
