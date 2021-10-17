@@ -36,11 +36,15 @@ pub enum RenderStatus {
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub struct RenderSettings {
     pub mark_tiles: bool,
+    pub use_single_render_thread: bool,
 }
 
 impl Default for RenderSettings {
     fn default() -> Self {
-        Self { mark_tiles: false }
+        Self {
+            mark_tiles: false,
+            use_single_render_thread: false,
+        }
     }
 }
 
@@ -263,6 +267,7 @@ fn launch_manager(
                     active_tiles_total = tile_count;
                     ray_count = 0;
 
+                    active_children = 0;
                     for (tx, _) in children.values() {
                         let thread_payload = RenderThreadPayload {
                             render_id: active_render_id,
@@ -278,9 +283,13 @@ fn launch_manager(
                         if let Err(SendError { .. }) = tx.send(Some(thread_payload)) {
                             panic!("launch: Worker has been terminated");
                         }
-                    }
 
-                    active_children = children.len();
+                        active_children += 1;
+
+                        if payload.render_settings.use_single_render_thread {
+                            break;
+                        }
+                    }
                 } else {
                     let prev_active_children = active_children;
 

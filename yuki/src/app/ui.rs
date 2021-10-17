@@ -342,6 +342,10 @@ fn generate_render_settings(ui: &imgui::Ui<'_>, render_settings: &mut RenderSett
         .default_open(true)
         .build(ui, || {
             ui.checkbox(im_str!("Mark work tiles"), &mut render_settings.mark_tiles);
+            ui.checkbox(
+                im_str!("Use single render thread"),
+                &mut render_settings.use_single_render_thread,
+            );
         });
 }
 
