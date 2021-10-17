@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
     ops::{Deref, DerefMut},
@@ -30,6 +31,17 @@ pub enum RenderStatus {
     Finished {
         ray_count: usize,
     },
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+pub struct RenderSettings {
+    pub mark_tiles: bool,
+}
+
+impl Default for RenderSettings {
+    fn default() -> Self {
+        Self { mark_tiles: false }
+    }
 }
 
 pub struct Renderer {
@@ -125,7 +137,7 @@ impl Renderer {
         sampler: SamplerType,
         integrator: IntegratorType,
         film_settings: FilmSettings,
-        mark_tiles: bool,
+        render_settings: RenderSettings,
     ) {
         self.render_id += 1;
 
@@ -148,7 +160,7 @@ impl Renderer {
             sampler,
             integrator,
             film_settings,
-            mark_tiles,
+            render_settings,
         })) {
             Ok(_) => {
                 self.render_in_progress = true;
@@ -252,7 +264,7 @@ fn launch_manager(
                     ray_count = 0;
 
                     for (tx, _) in children.values() {
-                        let payload = RenderThreadPayload {
+                        let thread_payload = RenderThreadPayload {
                             render_id: active_render_id,
                             tiles: Arc::clone(&tiles),
                             camera: camera.clone(),
@@ -260,10 +272,10 @@ fn launch_manager(
                             integrator_type: payload.integrator,
                             sampler: Arc::clone(&sampler),
                             film: Arc::clone(&payload.film),
-                            mark_tiles: payload.mark_tiles,
+                            mark_tiles: payload.render_settings.mark_tiles,
                         };
 
-                        if let Err(SendError { .. }) = tx.send(Some(payload)) {
+                        if let Err(SendError { .. }) = tx.send(Some(thread_payload)) {
                             panic!("launch: Worker has been terminated");
                         }
                     }
@@ -554,7 +566,7 @@ struct RenderManagerPayload {
     sampler: SamplerType,
     integrator: IntegratorType,
     film_settings: FilmSettings,
-    mark_tiles: bool,
+    render_settings: RenderSettings,
 }
 
 struct RenderThreadPayload {

@@ -19,6 +19,7 @@ use crate::{
     film::FilmSettings,
     integrators::{IntegratorType, PathParams, WhittedParams},
     math::{Vec2, Vec3},
+    renderer::RenderSettings,
     sampling::{SamplerType, StratifiedParams, UniformParams},
     scene::{Scene, SceneLoadSettings},
     yuki_error,
@@ -105,7 +106,7 @@ impl UI {
         scene_integrator: &mut IntegratorType,
         tone_map_type: &mut ToneMapType,
         load_settings: &mut SceneLoadSettings,
-        mark_tiles: &mut bool,
+        render_settings: &mut RenderSettings,
         scene: &Arc<Scene>,
         render_in_progress: bool,
         status_messages: &Option<Vec<String>>,
@@ -135,7 +136,7 @@ impl UI {
             .build(&ui, || {
                 ui_hovered = ui.is_window_hovered();
 
-                render_triggered |= generate_film_settings(&ui, film_settings, mark_tiles);
+                render_triggered |= generate_film_settings(&ui, film_settings);
                 ui.spacing();
 
                 render_triggered |= generate_sampler_settings(&ui, sampler);
@@ -149,6 +150,9 @@ impl UI {
                 ui.spacing();
 
                 generate_tone_map_settings(&ui, tone_map_type);
+                ui.spacing();
+
+                generate_render_settings(&ui, render_settings);
                 ui.spacing();
 
                 save_settings |= ui.button(im_str!("Save settings"), [100.0, 20.0]);
@@ -299,11 +303,7 @@ fn vec2_u16_picker(
 }
 
 /// Returns `true` if `film_settings` was changed.
-fn generate_film_settings(
-    ui: &imgui::Ui<'_>,
-    film_settings: &mut FilmSettings,
-    mark_tiles: &mut bool,
-) -> bool {
+fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) -> bool {
     let mut changed = false;
     imgui::TreeNode::new(im_str!("Film"))
         .default_open(true)
@@ -332,12 +332,17 @@ fn generate_film_settings(
 
             changed |= ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
                 && film_settings.clear; // Relaunch doesn't make sense if clear is unset
-
-            // No need to relaunch for only tile marking
-            ui.checkbox(im_str!("Mark work tiles"), mark_tiles);
         });
 
     changed
+}
+
+fn generate_render_settings(ui: &imgui::Ui<'_>, render_settings: &mut RenderSettings) {
+    imgui::TreeNode::new(im_str!("Renderer"))
+        .default_open(true)
+        .build(ui, || {
+            ui.checkbox(im_str!("Mark work tiles"), &mut render_settings.mark_tiles);
+        });
 }
 
 /// Returns `true` if `sampler` was changed.

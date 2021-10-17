@@ -26,6 +26,7 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
         expect!(try_load_scene(&load_settings), "Scene loading failed");
 
     let film_settings = settings.film_settings.unwrap_or(scene_film_settings);
+    let render_settings = settings.render_settings.unwrap_or_default();
     let sampler = settings.sampler.unwrap_or_default();
     let scene_integrator = settings.scene_integrator.unwrap_or_default();
     let tone_map = settings.tone_map.unwrap_or_default();
@@ -41,7 +42,7 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
         sampler,
         scene_integrator,
         film_settings,
-        false,
+        render_settings,
     );
 
     let mut max_line_length = 0;

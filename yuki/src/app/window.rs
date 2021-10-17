@@ -29,7 +29,7 @@ use crate::{
     film::{film_or_new, Film, FilmSettings},
     integrators::{IntegratorRay, IntegratorType},
     math::{transforms::rotation, Point2, Spectrum, Vec2, Vec3},
-    renderer::{RenderStatus, Renderer},
+    renderer::{RenderSettings, RenderStatus, Renderer},
     sampling::Sampler,
     sampling::SamplerType,
     scene::{Scene, SceneLoadSettings},
@@ -45,6 +45,7 @@ pub struct Window {
 
     // Rendering
     film_settings: FilmSettings,
+    render_settings: RenderSettings,
     film: Arc<Mutex<Film>>,
     scene_integrator: IntegratorType,
     sampler: SamplerType,
@@ -108,6 +109,7 @@ impl Window {
             tone_map_film,
             ray_visualization,
             film_settings: settings.film_settings.unwrap_or(scene_film_settings),
+            render_settings: settings.render_settings.unwrap_or_default(),
             scene_integrator: settings.scene_integrator.unwrap_or_default(),
             sampler: settings.sampler.unwrap_or_default(),
             film,
@@ -126,6 +128,7 @@ impl Window {
             mut tone_map_film,
             mut ray_visualization,
             mut film_settings,
+            mut render_settings,
             mut scene_integrator,
             mut sampler,
             mut film,
@@ -147,7 +150,6 @@ impl Window {
         let mut cursor_state = CursorState::default();
         let mut mouse_gesture: Option<MouseGesture> = None;
         let mut camera_offset: Option<CameraOffset> = None;
-        let mut mark_tiles = false;
         let mut last_render_start = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
@@ -199,7 +201,7 @@ impl Window {
                         &mut scene_integrator,
                         &mut tone_map_type,
                         &mut load_settings,
-                        &mut mark_tiles,
+                        &mut render_settings,
                         &scene,
                         renderer.is_active(),
                         &status_messages,
@@ -221,10 +223,11 @@ impl Window {
                             sampler: Some(sampler),
                             scene_integrator: Some(scene_integrator ),
                             tone_map: Some(tone_map_type),
-                            load_settings:Some( SceneLoadSettings {
+                            load_settings: Some( SceneLoadSettings {
                                 path: scene.load_settings.path.clone(),
                                 max_shapes_in_node: load_settings.max_shapes_in_node,
                             }),
+                            render_settings: Some(render_settings)
                         };
 
                         match File::create("settings.yaml") {
@@ -260,7 +263,7 @@ impl Window {
                             sampler,
                             scene_integrator,
                             film_settings,
-                            mark_tiles,
+                            render_settings
                         );
                         status_messages = Some(vec![ "Render started".to_string() ]);
                         render_triggered = false;
