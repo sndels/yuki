@@ -9,7 +9,7 @@ use crate::{
     yuki_error, yuki_info,
 };
 
-use std::{collections::HashSet, convert::TryFrom, path::Path, sync::Arc, time::Instant};
+use std::{collections::HashSet, path::Path, sync::Arc, time::Instant};
 
 pub struct PlyResult {
     pub mesh: Arc<Mesh>,

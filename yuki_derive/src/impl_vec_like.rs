@@ -148,7 +148,6 @@ pub fn vec_like_impl(
             #[doc = #array_mut_doc]
             #[inline]
             pub fn array_mut(&mut self) -> &mut [#generic_param; #component_count] {
-                use std::convert::TryFrom;
                 unsafe {
                     let slice_ref = std::slice::from_raw_parts_mut(self as *mut Self as *mut #generic_param, #component_count);
                     <&mut [#generic_param; #component_count]>::try_from(slice_ref).unwrap()

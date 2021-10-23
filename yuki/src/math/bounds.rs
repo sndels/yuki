@@ -1,8 +1,5 @@
 use num::Integer;
-use std::{
-    iter::{IntoIterator, Iterator},
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
 use yuki_derive::{impl_bounds, Index, IndexMut};
 

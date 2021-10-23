@@ -1,5 +1,4 @@
 use glium::Surface;
-use std::convert::TryFrom;
 
 pub struct ScaleOutput {}
 

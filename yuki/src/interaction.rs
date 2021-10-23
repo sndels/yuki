@@ -3,7 +3,7 @@ use crate::{
     math::{Normal, Point3, Ray, Transform, Vec3},
     shapes::Shape,
 };
-use std::{convert::From, ops::Mul};
+use std::ops::Mul;
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Interactions#SurfaceInteraction

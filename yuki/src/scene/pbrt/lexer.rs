@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use strum::ToString;
 
 // Based on the rules laid out in the old pbrtlex.ll of pbrt-v3

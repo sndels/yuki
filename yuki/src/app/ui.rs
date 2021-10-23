@@ -5,9 +5,7 @@ use imgui::Context;
 use imgui::{im_str, FontConfig, FontSource, ImStr};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::{
-    convert::TryFrom, path::PathBuf, str::FromStr, string::ToString, sync::Arc, time::Duration,
-};
+use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use strum::VariantNames;
 use tinyfiledialogs::open_file_dialog;
 
@@ -584,7 +582,7 @@ where
     // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
     let im_str_t_names = t_names
         .iter()
-        .map(std::convert::AsRef::as_ref)
+        .map(AsRef::as_ref)
         .collect::<Vec<&imgui::ImStr>>();
 
     let mut current_t = T::VARIANTS
