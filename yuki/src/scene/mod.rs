@@ -6,9 +6,9 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::{CameraParameters, FoV},
     film::FilmSettings,
-    lights::{Light, PointLight},
+    lights::{Light, PointLight, RectangularLight},
     materials::{Glass, Material, Matte, Metal},
-    math::{transforms::translation, Point3, Spectrum, Transform, Vec3},
+    math::{transforms::translation, Point3, Spectrum, Transform, Vec2, Vec3},
     shapes::{Mesh, Shape, Sphere, Triangle},
     textures::ConstantTexture,
     yuki_info,
@@ -315,10 +315,17 @@ impl Scene {
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
 
-        let light = Arc::new(PointLight::new(
-            &translation(Vec3::new(288.0, 500.0, -279.0)),
-            Spectrum::ones() * 240_000.0,
-        ));
+        let light = {
+            let size = Vec2::new(250.0, 250.0);
+            let area = size.x * size.y;
+            let power = 2_000_000.0;
+            let radiance = power / (area * std::f32::consts::PI);
+            Arc::new(RectangularLight::new(
+                &translation(Vec3::new(288.0, 548.5, -279.0)),
+                Spectrum::ones() * radiance,
+                size,
+            ))
+        };
 
         let cam_pos = Point3::new(278.0, 273.0, 800.0);
         let cam_target = Point3::new(278.0, 273.0, -260.0);
