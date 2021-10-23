@@ -91,7 +91,7 @@ impl Integrator for Path {
 
                 incoming_radiance += beta
                     * scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
-                        let LightSample { l, li, vis } = l.sample_li(&si);
+                        let LightSample { l, li, vis, pdf } = l.sample_li(&si, sampler.get_2d());
                         if !li.is_black() {
                             let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                             if let Some(test) = vis {
@@ -102,7 +102,8 @@ impl Integrator for Path {
                                     });
                                 }
                                 if !f.is_black() && test.unoccluded(scene) {
-                                    return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0);
+                                    return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0)
+                                        / pdf;
                                 }
                             }
                         }

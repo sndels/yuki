@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
-    math::{Spectrum, Vec3},
+    math::{Point2, Spectrum, Vec3},
     visibility::VisibilityTester,
 };
 
@@ -21,7 +21,7 @@ impl DistantLight {
 }
 
 impl Light for DistantLight {
-    fn sample_li(&self, si: &SurfaceInteraction) -> LightSample {
+    fn sample_li(&self, si: &SurfaceInteraction, _u: Point2<f32>) -> LightSample {
         let li = self.radiance;
         let l = self.w;
 
@@ -33,6 +33,11 @@ impl Light for DistantLight {
             },
         ));
 
-        LightSample { l, li, vis }
+        LightSample {
+            l,
+            li,
+            vis,
+            pdf: 1.0,
+        }
     }
 }

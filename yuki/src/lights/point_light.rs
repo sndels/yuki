@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
-    math::{Point3, Spectrum, Transform},
+    math::{Point2, Point3, Spectrum, Transform},
     visibility::VisibilityTester,
 };
 
@@ -24,7 +24,7 @@ impl PointLight {
 }
 
 impl Light for PointLight {
-    fn sample_li(&self, si: &SurfaceInteraction) -> LightSample {
+    fn sample_li(&self, si: &SurfaceInteraction, _u: Point2<f32>) -> LightSample {
         let to_light = self.p - si.p;
         let dist_sqr = to_light.len_sqr();
         let li = self.i / dist_sqr;
@@ -39,6 +39,11 @@ impl Light for PointLight {
             },
         ));
 
-        LightSample { l, li, vis }
+        LightSample {
+            l,
+            li,
+            vis,
+            pdf: 1.0,
+        }
     }
 }

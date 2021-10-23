@@ -8,7 +8,7 @@ pub use spot_light::SpotLight;
 
 use crate::{
     interaction::SurfaceInteraction,
-    math::{Spectrum, Vec3},
+    math::{Point2, Spectrum, Vec3},
     visibility::VisibilityTester,
 };
 
@@ -20,9 +20,10 @@ pub struct LightSample {
     pub l: Vec3<f32>,
     pub li: Spectrum<f32>,
     pub vis: Option<VisibilityTester>,
+    pub pdf: f32,
 }
 
 pub trait Light: Send + Sync {
     /// Returns a [`LightSample`] from the given [`SurfaceInteraction`] to this [`Light`].
-    fn sample_li(&self, si: &SurfaceInteraction) -> LightSample;
+    fn sample_li(&self, si: &SurfaceInteraction, u: Point2<f32>) -> LightSample;
 }
