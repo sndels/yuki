@@ -1,2 +1,6 @@
 [workspace]
 members = ["bench", "tests", "yuki", "yuki_derive"]
+
+[profile.dev-optimized]
+inherits = "dev"
+opt-level = 3

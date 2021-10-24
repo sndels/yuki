@@ -31,6 +31,18 @@
             "preLaunchTask": ""
         },
         {
+            "name": "(CppVSDbg) yuki dev-optimized",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/dev-optimized/yuki.exe",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "args": [],
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": ""
+        },
+        {
             "name": "(CppVSDbg) yuki debug",
             "type": "cppvsdbg",
             "request": "launch",
@@ -47,6 +59,15 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/release/yuki",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": ""
+        },
+        {
+            "name": "(LLDB) yuki dev-optimized",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/dev-optimized/yuki",
             "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": ""

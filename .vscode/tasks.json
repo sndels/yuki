@@ -39,6 +39,25 @@
             ]
         },
         {
+            "label": "Build yuki dev-optimized",
+            "group": "build",
+            "command": "cargo",
+            "args": [
+                "+nightly",
+                "build",
+                "--profile=dev-optimized",
+            ],
+            "options": {
+                "cwd": "${workspaceRoot}/yuki",
+                "env": {
+                    "RUSTFLAGS": "-g"
+                }
+            },
+            "problemMatcher": [
+                "$rustc"
+            ]
+        },
+        {
             "label": "Build yuki debug",
             "group": "build",
             "command": "cargo",
