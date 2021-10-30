@@ -56,7 +56,7 @@ impl StratifiedSampler {
             n_sampled_dimensions,
             current_pixel_sample: 0,
             samples_1d: vec![vec![0.0; total_pixel_samples]; n_sampled_dimensions],
-            samples_2d: vec![vec![Point2::from(0.0); total_pixel_samples]; n_sampled_dimensions],
+            samples_2d: vec![vec![Point2::zeros(); total_pixel_samples]; n_sampled_dimensions],
             current_1d_dimension: 0,
             current_2d_dimension: 0,
             rng: Pcg32::new(seed, 0),

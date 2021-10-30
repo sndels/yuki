@@ -77,7 +77,7 @@ impl Shape for Sphere {
         let p = {
             let mut p = r.point(t);
             // Refine
-            p *= self.radius / p.dist(Point3::from(0.0));
+            p *= self.radius / p.dist(Point3::zeros());
             // Remove division by zero further on
             if p.x == 0.0 && p.y == 0.0 {
                 p.x = 1e-5_f32 * self.radius;

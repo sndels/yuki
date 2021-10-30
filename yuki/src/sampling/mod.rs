@@ -67,8 +67,8 @@ pub fn cosine_sample_hemisphere(u: Point2<f32>) -> Vec3<f32> {
 
 pub fn concentric_sample_disk(u: Point2<f32>) -> Point2<f32> {
     let offset = u * 2.0 - Vec2::new(1.0, 1.0);
-    if offset == Point2::from(0.0) {
-        return Point2::from(0.0);
+    if offset == Point2::zeros() {
+        return Point2::zeros();
     }
 
     let (theta, r) = if offset.x.abs() > offset.y.abs() {

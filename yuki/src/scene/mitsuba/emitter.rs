@@ -68,7 +68,7 @@ fn parse_point_light<T: std::io::Read>(
     parser: &mut EventReader<T>,
     mut indent: String,
 ) -> Result<Arc<PointLight>> {
-    let mut position = Point3::from(0.0);
+    let mut position = Point3::<f32>::zeros();
     let mut intensity = Spectrum::zeros();
 
     parse_element!(parser, indent, |name: &OwnedName,

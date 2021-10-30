@@ -484,7 +484,7 @@ impl Default for CursorState {
     fn default() -> Self {
         Self {
             inside: false,
-            position: Vec2::from(0.0),
+            position: Vec2::zeros(),
             state: glutin::event::ModifiersState::default(),
         }
     }
@@ -522,8 +522,8 @@ impl CameraOffset {
 impl Default for CameraOffset {
     fn default() -> Self {
         Self {
-            position: Vec3::from(0.0),
-            target: Vec3::from(0.0),
+            position: Vec3::zeros(),
+            target: Vec3::zeros(),
             flip_up: false,
         }
     }

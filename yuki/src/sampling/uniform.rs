@@ -44,7 +44,7 @@ impl UniformSampler {
             current_pixel_sample: 0,
             samples_1d: vec![vec![0.0; params.pixel_samples as usize]; n_sampled_dimensions],
             samples_2d: vec![
-                vec![Point2::from(0.0); params.pixel_samples as usize];
+                vec![Point2::zeros(); params.pixel_samples as usize];
                 n_sampled_dimensions
             ],
             current_1d_dimension: 0,

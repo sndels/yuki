@@ -42,7 +42,7 @@ pub struct BxdfSample {
 impl Default for BxdfSample {
     fn default() -> Self {
         Self {
-            wi: Vec3::from(0.0),
+            wi: Vec3::zeros(),
             f: Spectrum::zeros(),
             pdf: 0.0,
             sample_type: BxdfType::NONE,

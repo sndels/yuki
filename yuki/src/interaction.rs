@@ -16,7 +16,7 @@ pub struct Interaction {
 impl Default for Interaction {
     fn default() -> Self {
         Self {
-            p: Point3::from(0.0),
+            p: Point3::zeros(),
             n: Normal::new(0.0, 0.0, 1.0),
         }
     }
