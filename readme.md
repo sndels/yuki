@@ -4,6 +4,14 @@
 
 Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http://www.pbr-book.org/) ([pbrt-v3](https://github.com/mmp/pbrt-v3)).
 
+## Running
+
+Nightly rust is required and the project can be run most easily with
+
+```
+cd yuki && cargo +nightly run --release
+```
+
 ## Goals
 - Explore offline rendering techniques
 - Try out how Rust helps/complicates a moderately complex system
