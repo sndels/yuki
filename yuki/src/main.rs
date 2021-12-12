@@ -1,5 +1,4 @@
 #![feature(destructuring_assignment)]
-#![feature(float_interpolation)]
 #![feature(is_sorted)]
 #![warn(clippy::pedantic, clippy::clone_on_ref_ptr)]
 // Might be a good idea to check allowed warnings once in a while
