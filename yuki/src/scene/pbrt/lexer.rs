@@ -1,4 +1,4 @@
-use strum::ToString;
+use strum::Display;
 
 // Based on the rules laid out in the old pbrtlex.ll of pbrt-v3
 
@@ -17,7 +17,7 @@ impl LexerError {
     }
 }
 
-#[derive(Debug, ToString)]
+#[derive(Display, Debug)]
 pub enum LexerErrorType {
     EndOfInput,
     UnexpectedEndOfInput,

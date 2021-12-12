@@ -1,8 +1,8 @@
 // Adapted from imgui-rs glium example
 
-use glutin::{event::Event, window::Window};
+use glium::glutin;
 use imgui::Context;
-use imgui::{im_str, FontConfig, FontSource, ImStr};
+use imgui::{FontConfig, FontSource};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
@@ -86,7 +86,11 @@ impl UI {
         }
     }
 
-    pub fn handle_event<'b, T: 'static>(&mut self, window: &Window, event: &Event<'b, T>) {
+    pub fn handle_event<'b, T: 'static>(
+        &mut self,
+        window: &glutin::window::Window,
+        event: &glutin::event::Event<'b, T>,
+    ) {
         self.platform
             .handle_event(self.context.io_mut(), window, event);
     }
@@ -126,7 +130,7 @@ impl UI {
         // This should be collected for all windows
         let mut ui_hovered = false;
 
-        imgui::Window::new(im_str!("Settings"))
+        imgui::Window::new("Settings")
             .position([0.0, 0.0], imgui::Condition::Always)
             .size([370.0, window_height as f32], imgui::Condition::Always)
             .resizable(false)
@@ -153,21 +157,21 @@ impl UI {
                 generate_render_settings(&ui, render_settings);
                 ui.spacing();
 
-                save_settings |= ui.button(im_str!("Save settings"), [100.0, 20.0]);
+                save_settings |= ui.button("Save settings");
                 ui.spacing();
 
                 ui.separator();
                 ui.spacing();
 
-                render_triggered |= ui.button(im_str!("Render"), [50.0, 20.0]);
+                render_triggered |= ui.button("Render");
                 ui.spacing();
 
                 if !render_in_progress {
-                    if ui.button(im_str!("Write raw EXR"), [100.0, 20.0]) {
+                    if ui.button("Write raw EXR") {
                         write_exr = Some(WriteEXR::Raw);
                     }
-                    ui.same_line(0.0);
-                    if ui.button(im_str!("Write mapped EXR"), [120.0, 20.0]) {
+                    ui.same_line();
+                    if ui.button("Write mapped EXR") {
                         write_exr = Some(WriteEXR::Mapped);
                     }
                 }
@@ -175,9 +179,9 @@ impl UI {
 
                 ui.separator();
 
-                ui.text(im_str!("Current scene: {}", scene.name));
-                ui.text(im_str!("Shape count: {}", scene.shapes.len()));
-                ui.text(im_str!(
+                ui.text(format!("Current scene: {}", scene.name));
+                ui.text(format!("Shape count: {}", scene.shapes.len()));
+                ui.text(format!(
                     "Shapes in BVH node: {}",
                     (scene.load_settings.max_shapes_in_node as usize).min(scene.shapes.len())
                 ));
@@ -187,7 +191,7 @@ impl UI {
 
                 if let Some(lines) = status_messages {
                     for l in lines {
-                        ui.text(im_str!("{}", l));
+                        ui.text(format!("{}", l));
                     }
                 }
             });
@@ -248,11 +252,11 @@ impl<'a> Drop for FrameUI<'a> {
 }
 
 /// Returns `true` if the value was changed.
-fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, speed: f32) -> bool {
+fn u16_picker(ui: &imgui::Ui, label: &str, v: &mut u16, min: u16, max: u16, speed: f32) -> bool {
     let mut vi = *v as i32;
 
     let value_changed = imgui::Drag::new(label)
-        .range((min as i32)..=(max as i32))
+        .range(min as i32, max as i32)
         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
         .speed(speed)
         .build(ui, &mut vi);
@@ -263,11 +267,11 @@ fn u16_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u16, min: u16, max: u16, sp
 }
 
 /// Returns `true` if the value was changed.
-fn u32_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u32, min: u32, max: u32, speed: f32) -> bool {
+fn u32_picker(ui: &imgui::Ui, label: &str, v: &mut u32, min: u32, max: u32, speed: f32) -> bool {
     let mut vi = *v as i64;
 
     let value_changed = imgui::Drag::new(label)
-        .range((min as i64)..=(max as i64))
+        .range(min as i64, max as i64)
         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
         .speed(speed)
         .build(ui, &mut vi);
@@ -280,7 +284,7 @@ fn u32_picker(ui: &imgui::Ui, label: &ImStr, v: &mut u32, min: u32, max: u32, sp
 /// Returns `true` if the value was changed.
 fn vec2_u16_picker(
     ui: &imgui::Ui,
-    label: &ImStr,
+    label: &str,
     v: &mut Vec2<u16>,
     min: u16,
     max: u16,
@@ -289,7 +293,7 @@ fn vec2_u16_picker(
     let mut vi = [v.x as i32, v.y as i32];
 
     let value_changed = imgui::Drag::new(label)
-        .range((min as i32)..=(max as i32))
+        .range(min as i32, max as i32)
         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
         .speed(speed)
         .build_array(ui, &mut vi);
@@ -303,12 +307,12 @@ fn vec2_u16_picker(
 /// Returns `true` if `film_settings` was changed.
 fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) -> bool {
     let mut changed = false;
-    imgui::TreeNode::new(im_str!("Film"))
+    imgui::TreeNode::new("Film")
         .default_open(true)
         .build(ui, || {
             changed |= vec2_u16_picker(
                 ui,
-                im_str!("Resolution"),
+                "Resolution",
                 &mut film_settings.res,
                 MIN_RES,
                 MAX_RES,
@@ -319,7 +323,7 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
                 let width = ui.push_item_width(118.0);
                 changed |= u16_picker(
                     ui,
-                    im_str!("Tile size"),
+                    "Tile size",
                     &mut film_settings.tile_dim,
                     MIN_TILE,
                     MIN_RES,
@@ -328,20 +332,20 @@ fn generate_film_settings(ui: &imgui::Ui<'_>, film_settings: &mut FilmSettings) 
                 width.pop(ui);
             }
 
-            changed |= ui.checkbox(im_str!("Clear buffer"), &mut film_settings.clear)
-                && film_settings.clear; // Relaunch doesn't make sense if clear is unset
+            changed |= ui.checkbox("Clear buffer", &mut film_settings.clear) && film_settings.clear;
+            // Relaunch doesn't make sense if clear is unset
         });
 
     changed
 }
 
 fn generate_render_settings(ui: &imgui::Ui<'_>, render_settings: &mut RenderSettings) {
-    imgui::TreeNode::new(im_str!("Renderer"))
+    imgui::TreeNode::new("Renderer")
         .default_open(true)
         .build(ui, || {
-            ui.checkbox(im_str!("Mark work tiles"), &mut render_settings.mark_tiles);
+            ui.checkbox("Mark work tiles", &mut render_settings.mark_tiles);
             ui.checkbox(
-                im_str!("Use single render thread"),
+                "Use single render thread",
                 &mut render_settings.use_single_render_thread,
             );
         });
@@ -350,10 +354,10 @@ fn generate_render_settings(ui: &imgui::Ui<'_>, render_settings: &mut RenderSett
 /// Returns `true` if `sampler` was changed.
 fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> bool {
     let mut changed = false;
-    imgui::TreeNode::new(im_str!("Sampler"))
+    imgui::TreeNode::new("Sampler")
         .default_open(true)
         .build(ui, || {
-            changed |= enum_combo_box(ui, im_str!("##SamplerEnum"), sampler);
+            changed |= enum_combo_box(ui, "##SamplerEnum", sampler);
 
             ui.indent();
             match sampler {
@@ -361,7 +365,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                     let width = ui.push_item_width(118.0);
                     changed |= u32_picker(
                         ui,
-                        im_str!("Pixel extent samples"),
+                        "Pixel extent samples",
                         pixel_samples,
                         1,
                         MAX_SAMPLES as u32,
@@ -380,7 +384,7 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                         let width = ui.push_item_width(118.0);
                         changed |= u16_picker(
                             ui,
-                            im_str!("Pixel extent samples"),
+                            "Pixel extent samples",
                             &mut pixel_samples.x,
                             1,
                             max_dim,
@@ -389,18 +393,12 @@ fn generate_sampler_settings(ui: &imgui::Ui<'_>, sampler: &mut SamplerType) -> b
                         width.pop(ui);
                         pixel_samples.y = pixel_samples.x;
                     } else {
-                        changed |= vec2_u16_picker(
-                            ui,
-                            im_str!("Pixel samples"),
-                            pixel_samples,
-                            1,
-                            max_dim,
-                            1.0,
-                        );
+                        changed |=
+                            vec2_u16_picker(ui, "Pixel samples", pixel_samples, 1, max_dim, 1.0);
                     }
-                    changed |= ui.checkbox(im_str!("Symmetric dimensions"), symmetric_dimensions);
-                    changed |= ui.checkbox(im_str!("Jitter samples"), jitter_samples);
-                    ui.text(im_str!(
+                    changed |= ui.checkbox("Symmetric dimensions", symmetric_dimensions);
+                    changed |= ui.checkbox("Jitter samples", jitter_samples);
+                    ui.text(format!(
                         "Samples per pixel: {}",
                         pixel_samples.x * pixel_samples.y
                     ));
@@ -420,20 +418,20 @@ fn generate_scene_settings(
     load_settings: &mut SceneLoadSettings,
 ) -> bool {
     let mut changed = false;
-    imgui::TreeNode::new(im_str!("Scene"))
+    imgui::TreeNode::new("Scene")
         .default_open(true)
         .build(ui, || {
-            imgui::TreeNode::new(im_str!("Camera"))
+            imgui::TreeNode::new("Camera")
                 .default_open(true)
                 .build(ui, || {
-                    changed |= imgui::Drag::new(im_str!("Position"))
+                    changed |= imgui::Drag::new("Position")
                         .speed(0.1)
-                        .display_format(im_str!("%.1f"))
+                        .display_format("%.1f")
                         .build_array(ui, camera_params.position.array_mut());
 
-                    changed |= imgui::Drag::new(im_str!("Target"))
+                    changed |= imgui::Drag::new("Target")
                         .speed(0.1)
-                        .display_format(im_str!("%.1f"))
+                        .display_format("%.1f")
                         .build_array(ui, camera_params.target.array_mut());
 
                     {
@@ -441,16 +439,16 @@ fn generate_scene_settings(
                         let fov = match &mut camera_params.fov {
                             FoV::X(ref mut v) | FoV::Y(ref mut v) => v,
                         };
-                        changed |= imgui::Drag::new(im_str!("Field of View"))
-                            .range(0.1..=359.9)
+                        changed |= imgui::Drag::new("Field of View")
+                            .range(0.1, 359.9)
                             .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                             .speed(0.5)
-                            .display_format(im_str!("%.1f"))
+                            .display_format("%.1f")
                             .build(ui, fov);
                         width.pop(ui);
                     }
 
-                    if ui.button(im_str!("Set +Y up"), [77.0, 20.0]) {
+                    if ui.button("Set +Y up") {
                         camera_params.up = Vec3::new(0.0, 1.0, 0.0);
                         changed = true;
                     }
@@ -462,7 +460,7 @@ fn generate_scene_settings(
                 let width = ui.push_item_width(92.0);
                 u16_picker(
                     ui,
-                    im_str!("Max shapes in BVH node"),
+                    "Max shapes in BVH node",
                     &mut load_settings.max_shapes_in_node,
                     1,
                     u16::max_value(),
@@ -473,7 +471,7 @@ fn generate_scene_settings(
 
             ui.spacing();
 
-            if ui.button(im_str!("Change scene"), [92.0, 20.0]) {
+            if ui.button("Change scene") {
                 let open_path = &scene.load_settings.path.to_str().unwrap();
                 let path = open_file_dialog(
                     "Open scene",
@@ -483,8 +481,8 @@ fn generate_scene_settings(
                 .map_or_else(PathBuf::new, PathBuf::from);
                 (*load_settings).path = path;
             }
-            ui.same_line(0.0);
-            if ui.button(im_str!("Reload scene"), [92.0, 20.0]) {
+            ui.same_line();
+            if ui.button("Reload scene") {
                 (*load_settings).path = scene.load_settings.path.clone();
             }
         });
@@ -495,18 +493,18 @@ fn generate_scene_settings(
 /// Returns `true` if the integrator was changed.
 fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorType) -> bool {
     let mut changed = false;
-    imgui::TreeNode::new(im_str!("Integrator"))
+    imgui::TreeNode::new("Integrator")
         .default_open(true)
         .build(ui, || {
-            changed |= enum_combo_box(ui, im_str!("##IntegratorEnum"), integrator);
+            changed |= enum_combo_box(ui, "##IntegratorEnum", integrator);
 
             ui.indent();
             match integrator {
                 IntegratorType::Whitted(WhittedParams { max_depth })
                 | IntegratorType::Path(PathParams { max_depth }) => {
                     let width = ui.push_item_width(118.0);
-                    changed |= imgui::Drag::new(im_str!("Max depth##Integrator"))
-                        .range(1..=u32::MAX)
+                    changed |= imgui::Drag::new("Max depth##Integrator")
+                        .range(1, u32::MAX)
                         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                         .build(ui, max_depth);
                     width.pop(ui);
@@ -522,25 +520,25 @@ fn generate_integrator_settings(ui: &imgui::Ui<'_>, integrator: &mut IntegratorT
 }
 
 fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
-    imgui::TreeNode::new(im_str!("Tone map"))
+    imgui::TreeNode::new("Tone map")
         .default_open(true)
         .build(ui, || {
-            enum_combo_box(ui, im_str!("##ToneMapEnum"), params);
+            enum_combo_box(ui, "##ToneMapEnum", params);
             ui.indent();
             match params {
                 ToneMapType::Raw => (),
                 ToneMapType::Filmic(FilmicParams { exposure }) => {
                     let width = ui.push_item_width(118.0);
-                    imgui::Drag::new(im_str!("Exposure##ToneMap"))
-                        .range(0.0..=f32::MAX)
+                    imgui::Drag::new("Exposure##ToneMap")
+                        .range(0.0, f32::MAX)
                         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                         .speed(0.001)
-                        .display_format(im_str!("%.3f"))
+                        .display_format("%.3f")
                         .build(ui, exposure);
                     width.pop(ui);
                 }
                 ToneMapType::Heatmap(HeatmapParams { bounds, channel }) => {
-                    let changed = enum_combo_box(ui, im_str!("Channel##Heatmap"), channel);
+                    let changed = enum_combo_box(ui, "Channel##Heatmap", channel);
                     if changed {
                         *bounds = None;
                     }
@@ -548,18 +546,18 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
                     if let Some((min, max)) = bounds {
                         let speed = ((*max - *min) / 100.0).max(0.001);
                         let width = ui.push_item_width(118.0);
-                        imgui::Drag::new(im_str!("Min##Heatmap"))
-                            .range(0.0..=(*max - 0.001).max(0.0))
+                        imgui::Drag::new("Min##Heatmap")
+                            .range(0.0, (*max - 0.001).max(0.0))
                             .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                             .speed(speed)
-                            .display_format(im_str!("%.3f"))
+                            .display_format("%.3f")
                             .build(ui, min);
-                        ui.same_line(0.0);
-                        imgui::Drag::new(im_str!("Max##Heatmap"))
-                            .range((*min + 0.001)..=f32::MAX)
+                        ui.same_line();
+                        imgui::Drag::new("Max##Heatmap")
+                            .range(*min + 0.001, f32::MAX)
                             .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                             .speed(speed)
-                            .display_format(im_str!("%.3f"))
+                            .display_format("%.3f")
                             .build(ui, max);
                         width.pop(ui);
                     }
@@ -570,28 +568,17 @@ fn generate_tone_map_settings(ui: &imgui::Ui<'_>, params: &mut ToneMapType) {
 }
 
 // Generates a combo box for `value` and returns true if it changed.
-fn enum_combo_box<T>(ui: &imgui::Ui<'_>, name: &ImStr, value: &mut T) -> bool
+fn enum_combo_box<T>(ui: &imgui::Ui<'_>, name: &str, value: &mut T) -> bool
 where
     T: VariantNames + ToString + FromStr,
     T::Err: std::fmt::Debug,
 {
-    let t_names = T::VARIANTS
-        .iter()
-        .map(|&n| imgui::ImString::new(n))
-        .collect::<Vec<imgui::ImString>>();
-    // TODO: This double map is dumb. Is there a cleaner way to pass these for ComboBox?
-    let im_str_t_names = t_names
-        .iter()
-        .map(AsRef::as_ref)
-        .collect::<Vec<&imgui::ImStr>>();
-
     let mut current_t = T::VARIANTS
         .iter()
         .position(|&n| n == value.to_string())
         .unwrap();
 
-    let changed =
-        imgui::ComboBox::new(name).build_simple_string(ui, &mut current_t, &im_str_t_names);
+    let changed = ui.combo_simple_string(name, &mut current_t, T::VARIANTS);
 
     if changed {
         *value = T::from_str(T::VARIANTS[current_t]).unwrap();

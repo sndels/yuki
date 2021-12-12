@@ -1,7 +1,7 @@
 use glium::Surface;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, sync::Mutex};
-use strum::{EnumString, EnumVariantNames, ToString};
+use strum::{Display, EnumString, EnumVariantNames};
 
 use crate::{
     film::Film,
@@ -36,7 +36,7 @@ impl Default for HeatmapParams {
     }
 }
 
-#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString)]
+#[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString)]
 pub enum ToneMapType {
     Raw,
     Filmic(FilmicParams),
@@ -50,7 +50,7 @@ impl Default for ToneMapType {
     }
 }
 
-#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString, PartialEq)]
+#[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString, PartialEq)]
 pub enum HeatmapChannel {
     Red = 0,
     Green = 1,

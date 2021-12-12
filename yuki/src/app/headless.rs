@@ -10,8 +10,10 @@ use crate::{
     renderer::{RenderStatus, Renderer},
     yuki_info,
 };
-use glium::backend::glutin::headless::Headless;
-use glutin::{dpi::PhysicalSize, event_loop::EventLoop, ContextBuilder};
+use glium::{
+    backend::glutin::headless::Headless,
+    glutin::{dpi::PhysicalSize, event_loop::EventLoop, ContextBuilder},
+};
 use std::{
     io::Write,
     path::Path,

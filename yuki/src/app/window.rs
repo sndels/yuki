@@ -1,13 +1,16 @@
 use approx::relative_ne;
-use glium::Surface;
-use glutin::{
-    dpi::LogicalSize,
-    event::{
-        ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
-        WindowEvent,
+use glium::glutin;
+use glium::{
+    glutin::{
+        dpi::LogicalSize,
+        event::{
+            ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
+            WindowEvent,
+        },
+        event_loop::{ControlFlow, EventLoop},
+        window::WindowBuilder,
     },
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    Surface,
 };
 use std::{
     borrow::Cow,

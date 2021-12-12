@@ -11,7 +11,7 @@ use shading_normals::ShadingNormals;
 use whitted::Whitted;
 
 use serde::{Deserialize, Serialize};
-use strum::{EnumString, EnumVariantNames, ToString};
+use strum::{Display, EnumString, EnumVariantNames};
 
 use crate::{
     camera::{Camera, CameraSample},
@@ -26,7 +26,7 @@ use std::sync::Arc;
 pub type WhittedParams = whitted::Params;
 pub type PathParams = path::Params;
 
-#[derive(Copy, Clone, Deserialize, Serialize, EnumVariantNames, ToString, EnumString)]
+#[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString)]
 pub enum IntegratorType {
     Whitted(whitted::Params),
     Path(path::Params),
