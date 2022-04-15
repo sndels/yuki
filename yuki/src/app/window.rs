@@ -22,7 +22,7 @@ use std::{
 
 use super::{
     renderpasses::{find_min_max, HeatmapParams, RayVisualization, ScaleOutput, ToneMapFilm},
-    ui::{WriteEXR, UI},
+    ui::{generate_ui, WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
 };
@@ -196,7 +196,14 @@ impl Window {
                     }
 
                     // Run frame logic
-                    let mut frame_ui = ui.generate_frame(
+                    expect!(
+                        ui.platform.prepare_frame(ui.context.io_mut(), window),
+                        "Failed to prepare imgui gl frame"
+                    );
+                    let frame_ui = ui.context.frame();
+
+                    let ui_state = generate_ui(
+                        frame_ui,
                         window,
                         &mut film_settings,
                         &mut sampler,
@@ -209,9 +216,9 @@ impl Window {
                         renderer.is_active(),
                         &status_messages,
                     );
-                    render_triggered |= frame_ui.render_triggered;
-                    any_item_active = frame_ui.any_item_active;
-                    ui_hovered = frame_ui.ui_hovered;
+                    render_triggered |= ui_state.render_triggered;
+                    any_item_active = ui_state.any_item_active;
+                    ui_hovered = ui_state.ui_hovered;
 
                     render_triggered |= handle_mouse_gestures(
                         window_size,
@@ -220,7 +227,7 @@ impl Window {
                         &mut camera_offset,
                     );
 
-                    if frame_ui.save_settings {
+                    if ui_state.save_settings {
                         let settings = InitialSettings {
                             film_settings: Some(film_settings),
                             sampler: Some(sampler),
@@ -319,7 +326,16 @@ impl Window {
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);
 
                     // UI
-                    frame_ui.end_frame(&display, &mut render_target);
+                    {
+                        ui.platform
+                            .prepare_render(&frame_ui, display.gl_window().window());
+                        let draw_data = ui.context.render();
+                        expect!(
+                            ui.renderer
+                                .render(&mut render_target, draw_data),
+                            "Rendering GL window failed"
+                        );
+                    }
 
                     // Finish frame
                     expect!(render_target.finish(), "Frame::finish() failed");
@@ -328,7 +344,7 @@ impl Window {
                     yuki_trace!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
 
                     // Handle after draw so we have the mapped output texture
-                    if let Some(output) = &frame_ui.write_exr {
+                    if let Some(output) = &ui_state.write_exr {
                         match exr_path(&scene) {
                             Ok(path) => {
                                 let (w, h, pixels) = match output {
