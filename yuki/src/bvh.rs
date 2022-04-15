@@ -86,7 +86,7 @@ impl BoundingVolumeHierarchy {
 
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
     pub fn intersect(&self, mut ray: Ray<f32>) -> IntersectionResult {
-        let mut hit = None;
+        let mut hit: Option<Hit> = None;
 
         // Pre-calculated to speed up Bounds3 intersection tests
         let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
@@ -98,7 +98,7 @@ impl BoundingVolumeHierarchy {
         let mut to_visit_index = 0;
         let mut to_visit_stack = [0; 64];
         loop {
-            let node = self.nodes[current_node_index];
+            let node = &self.nodes[current_node_index];
             intersection_test_count += 1;
             if node.bounds.intersect(ray, inv_dir) {
                 intersection_count += 1;
@@ -124,28 +124,19 @@ impl BoundingVolumeHierarchy {
                     } => {
                         let shape_range = (first_shape_index as usize)
                             ..((first_shape_index + (shape_count as u32)) as usize);
-                        hit = self.shapes[shape_range].iter().fold(
-                            hit,
-                            |old_hit: Option<Hit>, shape| {
-                                #[allow(clippy::option_if_let_else)]
-                                // We either have this form or copies of hit. Let's have this form.
-                                if let Some(new_hit) = shape.intersect(ray) {
-                                    if let Some(old_hit) = old_hit {
-                                        if new_hit.t < old_hit.t {
-                                            ray.t_max = new_hit.t;
-                                            Some(new_hit)
-                                        } else {
-                                            Some(old_hit)
-                                        }
-                                    } else {
+                        for shape in &self.shapes[shape_range] {
+                            if let Some(new_hit) = shape.intersect(ray) {
+                                if let Some(old_hit) = hit.as_ref() {
+                                    if new_hit.t < old_hit.t {
                                         ray.t_max = new_hit.t;
-                                        Some(new_hit)
+                                        hit = Some(new_hit);
                                     }
                                 } else {
-                                    old_hit
+                                    ray.t_max = new_hit.t;
+                                    hit = Some(new_hit);
                                 }
-                            },
-                        );
+                            }
+                        }
 
                         if to_visit_index == 0 {
                             break;
@@ -181,7 +172,7 @@ impl BoundingVolumeHierarchy {
         let mut to_visit_index = 0;
         let mut to_visit_stack = [0; 64];
         loop {
-            let node = self.nodes[current_node_index];
+            let node = &self.nodes[current_node_index];
             if node.bounds.intersect(ray, inv_dir) {
                 match node.content {
                     NodeContent::Interior {
