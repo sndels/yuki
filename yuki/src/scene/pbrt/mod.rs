@@ -10,7 +10,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::FoV,
     film::FilmSettings,
-    lights::{Light, PointLight},
+    lights::{DistantLight, Light, PointLight},
     materials::{Glass, Glossy, Material, Matte, Metal},
     math::{
         transforms::{rotation, scale, translation},
@@ -484,6 +484,15 @@ pub fn load(
                     "infinite" => {
                         let default_l = Spectrum::ones();
                         background = params.find_spectrum("L", default_l);
+                    }
+                    "distant" => {
+                        let radiance = params.find_spectrum("L", Spectrum::ones());
+                        let from = params.find_point("from", Point3::zeros());
+                        let to = params.find_point("to", Point3::new(0.0, 0.0, 1.0));
+                        lights.push(Arc::new(DistantLight::new(
+                            radiance,
+                            (from - to).normalized(),
+                        )));
                     }
                     "point" => {
                         let default_i = Spectrum::ones();

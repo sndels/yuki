@@ -187,6 +187,16 @@ def _export_obj(depsgraph, obj, f: TextIO):
                 f'LightSource "point" "point from" [ {fstr3(pos[0], pos[2], pos[1])} ] "rgb I" [ {fstr3(L[0], L[1], L[2])} ]\n'
             )
             f.write("\n")
+        elif light.type == "SUN":
+            from_p = trfn @ Vector((0.0, 0.0, 0.0))
+            to_p = trfn @ Vector((0.0, 0.0, -1.0))
+            L = (light.energy * light.color) / (3 * math.pi)
+
+            f.write(f"# {obj.name_full}\n")
+            f.write(
+                f'LightSource "distant" "point from" [ {fstr3(from_p[0], from_p[2], from_p[1])} ] "point to" [ {fstr3(to_p[0], to_p[2], to_p[1])} ] "rgb L" [ {fstr3(L[0], L[1], L[2])} ]\n'
+            )
+            f.write("\n")
         else:
             logger.info(
                 f"{obj.name_full}: Skipping unimplemented light type '{light.type}'"

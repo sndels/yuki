@@ -1,6 +1,8 @@
+mod distant_light;
 mod point_light;
 mod spot_light;
 
+pub use distant_light::DistantLight;
 pub use point_light::PointLight;
 pub use spot_light::SpotLight;
 
