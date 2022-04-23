@@ -73,7 +73,7 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
         }
     }
 
-    fn pdf(&self, wo: Vec3<f32>, wh: Vec3<f32>) -> f32 {
+    fn pdf(&self, _wo: Vec3<f32>, wh: Vec3<f32>) -> f32 {
         self.d(wh) * cos_theta(wh)
     }
 }

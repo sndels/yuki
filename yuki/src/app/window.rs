@@ -328,7 +328,7 @@ impl Window {
                     // UI
                     {
                         ui.platform
-                            .prepare_render(&frame_ui, display.gl_window().window());
+                            .prepare_render(frame_ui, display.gl_window().window());
                         let draw_data = ui.context.render();
                         expect!(
                             ui.renderer

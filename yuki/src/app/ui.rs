@@ -20,7 +20,6 @@ use crate::{
     renderer::RenderSettings,
     sampling::{SamplerType, StratifiedParams, UniformParams},
     scene::{Scene, SceneLoadSettings},
-    yuki_error,
 };
 
 const MIN_TILE: u16 = 8;
@@ -105,6 +104,7 @@ pub enum WriteEXR {
     Mapped,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct UIState {
     pub render_triggered: bool,
     pub write_exr: Option<WriteEXR>,
@@ -146,22 +146,22 @@ pub fn generate_ui(
         .build(|| {
             ui_hovered = ui.is_window_hovered();
 
-            render_triggered |= generate_film_settings(&ui, film_settings);
+            render_triggered |= generate_film_settings(ui, film_settings);
             ui.spacing();
 
-            render_triggered |= generate_sampler_settings(&ui, sampler);
+            render_triggered |= generate_sampler_settings(ui, sampler);
             ui.spacing();
 
-            render_triggered |= generate_scene_settings(&ui, scene, camera_params, load_settings);
+            render_triggered |= generate_scene_settings(ui, scene, camera_params, load_settings);
             ui.spacing();
 
-            render_triggered |= generate_integrator_settings(&ui, scene_integrator);
+            render_triggered |= generate_integrator_settings(ui, scene_integrator);
             ui.spacing();
 
-            generate_tone_map_settings(&ui, tone_map_type);
+            generate_tone_map_settings(ui, tone_map_type);
             ui.spacing();
 
-            generate_render_settings(&ui, render_settings);
+            generate_render_settings(ui, render_settings);
             ui.spacing();
 
             save_settings |= ui.button("Save settings");
@@ -198,7 +198,7 @@ pub fn generate_ui(
 
             if let Some(lines) = status_messages {
                 for l in lines {
-                    ui.text(format!("{}", l));
+                    ui.text(l);
                 }
             }
         });

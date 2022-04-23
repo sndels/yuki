@@ -44,7 +44,7 @@ pub fn parse<T: std::io::Read>(
                 }
 
                 let mesh_relpath =
-                    PathBuf::from(find_attr!(&attributes, "value").replace("\\", "/"));
+                    PathBuf::from(find_attr!(&attributes, "value").replace('\\', "/"));
                 ply_abspath = match dir_path.join(&mesh_relpath).canonicalize() {
                     Ok(p) => Some(p),
                     Err(e) => {

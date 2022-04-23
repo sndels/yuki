@@ -14,7 +14,7 @@ macro_rules! try_find_attr {
 #[macro_export]
 macro_rules! find_attr {
     ($attributes:expr, $name_str:expr) => {{
-        match crate::try_find_attr!($attributes, $name_str) {
+        match $crate::try_find_attr!($attributes, $name_str) {
             Some(v) => v,
             None => return Err(format!("Could not find element attribute '{}'", $name_str).into()),
         }

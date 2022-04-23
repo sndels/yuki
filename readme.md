@@ -12,7 +12,7 @@ Nightly rust is required and the project can be run most easily with
 cd yuki && cargo +nightly run --release
 ```
 
-Due to the nature of nightly rust, things might spontaneously break depending on the release. 1.60.0-nightly (88fb06a1f 2022-02-05) should work, however.
+Due to the nature of nightly rust, things might spontaneously break depending on the release. 1.62.0-nightly (f4ec0e7cf 2022-04-22) should work, however.
 
 ## Goals
 - Explore offline rendering techniques

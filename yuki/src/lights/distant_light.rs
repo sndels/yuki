@@ -1,7 +1,7 @@
 use super::{Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
-    math::{Spectrum, Transform, Vec3},
+    math::{Spectrum, Vec3},
     visibility::VisibilityTester,
 };
 

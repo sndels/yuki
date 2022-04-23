@@ -33,19 +33,10 @@ pub enum RenderStatus {
     },
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[derive(Debug, Default, Copy, Clone, Deserialize, Serialize)]
 pub struct RenderSettings {
     pub mark_tiles: bool,
     pub use_single_render_thread: bool,
-}
-
-impl Default for RenderSettings {
-    fn default() -> Self {
-        Self {
-            mark_tiles: false,
-            use_single_render_thread: false,
-        }
-    }
 }
 
 pub struct Renderer {
