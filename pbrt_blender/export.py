@@ -67,7 +67,17 @@ def export_scene(depsgraph, scene, filename) -> bool:
     os.makedirs(os.path.join(EXPORT_DIR, "plys"), exist_ok=True)
 
     with open(filename, "w") as f:
-        cam_obj = scene.camera
+        if scene.camera:
+            cam_obj = scene.camera
+        else:
+            cam_obj = None
+            for obj in scene.objects:
+                if obj.type == "CAMERA":
+                    cam_obj = obj
+                    break
+
+        assert cam_obj is not None
+
         cam_trfn = cam_obj.matrix_world
         cam_pos = cam_trfn @ Vector((0.0, 0.0, 0.0))
         cam_target = cam_trfn @ Vector((0.0, 0.0, -1.0))
