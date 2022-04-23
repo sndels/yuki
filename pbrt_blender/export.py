@@ -307,7 +307,7 @@ def _export_obj(depsgraph, obj, f: TextIO):
         _warn(f"'{obj.name_full}': Instanced collections not supported")
 
     for child in obj.children:
-        _export_obj(child, f)
+        _export_obj(depsgraph, child, f)
 
 
 def _export_material(material, f):
