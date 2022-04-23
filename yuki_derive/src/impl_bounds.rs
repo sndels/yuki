@@ -126,7 +126,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
         #where_clause
         {
             #[doc = #new_doc]
-            #[inline]
             pub fn new(p0: #point_type, p1: #point_type) -> Self {
                 Self {
                     p_min: p0.min(p1),
@@ -135,7 +134,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #union_b_doc]
-            #[inline]
             pub fn union_b(&self, other: Self) -> Self {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!other.p_min.has_nans() && !other.p_max.has_nans());
@@ -147,7 +145,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #union_p_doc]
-            #[inline]
             pub fn union_p(&self, p: #point_type) -> Self {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!p.has_nans());
@@ -159,7 +156,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #intersection_doc]
-            #[inline]
             pub fn intersection(&self, other: Self) -> Option<Self> {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!other.p_min.has_nans() && !other.p_max.has_nans());
@@ -178,7 +174,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #expanded_doc]
-            #[inline]
             pub fn expanded(&self, delta: #generic_param) -> Option<Self> {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 // Not all types have is_nan() so use NaN != NaN
@@ -197,7 +192,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #overlaps_doc]
-            #[inline]
             pub fn overlaps(&self, other: Self) -> bool {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!other.p_min.has_nans() && !other.p_max.has_nans());
@@ -206,7 +200,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #inside_doc]
-            #[inline]
             pub fn inside(&self, p: #point_type) -> bool {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!p.has_nans());
@@ -215,7 +208,6 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #inside_exclusive_doc]
-            #[inline]
             pub fn inside_exclusive(&self, p: #point_type) -> bool {
                 debug_assert!(!self.p_min.has_nans() && !self.p_max.has_nans());
                 debug_assert!(!p.has_nans());
@@ -224,20 +216,17 @@ pub fn bounds_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #diagonal_doc]
-            #[inline]
             pub fn diagonal(&self) -> #vec_type {
                 self.p_max - self.p_min
             }
 
             #[doc = #lerp_doc]
-            #[inline]
             // We assume we don't care about accuracy so much we would need f64
             pub fn lerp(&self, t: #point_ident<f32>) -> #point_type {
                 #point_ident::new(#lerp_components)
             }
 
             #[doc = #offset_doc]
-            #[inline]
             pub fn offset(&self, p: #point_type) -> #vec_type {
                 let mut o = p - self.p_min;
                 #offset_scales

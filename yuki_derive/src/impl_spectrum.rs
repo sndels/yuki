@@ -32,7 +32,6 @@ pub fn spectrum_impl(item: &DeriveInput) -> TokenStream {
 
         quote! {
             #[doc = #is_black_doc]
-            #[inline]
             pub fn is_black(&self) -> bool {
                 debug_assert!(!self.has_nans());
 

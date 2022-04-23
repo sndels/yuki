@@ -44,14 +44,12 @@ where
     T: ValueType,
 {
     /// Calculates the area of this `Bounds2`
-    #[inline]
     pub fn area(&self) -> T {
         let d = self.diagonal();
         d.x * d.y
     }
 
     /// Finds the maximum extent of this `Bounds2`
-    #[inline]
     pub fn maximum_extent(&self) -> usize {
         let d = self.diagonal();
         if d.x > d.y {
@@ -125,7 +123,6 @@ where
     T: ValueType,
 {
     /// Calculates the surface area of this `Bounds3`
-    #[inline]
     pub fn surface_area(&self) -> T {
         let d = self.diagonal();
         // A bit dirty but a Num with FromPrimitive should be fine with this cast
@@ -133,14 +130,12 @@ where
     }
 
     /// Calculates the volume of this `Bounds3`
-    #[inline]
     pub fn volume(&self) -> T {
         let d = self.diagonal();
         d.x * d.y * d.z
     }
 
     /// Finds the maximum extent of this `Bounds3`
-    #[inline]
     pub fn maximum_extent(&self) -> usize {
         let d = self.diagonal();
         if d.x > d.y && d.x > d.z {
@@ -155,7 +150,6 @@ where
     /// Returns the center and radius of this `Bounds3`'s bounding sphere.
     ///
     /// Returns [None] if there is no valid bounding sphere.
-    #[inline]
     pub fn bounding_sphere(&self) -> Option<(Point3<T>, T)> {
         // The unwrap is a bit dirty but a Num with FromPrimitive should be fine with this cast
         let center = (self.p_min + self.p_max) / T::from_u32(2).unwrap();

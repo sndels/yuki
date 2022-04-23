@@ -263,7 +263,6 @@ pub fn abs_impl(vec_type: &Ident, item: &DeriveInput) -> TokenStream {
         #where_clause
         {
             #[doc = #abs_doc]
-            #[inline]
             pub fn abs(&self) -> Self {
                 #abs_ret
             }

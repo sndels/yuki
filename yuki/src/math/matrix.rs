@@ -21,7 +21,6 @@ where
     T: FloatValueType,
 {
     /// Creates a new `Matrix4x4`.
-    #[inline]
     pub fn new(m: [[T; 4]; 4]) -> Self {
         let ret = Self { m };
         debug_assert!(!ret.has_nans());
@@ -29,7 +28,6 @@ where
     }
 
     /// Creates a new identity `Matrix4x4`.
-    #[inline]
     pub fn identity() -> Self {
         Self {
             m: [
@@ -42,7 +40,6 @@ where
     }
 
     /// Creates a new `Matrix4x4` filled with zeroes.
-    #[inline]
     pub fn zeros() -> Self {
         Self {
             m: [
@@ -55,7 +52,6 @@ where
     }
 
     /// Checks if this `Matrix4x4` contains NaNs.
-    #[inline]
     pub fn has_nans(&self) -> bool {
         // NaNs are the rare special case so no need to early out
         self.m
@@ -67,25 +63,21 @@ where
     }
 
     /// Returns the `i`th row of this `Matrix4x4`.
-    #[inline]
     pub fn row(&self, i: usize) -> [T; 4] {
         self.m[i]
     }
 
     /// Returns a mutable reference to the `i`th row in this `Matrix4x4`.
-    #[inline]
     pub fn row_mut(&mut self, i: usize) -> &mut [T; 4] {
         &mut self.m[i]
     }
 
     /// Returns the `i`th column of this `Matrix4x4`.
-    #[inline]
     pub fn col(&self, i: usize) -> [T; 4] {
         [self.m[0][i], self.m[1][i], self.m[2][i], self.m[3][i]]
     }
 
     /// Returns mutable references to the elements in the `i`th column of this `Matrix4x4`.
-    #[inline]
     pub fn col_mut(&mut self, i: usize) -> [&mut T; 4] {
         // TODO: Check how this performs
         let (first, rest) = self.m.split_at_mut(1);
@@ -100,7 +92,6 @@ where
     }
 
     /// Returns the transpose of this `Matrix4x4`.
-    #[inline]
     pub fn transposed(&self) -> Self {
         Self {
             m: [

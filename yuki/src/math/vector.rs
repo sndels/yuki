@@ -141,7 +141,6 @@ where
     T: ValueType,
 {
     /// Finds the value of the minimum componen in this `Vec3`t.
-    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -149,7 +148,6 @@ where
     }
 
     /// Finds the value of the maximum component in this `Vec3`.
-    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -157,7 +155,6 @@ where
     }
 
     /// Finds the index of the maximum component in this `Vec3`.
-    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 
@@ -174,7 +171,6 @@ where
     T: ValueType,
 {
     /// Finds the value of the minimum component in this `Vec3`.
-    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -182,7 +178,6 @@ where
     }
 
     /// Finds the value of the maximum component in this `Vec3`.
-    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -190,7 +185,6 @@ where
     }
 
     /// Finds the index of the maximum component in this `Vec3`.
-    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 
@@ -230,7 +224,6 @@ impl<T> Vec3<T>
 where
     T: FloatValueType,
 {
-    #[inline]
     /// Calculates the dot product of this `Vec3` and a [Normal].
     pub fn dot_n(&self, n: Normal<T>) -> T {
         self.x * n.x + self.y * n.y + self.z * n.z
@@ -240,7 +233,6 @@ where
     //
     // Always uses `f64` internally to avoid errors on "catastrophic cancellation".
     // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#DotandCrossProduct
-    #[inline]
     pub fn cross(&self, other: Self) -> Self {
         debug_assert!(!self.has_nans());
         debug_assert!(!other.has_nans());
@@ -268,7 +260,6 @@ where
     T: ValueType,
 {
     /// Finds the value of the minimum component in this `Vec4`.
-    #[inline]
     pub fn min_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -278,7 +269,6 @@ where
     }
 
     /// Finds the value of the maximum component in this `Vec4`.
-    #[inline]
     pub fn max_comp(&self) -> T {
         debug_assert!(!self.has_nans());
 
@@ -288,7 +278,6 @@ where
     }
 
     /// Finds the index of the maximum component in this `Vec4`.
-    #[inline]
     pub fn max_dimension(&self) -> usize {
         debug_assert!(!self.has_nans());
 

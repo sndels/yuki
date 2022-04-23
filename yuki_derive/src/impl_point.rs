@@ -52,7 +52,6 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
 
     let member_ops = quote! {
             #[doc = #dist_doc]
-            #[inline]
             pub fn dist(&self, other: Self ) -> T {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
@@ -61,7 +60,6 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #dist_sqr_doc]
-            #[inline]
             pub fn dist_sqr(&self, other: Self ) -> T {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
@@ -70,7 +68,6 @@ pub fn point_impl(item: &DeriveInput) -> TokenStream {
             }
 
             #[doc = #lerp_doc]
-            #[inline]
             pub fn lerp(&self, other: Self , t: f32) -> Self {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
@@ -157,13 +154,11 @@ fn point_floor_ceil_impl(point_type: &Ident, item: &DeriveInput) -> TokenStream 
         #where_clause
         {
             #[doc = #floor_doc]
-            #[inline]
             pub fn floor(&self) -> Self {
                 #floor_ret
             }
 
             #[doc = #ceil_doc]
-            #[inline]
             pub fn ceil(&self) -> Self {
                 #ceil_ret
             }

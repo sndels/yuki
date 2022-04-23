@@ -108,7 +108,6 @@ pub fn vec_like_impl(
         #where_clause
         {
             #[doc = #new_doc]
-            #[inline]
             pub fn new(#new_args) -> Self {
                 let v = Self{ #new_init };
                 debug_assert!(!v.has_nans());
@@ -116,7 +115,6 @@ pub fn vec_like_impl(
             }
 
             #[doc = #zeros_doc]
-            #[inline]
             pub fn zeros() -> Self {
                 Self {
                     #zeros_init
@@ -124,7 +122,6 @@ pub fn vec_like_impl(
             }
 
             #[doc = #ones_doc]
-            #[inline]
             pub fn ones() -> Self {
                 Self {
                     #ones_init
@@ -134,19 +131,16 @@ pub fn vec_like_impl(
             // This is generic so no is_nan() available
             #[allow(eq_op)]
             #[doc = #has_nans_doc]
-            #[inline]
             pub fn has_nans(&self) -> bool {
                 #has_nans_pred
             }
 
             #[doc = #array_doc]
-            #[inline]
             pub fn array(&mut self) -> &[#generic_param] {
                 self.array_mut()
             }
 
             #[doc = #array_mut_doc]
-            #[inline]
             pub fn array_mut(&mut self) -> &mut [#generic_param; #component_count] {
                 unsafe {
                     let slice_ref = std::slice::from_raw_parts_mut(self as *mut Self as *mut #generic_param, #component_count);
@@ -157,7 +151,6 @@ pub fn vec_like_impl(
             #member_ops
 
             #[doc = #min_doc]
-            #[inline]
             pub fn min(&self, other: Self) -> Self {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
@@ -168,7 +161,6 @@ pub fn vec_like_impl(
             }
 
             #[doc = #max_doc]
-            #[inline]
             pub fn max(&self, other: Self) -> Self {
                 debug_assert!(!self.has_nans());
                 debug_assert!(!other.has_nans());
@@ -179,7 +171,6 @@ pub fn vec_like_impl(
             }
 
             #[doc = #permuted_doc]
-            #[inline]
             pub fn permuted(&self #permuted_args) -> Self {
                 debug_assert!(!self.has_nans());
 
@@ -215,7 +206,6 @@ pub fn vec_normal_members_impl(
 
     quote! {
         #[doc = #dot_doc]
-        #[inline]
         pub fn dot(&self, other: Self) -> #generic_param {
             debug_assert!(!self.has_nans());
             debug_assert!(!other.has_nans());
@@ -224,15 +214,12 @@ pub fn vec_normal_members_impl(
         }
 
         #[doc = #len_sqr_doc]
-        #[inline]
         pub fn len_sqr(&self) -> #generic_param {
             debug_assert!(!self.has_nans());
-
             self.dot(*self)
         }
 
         #[doc = #len_doc]
-        #[inline]
         pub fn len(&self) -> #generic_param {
             debug_assert!(!self.has_nans());
 
@@ -240,7 +227,6 @@ pub fn vec_normal_members_impl(
         }
 
         #[doc = #normalized_doc]
-        #[inline]
         pub fn normalized(&self) -> Self {
             debug_assert!(!self.has_nans());
 
