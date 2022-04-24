@@ -9,7 +9,6 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies.html
 
-#[derive(Copy, Clone)]
 pub enum SplitMethod {
     Middle,
     EqualCounts,
@@ -267,38 +266,17 @@ impl BoundingVolumeHierarchy {
                 // No splitting method can help when bb is "zero"
                 init_leaf!()
             } else {
-                let mut mid = start;
-                // We need to fall back to 'equal counts' if 'middle' fails
-                let split_method = match self.split_method {
+                let mid = match self.split_method {
                     SplitMethod::Middle => {
-                        // Partition shapes by their centroids on the two sides of the axis' middle point
-                        let mid_value =
-                            (centroid_bounds.p_min[axis] + centroid_bounds.p_max[axis]) / 2.0;
-                        mid = itertools::partition(shape_info[start..end].iter_mut(), |s| {
-                            s.centroid[axis] < mid_value
-                        }) + start;
-
+                        let mid = split_middle(shape_info, &centroid_bounds, start, end, axis);
                         if mid != start && mid != end {
-                            SplitMethod::Middle
+                            mid
                         } else {
-                            SplitMethod::EqualCounts
+                            split_equal_counts(shape_info, start, end, axis)
                         }
                     }
-                    SplitMethod::EqualCounts => self.split_method,
+                    SplitMethod::EqualCounts => split_equal_counts(shape_info, start, end, axis),
                 };
-
-                match split_method {
-                    SplitMethod::Middle => {}
-                    SplitMethod::EqualCounts => {
-                        // Partition shapes by their centroids into two sets with equal number of shapes
-                        mid = (start + end) / 2;
-                        shape_info[start..end].select_nth_unstable_by(mid - start, |a, b| {
-                            a.centroid[axis]
-                                .partial_cmp(&b.centroid[axis])
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        });
-                    }
-                }
 
                 assert_ne!(mid, start, "BVH: Split failed");
 
@@ -345,6 +323,36 @@ impl BoundingVolumeHierarchy {
         }
         next_index
     }
+}
+
+fn split_equal_counts(
+    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    start: usize,
+    end: usize,
+    axis: usize,
+) -> usize {
+    // Partition shapes by their centroids into two sets with equal number of shapes
+    let mid = (start + end) / 2;
+    shape_info[start..end].select_nth_unstable_by(mid - start, |a, b| {
+        a.centroid[axis]
+            .partial_cmp(&b.centroid[axis])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    mid
+}
+
+fn split_middle(
+    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    centroid_bounds: &Bounds3<f32>,
+    start: usize,
+    end: usize,
+    axis: usize,
+) -> usize {
+    // Partition shapes by their centroids on the two sides of the axis' middle point
+    let mid_value = (centroid_bounds.p_min[axis] + centroid_bounds.p_max[axis]) / 2.0;
+    itertools::partition(shape_info[start..end].iter_mut(), |s| {
+        s.centroid[axis] < mid_value
+    }) + start
 }
 
 struct RecursiveBuildResult {
