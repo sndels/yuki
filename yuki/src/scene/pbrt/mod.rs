@@ -16,7 +16,7 @@ use crate::{
         transforms::{rotation, scale, translation},
         Normal, Point3, Spectrum, Transform, Vec3,
     },
-    scene::{CameraParameters, Scene, SceneLoadSettings},
+    scene::{ply, CameraParameters, Scene, SceneLoadSettings},
     shapes::{Mesh, Shape, Sphere, Triangle},
     textures::ConstantTexture,
     yuki_error, yuki_info,
@@ -62,6 +62,7 @@ pub enum LoadError {
     Lexer(LexerError),
     Parser(ParserError),
     Content(String),
+    Ply(String),
 }
 
 #[allow(dead_code)]
@@ -636,6 +637,29 @@ pub fn load(
                             Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(&material)))
                                 as Arc<dyn Shape>
                         }));
+                        meshes.push(mesh);
+                    }
+                    "plymesh" => {
+                        let filename = params.find_string("filename", "");
+                        assert!(!filename.is_empty(), "Empty PLY filename");
+
+                        let ply_abspath = match parent_path.join(&filename).canonicalize() {
+                            Ok(p) => p,
+                            Err(e) => {
+                                yuki_error!(
+                                    "Error canonicalizing absolute plypath for '{}'",
+                                    filename
+                                );
+                                return Err(LoadError::Io(e));
+                            }
+                        };
+
+                        let ply::PlyResult {
+                            mesh,
+                            shapes: ply_shapes,
+                        } = ply::load(&ply_abspath, &material, Some(current_transform.clone()))
+                            .map_err(|e| LoadError::Ply(e.to_string()))?;
+                        shapes.extend(ply_shapes);
                         meshes.push(mesh);
                     }
                     t => {

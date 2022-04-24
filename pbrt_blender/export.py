@@ -5,6 +5,7 @@ from mathutils import Vector
 import math
 import os
 import traceback
+import struct
 from typing import TextIO
 
 
@@ -25,6 +26,7 @@ def menu_fn(self, context):
 MESH_COUNT = 0
 EXPORT_DIR = ""
 EXPORT_WARNINGS = False
+EXPORTED_PLY_MESHES = set()
 
 
 class PBRT_OT_export(bpy.types.Operator, ExportHelper):
@@ -65,6 +67,9 @@ def export_scene(depsgraph, scene, filename) -> bool:
     global EXPORT_DIR
     EXPORT_DIR = os.path.dirname(filename)
     os.makedirs(os.path.join(EXPORT_DIR, "plys"), exist_ok=True)
+
+    global EXPORTED_PLY_MESHES
+    EXPORTED_PLY_MESHES = set()
 
     with open(filename, "w") as f:
         if scene.camera:
@@ -184,6 +189,7 @@ def _export_collection(depsgraph, collection, f: TextIO):
 def _export_obj(depsgraph, obj, f: TextIO):
     global MESH_COUNT
     global EXPORT_DIR
+    global EXPORTED_PLY_MESHES
 
     trfn = obj.matrix_world
     if obj.type == "LIGHT":
@@ -277,28 +283,64 @@ def _export_obj(depsgraph, obj, f: TextIO):
             if not isclose3(scale, 1.0, 0.001):
                 f.write(f"  Scale {fstr3(scale[0], scale[2], scale[1])}\n")
 
-            # TODO: (Binary) PLY instead of trimesh if mesh(part) is "large"
-            f.write(f'  Shape "trianglemesh"\n')
+            if len(tris) > 5000:
+                ply_path = f"plys/{mesh.name}_{material.name}.ply"
+                if ply_path not in EXPORTED_PLY_MESHES:
+                    with open(os.path.join(EXPORT_DIR, ply_path), "wb") as pf:
+                        pf.write(b"ply\n")
+                        pf.write(b"format binary_little_endian 1.0\n")
+                        pf.write(f"element vertex {len(loops)}\n".encode())
+                        pf.write(b"property float x\n")
+                        pf.write(b"property float y\n")
+                        pf.write(b"property float z\n")
+                        pf.write(b"property float nx\n")
+                        pf.write(b"property float ny\n")
+                        pf.write(b"property float nz\n")
+                        pf.write(f"element face {len(tris)}\n".encode())
+                        pf.write(b"property list uchar int vertex_index\n")
+                        pf.write(b"end_header\n")
+                        for (l, face_n) in loops:
+                            p = mesh.vertices[l.vertex_index].co
+                            if face_n is not None:
+                                n = face_n
+                            else:
+                                n = l.normal
+                            pf.write(struct.pack("<f", p[0]))
+                            pf.write(struct.pack("<f", p[2]))
+                            pf.write(struct.pack("<f", p[1]))
+                            pf.write(struct.pack("<f", n[0]))
+                            pf.write(struct.pack("<f", n[2]))
+                            pf.write(struct.pack("<f", n[1]))
+                        for (i0, i1, i2) in tris:
+                            pf.write(struct.pack("B", 3))
+                            pf.write(struct.pack("<I", i0))
+                            pf.write(struct.pack("<I", i1))
+                            pf.write(struct.pack("<I", i2))
+                    EXPORTED_PLY_MESHES.add(ply_path)
 
-            f.write(f'    "integer indices" [ ')
-            for (i0, i1, i2) in tris:
-                f.write(f"{i0} {i1} {i2} ")
-            f.write("]\n")
+                f.write(f'  Shape "plymesh" "string filename" "{ply_path}"\n')
+            else:
+                f.write(f'  Shape "trianglemesh"\n')
 
-            f.write(f'    "point P" [ ')
-            for (l, _) in loops:
-                p = mesh.vertices[l.vertex_index].co
-                f.write(f"{fstr3(p[0], p[2], p[1])} ")
-            f.write("]\n")
+                f.write(f'    "integer indices" [ ')
+                for (i0, i1, i2) in tris:
+                    f.write(f"{i0} {i1} {i2} ")
+                f.write("]\n")
 
-            f.write(f'    "normal N" [ ')
-            for (l, face_n) in loops:
-                if face_n is not None:
-                    n = face_n
-                else:
-                    n = l.normal
-                f.write(f"{fstr3(n[0], n[2], n[1])} ")
-            f.write("]\n")
+                f.write(f'    "point P" [ ')
+                for (l, _) in loops:
+                    p = mesh.vertices[l.vertex_index].co
+                    f.write(f"{fstr3(p[0], p[2], p[1])} ")
+                f.write("]\n")
+
+                f.write(f'    "normal N" [ ')
+                for (l, face_n) in loops:
+                    if face_n is not None:
+                        n = face_n
+                    else:
+                        n = l.normal
+                    f.write(f"{fstr3(n[0], n[2], n[1])} ")
+                f.write("]\n")
 
             f.write(f"AttributeEnd\n")
             f.write("\n")
