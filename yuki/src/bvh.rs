@@ -98,6 +98,8 @@ impl BoundingVolumeHierarchy {
         let mut to_visit_index = 0;
         let mut to_visit_stack = [0; 64];
         loop {
+            assert!(to_visit_index < to_visit_stack.len());
+
             let node = &self.nodes[current_node_index];
             intersection_test_count += 1;
             if node.bounds.intersect(ray, inv_dir) {
