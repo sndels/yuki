@@ -29,6 +29,7 @@ use std::{
     io::{BufRead, BufReader},
     path::PathBuf,
     sync::Arc,
+    time::Instant,
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -114,6 +115,8 @@ pub fn load(
     let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
+
+    let parse_start = Instant::now();
 
     let mut fetched_token = None;
     let mut error_token = None;
@@ -667,6 +670,11 @@ pub fn load(
             }
         }
     }
+
+    yuki_info!(
+        "pbrt-v3: Parse took {:.2}s in total",
+        parse_start.elapsed().as_secs_f32()
+    );
 
     // TODO: This could be much cleaner
     if render_options.film_settings.res.y < render_options.film_settings.res.x {
