@@ -160,6 +160,7 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
 
     if let Some(props) = content.vertex {
         let expected_vert_props = vec!["x", "y", "z"];
+        let supported_vert_props = vec!["x", "y", "z", "nx", "ny", "nz"];
         for p in &expected_vert_props {
             if !props.contains(&(*p).to_string()) {
                 yuki_error!("PLY: Element 'vertex' missing property '{}'", p);
@@ -167,7 +168,7 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
             }
         }
         for p in props.difference(
-            &expected_vert_props
+            &supported_vert_props
                 .iter()
                 .map(|p| (*p).to_string())
                 .collect(),
