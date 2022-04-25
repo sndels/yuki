@@ -13,6 +13,7 @@ use crate::{
 
 #[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString)]
 pub enum SplitMethod {
+    SAH,
     Middle,
     EqualCounts,
 }
@@ -270,6 +271,15 @@ impl BoundingVolumeHierarchy {
                 init_leaf!()
             } else {
                 let mid = match self.split_method {
+                    SplitMethod::SAH => {
+                        let mid =
+                            split_sah(shape_info, &bounds, &centroid_bounds, start, end, axis);
+                        if mid != start && mid != end {
+                            mid
+                        } else {
+                            split_equal_counts(shape_info, start, end, axis)
+                        }
+                    }
                     SplitMethod::Middle => {
                         let mid = split_middle(shape_info, &centroid_bounds, start, end, axis);
                         if mid != start && mid != end {
@@ -283,18 +293,23 @@ impl BoundingVolumeHierarchy {
 
                 assert_ne!(mid, start, "BVH: Split failed");
 
-                let RecursiveBuildResult {
-                    root: child0,
-                    nodes_in_tree: child0_node_count,
-                } = self.recursive_build(shape_info, start, mid, ordered_shapes);
-                let RecursiveBuildResult {
-                    root: child1,
-                    nodes_in_tree: child1_node_count,
-                } = self.recursive_build(shape_info, mid, end, ordered_shapes);
+                // TODO: Just use enum Split(mid)/Leaf/Failed here?
+                if mid == usize::MAX {
+                    init_leaf!()
+                } else {
+                    let RecursiveBuildResult {
+                        root: child0,
+                        nodes_in_tree: child0_node_count,
+                    } = self.recursive_build(shape_info, start, mid, ordered_shapes);
+                    let RecursiveBuildResult {
+                        root: child1,
+                        nodes_in_tree: child1_node_count,
+                    } = self.recursive_build(shape_info, mid, end, ordered_shapes);
 
-                RecursiveBuildResult {
-                    root: BVHBuildNode::interior(axis, child0, child1),
-                    nodes_in_tree: 1 + child0_node_count + child1_node_count,
+                    RecursiveBuildResult {
+                        root: BVHBuildNode::interior(axis, child0, child1),
+                        nodes_in_tree: 1 + child0_node_count + child1_node_count,
+                    }
                 }
             }
         }
@@ -356,6 +371,75 @@ fn split_middle(
     itertools::partition(shape_info[start..end].iter_mut(), |s| {
         s.centroid[axis] < mid_value
     }) + start
+}
+
+fn split_sah(
+    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    bounds: &Bounds3<f32>,
+    centroid_bounds: &Bounds3<f32>,
+    start: usize,
+    end: usize,
+    axis: usize,
+) -> usize {
+    let shape_count = end - start;
+    if shape_count <= 2 {
+        start
+    } else {
+        const N_BUCKETS: usize = 12;
+        #[derive(Clone, Copy)]
+        struct BucketInfo {
+            count: usize,
+            bounds: Bounds3<f32>,
+        }
+
+        // Sort shapes into N buckets
+        let mut buckets = [BucketInfo {
+            count: 0,
+            bounds: Bounds3::default(),
+        }; N_BUCKETS];
+        for si in &shape_info[start..end] {
+            let b = ((N_BUCKETS as f32 * centroid_bounds.offset(si.centroid)[axis]) as usize)
+                .min(N_BUCKETS - 1);
+            buckets[b].count += 1;
+            buckets[b].bounds = buckets[b].bounds.union_b(si.bounds);
+        }
+
+        // Evaluate
+        let mut costs = [0.0f32; N_BUCKETS - 1];
+        for (i, cost) in costs.iter_mut().enumerate() {
+            let (b0, count0) = buckets[0..=i]
+                .iter()
+                .fold((Bounds3::<f32>::default(), 0), |(b, c), bucket| {
+                    (b.union_b(bucket.bounds), c + bucket.count)
+                });
+            let (b1, count1) = buckets[(i + 1)..]
+                .iter()
+                .fold((Bounds3::<f32>::default(), 0), |(b, c), bucket| {
+                    (b.union_b(bucket.bounds), c + bucket.count)
+                });
+            *cost = 0.125
+                + ((count0 as f32) * b0.surface_area() + (count1 as f32) * b1.surface_area())
+                    / bounds.surface_area();
+        }
+
+        // Pick best
+        let (min_cost_split_bucket, &min_cost) = costs
+            .iter()
+            .enumerate()
+            .min_by(|(_, c0), (_, c1)| c0.partial_cmp(c1).unwrap())
+            .unwrap();
+
+        let leaf_cost = shape_count as f32;
+        if min_cost < leaf_cost {
+            itertools::partition(shape_info[start..end].iter_mut(), |s| {
+                let b = ((N_BUCKETS as f32 * centroid_bounds.offset(s.centroid)[axis]) as usize)
+                    .min(N_BUCKETS - 1);
+                b <= min_cost_split_bucket
+            }) + start
+        } else {
+            usize::MAX
+        }
+    }
 }
 
 struct RecursiveBuildResult {
