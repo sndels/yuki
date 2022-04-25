@@ -7,7 +7,7 @@ mod shape;
 mod transform;
 
 use crate::{
-    bvh::{BoundingVolumeHierarchy, SplitMethod},
+    bvh::BoundingVolumeHierarchy,
     film::FilmSettings,
     find_attr,
     lights::Light,
@@ -186,7 +186,7 @@ pub fn load(settings: &SceneLoadSettings) -> Result<(Scene, CameraParameters, Fi
     let (bvh, shapes) = BoundingVolumeHierarchy::new(
         shapes,
         settings.max_shapes_in_node as usize,
-        SplitMethod::Middle,
+        settings.split_method,
     );
 
     // Let's default target to middle way into the visible scene since we don't have look at here

@@ -21,6 +21,7 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SceneLoadSettings {
     pub path: PathBuf,
+    pub split_method: SplitMethod,
     pub max_shapes_in_node: u16,
 }
 
@@ -28,6 +29,7 @@ impl Default for SceneLoadSettings {
     fn default() -> Self {
         Self {
             path: PathBuf::new(),
+            split_method: SplitMethod::Middle,
             max_shapes_in_node: 1,
         }
     }
@@ -107,7 +109,7 @@ impl Scene {
         let (bvh, shapes) = BoundingVolumeHierarchy::new(
             shapes,
             settings.max_shapes_in_node as usize,
-            SplitMethod::Middle,
+            settings.split_method,
         );
 
         let light = Arc::new(PointLight::new(

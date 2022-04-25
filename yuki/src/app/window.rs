@@ -236,6 +236,7 @@ impl Window {
                             load_settings: Some( SceneLoadSettings {
                                 path: scene.load_settings.path.clone(),
                                 max_shapes_in_node: load_settings.max_shapes_in_node,
+                                split_method: load_settings.split_method,
                             }),
                             render_settings: Some(render_settings)
                         };

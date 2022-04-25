@@ -1,4 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Instant};
+use strum::{Display, EnumString, EnumVariantNames};
 
 use crate::{
     math::{Bounds3, Point3, Ray, Vec3},
@@ -9,6 +11,7 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies.html
 
+#[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString)]
 pub enum SplitMethod {
     Middle,
     EqualCounts,

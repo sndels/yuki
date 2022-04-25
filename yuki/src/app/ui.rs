@@ -407,6 +407,7 @@ fn generate_scene_settings(
         ui.spacing();
 
         {
+            enum_combo_box(ui, "##SplitMethodEnum", &mut load_settings.split_method);
             let _width = ui.push_item_width(92.0);
             u16_picker(
                 ui,

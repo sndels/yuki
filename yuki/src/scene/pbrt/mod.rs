@@ -7,7 +7,7 @@ use lexer::{FileLocation, Lexer, LexerError, LexerErrorType, Token};
 use param_set::ParamSet;
 
 use crate::{
-    bvh::{BoundingVolumeHierarchy, SplitMethod},
+    bvh::BoundingVolumeHierarchy,
     camera::FoV,
     film::FilmSettings,
     lights::{DistantLight, Light, PointLight},
@@ -724,7 +724,7 @@ pub fn load(
     let (bvh, shapes) = BoundingVolumeHierarchy::new(
         shapes,
         settings.max_shapes_in_node as usize,
-        SplitMethod::Middle,
+        settings.split_method,
     );
 
     Ok((
