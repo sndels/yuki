@@ -111,6 +111,8 @@ pub struct UIState {
     pub any_item_active: bool,
     pub ui_hovered: bool,
     pub save_settings: bool,
+    pub recompute_bvh_vis: bool,
+    pub clear_bvh_vis: bool,
 }
 
 pub fn generate_ui(
@@ -123,6 +125,7 @@ pub fn generate_ui(
     tone_map_type: &mut ToneMapType,
     load_settings: &mut SceneLoadSettings,
     render_settings: &mut RenderSettings,
+    bvh_visualization_level: Option<&mut i32>,
     scene: &Arc<Scene>,
     render_in_progress: bool,
     status_messages: &Option<Vec<String>>,
@@ -135,6 +138,8 @@ pub fn generate_ui(
     let mut render_triggered = false;
     let mut write_exr = None;
     let mut save_settings = false;
+    let mut recompute_bvh_vis = false;
+    let mut clear_bvh_vis = false;
     // This should be collected for all windows
     let mut ui_hovered = false;
 
@@ -171,6 +176,19 @@ pub fn generate_ui(
             ui.spacing();
 
             render_triggered |= ui.button("Render");
+            ui.spacing();
+
+            if let Some(level) = bvh_visualization_level {
+                let _width = ui.push_item_width(102.0);
+                recompute_bvh_vis |= imgui::Drag::new("BVH level")
+                    .range(-1, i32::MAX)
+                    .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                    .speed(0.2)
+                    .build(ui, level);
+                clear_bvh_vis |= ui.button("Clear BVH visualization");
+            } else {
+                recompute_bvh_vis |= ui.button("Visualize BVH");
+            }
             ui.spacing();
 
             if !render_in_progress {
@@ -211,6 +229,8 @@ pub fn generate_ui(
         any_item_active,
         ui_hovered,
         save_settings,
+        recompute_bvh_vis,
+        clear_bvh_vis,
     }
 }
 

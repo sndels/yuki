@@ -21,7 +21,9 @@ use std::{
 };
 
 use super::{
-    renderpasses::{find_min_max, HeatmapParams, RayVisualization, ScaleOutput, ToneMapFilm},
+    renderpasses::{
+        find_min_max, BvhVisualization, HeatmapParams, RayVisualization, ScaleOutput, ToneMapFilm,
+    },
     ui::{generate_ui, WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
@@ -57,6 +59,7 @@ pub struct Window {
     tone_map_type: ToneMapType,
     tone_map_film: ToneMapFilm,
     ray_visualization: RayVisualization,
+    bvh_visualization: BvhVisualization,
 
     // Scene
     load_settings: SceneLoadSettings,
@@ -92,6 +95,10 @@ impl Window {
             RayVisualization::new(&display),
             "Failed to create ray visualization render pass"
         );
+        let bvh_visualization = expect!(
+            BvhVisualization::new(&display),
+            "Failed to create BVH visualization render pass"
+        );
 
         let mut load_settings = settings.load_settings.unwrap_or_default();
 
@@ -111,6 +118,7 @@ impl Window {
             ui,
             tone_map_film,
             ray_visualization,
+            bvh_visualization,
             film_settings: settings.film_settings.unwrap_or(scene_film_settings),
             render_settings: settings.render_settings.unwrap_or_default(),
             scene_integrator: settings.scene_integrator.unwrap_or_default(),
@@ -130,6 +138,7 @@ impl Window {
             mut ui,
             mut tone_map_film,
             mut ray_visualization,
+            mut bvh_visualization,
             mut film_settings,
             mut render_settings,
             mut scene_integrator,
@@ -154,6 +163,7 @@ impl Window {
         let mut mouse_gesture: Option<MouseGesture> = None;
         let mut camera_offset: Option<CameraOffset> = None;
         let mut last_render_start = Instant::now();
+        let mut bvh_visualization_level = -1i32;
 
         event_loop.run(move |event, _, control_flow| {
             let gl_window = display.gl_window();
@@ -184,6 +194,7 @@ impl Window {
                                 camera_params = new_camera_params;
                                 film_settings= new_film_settings;
                                 ray_visualization.clear_rays();
+                                bvh_visualization.clear_bounds();
                                 status_messages =
                                     Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
                             }
@@ -202,6 +213,7 @@ impl Window {
                     );
                     let frame_ui = ui.context.frame();
 
+
                     let ui_state = generate_ui(
                         frame_ui,
                         window,
@@ -212,6 +224,11 @@ impl Window {
                         &mut tone_map_type,
                         &mut load_settings,
                         &mut render_settings,
+                        if bvh_visualization.bounds_set() {
+                            Some(&mut bvh_visualization_level)
+                        } else {
+                            None
+                        },
                         &scene,
                         renderer.is_active(),
                         &status_messages,
@@ -219,6 +236,21 @@ impl Window {
                     render_triggered |= ui_state.render_triggered;
                     any_item_active = ui_state.any_item_active;
                     ui_hovered = ui_state.ui_hovered;
+
+                    if ui_state.recompute_bvh_vis{
+                       if let Err(why) = bvh_visualization.set_bounds(&display, &scene.bvh.node_bounds(
+                            bvh_visualization_level
+                       )){
+                            yuki_error!(
+                                "Setting bounds to BVH visualization failed: {:?}",
+                                why
+                            );
+                        };
+                    }
+
+                    if ui_state.clear_bvh_vis {
+                        bvh_visualization.clear_bounds();
+                    }
 
                     render_triggered |= handle_mouse_gestures(
                         window_size,
@@ -317,6 +349,15 @@ impl Window {
                     );
                     expect!(
                         ray_visualization.draw(
+                            scene.bvh.bounds(),
+                            active_camera_params,
+                            film_settings,
+                            &mut tone_mapped_film.as_surface(),
+                        ),
+                        "Ray visualization failed"
+                    );
+                    expect!(
+                        bvh_visualization.draw(
                             scene.bvh.bounds(),
                             active_camera_params,
                             film_settings,

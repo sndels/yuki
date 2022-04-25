@@ -29,7 +29,7 @@ impl Default for SceneLoadSettings {
     fn default() -> Self {
         Self {
             path: PathBuf::new(),
-            split_method: SplitMethod::Middle,
+            split_method: SplitMethod::SAH,
             max_shapes_in_node: 1,
         }
     }

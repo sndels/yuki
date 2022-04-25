@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, time::Instant};
+use std::{collections::VecDeque, sync::Arc, time::Instant};
 use strum::{Display, EnumString, EnumVariantNames};
 
 use crate::{
@@ -85,6 +85,45 @@ impl BoundingVolumeHierarchy {
 
     pub fn bounds(&self) -> Bounds3<f32> {
         self.nodes[0].bounds
+    }
+
+    pub fn node_bounds(&self, target_level: i32) -> Vec<Bounds3<f32>> {
+        struct Node {
+            index: usize,
+            level: i32,
+        }
+
+        let mut bounds = vec![];
+        if target_level <= 0 {
+            bounds.push(self.nodes[0].bounds);
+        }
+        let mut stack = VecDeque::from([Node { index: 0, level: 1 }]);
+        while !stack.is_empty() {
+            let Node { index, level } = stack.pop_front().unwrap();
+            if target_level >= 0 && level > target_level {
+                break;
+            }
+            match self.nodes[index].content {
+                NodeContent::Interior {
+                    second_child_index, ..
+                } => {
+                    if target_level < 0 || level == target_level {
+                        bounds.push(self.nodes[index + 1].bounds);
+                        bounds.push(self.nodes[second_child_index as usize].bounds);
+                    }
+                    stack.push_back(Node {
+                        index: index + 1,
+                        level: level + 1,
+                    });
+                    stack.push_back(Node {
+                        index: second_child_index as usize,
+                        level: level + 1,
+                    });
+                }
+                _ => (),
+            }
+        }
+        bounds
     }
 
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
@@ -325,6 +364,7 @@ impl BoundingVolumeHierarchy {
                 children: [child0, child1],
                 split_axis,
             } => {
+                // TODO: Flatten with the two children together?
                 let self_index = next_index;
                 let second_child_index = self.flatten_tree(child0, self_index + 1);
                 next_index = self.flatten_tree(child1, second_child_index);
@@ -417,7 +457,7 @@ fn split_sah(
                 .fold((Bounds3::<f32>::default(), 0), |(b, c), bucket| {
                     (b.union_b(bucket.bounds), c + bucket.count)
                 });
-            *cost = 0.125
+            *cost = 1.0
                 + ((count0 as f32) * b0.surface_area() + (count1 as f32) * b1.surface_area())
                     / bounds.surface_area();
         }
