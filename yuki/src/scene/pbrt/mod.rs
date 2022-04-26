@@ -491,19 +491,23 @@ pub fn load(
                     }
                     "distant" => {
                         let radiance = params.find_spectrum("L", Spectrum::ones());
-                        let from = params.find_point("from", Point3::zeros());
-                        let to = params.find_point("to", Point3::new(0.0, 0.0, 1.0));
-                        lights.push(Arc::new(DistantLight::new(
-                            radiance,
-                            (from - to).normalized(),
-                        )));
+                        if !radiance.is_black() {
+                            let from = params.find_point("from", Point3::zeros());
+                            let to = params.find_point("to", Point3::new(0.0, 0.0, 1.0));
+                            lights.push(Arc::new(DistantLight::new(
+                                radiance,
+                                (from - to).normalized(),
+                            )));
+                        }
                     }
                     "point" => {
                         let default_i = Spectrum::ones();
                         let i = params.find_spectrum("I", default_i);
-                        let default_pos = Point3::zeros();
-                        let pos = params.find_point("from", default_pos);
-                        lights.push(Arc::new(PointLight::new(&translation(pos.into()), i)));
+                        if !i.is_black() {
+                            let default_pos = Point3::zeros();
+                            let pos = params.find_point("from", default_pos);
+                            lights.push(Arc::new(PointLight::new(&translation(pos.into()), i)));
+                        }
                     }
                     _ => {
                         yuki_info!("'{}' light not implemented", type_name);
