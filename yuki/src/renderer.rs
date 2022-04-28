@@ -180,7 +180,7 @@ fn launch_manager(
     std::thread::spawn(move || {
         yuki_trace!("Render manager: Launch threads");
         // TODO: Keep track of how physical vs logical behaves with optimizations
-        let thread_count = num_cpus::get();
+        let thread_count = num_cpus::get() - 1;
         let (child_send, from_children) = channel();
         let children: HashMap<usize, (Sender<Option<RenderThreadPayload>>, JoinHandle<_>)> = (0
             ..thread_count)
