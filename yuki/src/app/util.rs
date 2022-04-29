@@ -1,7 +1,7 @@
 use chrono::{Datelike, Timelike};
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -15,51 +15,69 @@ use crate::{
 pub fn try_load_scene(
     settings: &SceneLoadSettings,
 ) -> Result<(Arc<Scene>, CameraParameters, FilmSettings, f32), String> {
-    if settings.path.exists() {
-        match settings.path.extension() {
-            Some(ext) => match ext.to_str().unwrap() {
-                "ply" => match Scene::ply(settings) {
-                    Ok((scene, camera_params, film_settings, total_secs)) => {
-                        yuki_info!(
-                            "PLY loaded from {}",
-                            settings.path.file_name().unwrap().to_str().unwrap()
-                        );
-                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
+    let mresult = Arc::new(Mutex::new(Err("Uninitialized".into())));
+
+    {
+        let mresult = Arc::clone(&mresult);
+        let settings = settings.clone();
+        std::thread::spawn(move || {
+            let mut result = mresult.lock().unwrap();
+            *result = {
+                if settings.path.exists() {
+                    match settings.path.extension() {
+                        Some(ext) => match ext.to_str().unwrap() {
+                            "ply" => match Scene::ply(&settings) {
+                                Ok((scene, camera_params, film_settings, total_secs)) => {
+                                    yuki_info!(
+                                        "PLY loaded from {}",
+                                        settings.path.file_name().unwrap().to_str().unwrap()
+                                    );
+                                    Ok((Arc::new(scene), camera_params, film_settings, total_secs))
+                                }
+                                Err(why) => Err(format!("Loading PLY failed: {}", why)),
+                            },
+                            "xml" => match Scene::mitsuba(&settings) {
+                                Ok((scene, camera_params, film_settings, total_secs)) => {
+                                    yuki_info!(
+                                        "Mitsuba 2.0 scene loaded from {}",
+                                        settings.path.file_name().unwrap().to_str().unwrap()
+                                    );
+                                    Ok((Arc::new(scene), camera_params, film_settings, total_secs))
+                                }
+                                Err(why) => {
+                                    Err(format!("Loading Mitsuba 2.0 scene failed: {}", why))
+                                }
+                            },
+                            "pbrt" => match Scene::pbrt_v3(&settings) {
+                                Ok((scene, camera_params, film_settings, total_secs)) => {
+                                    yuki_info!(
+                                        "PBRT v3 scene loaded from {}",
+                                        settings.path.file_name().unwrap().to_str().unwrap()
+                                    );
+                                    Ok((Arc::new(scene), camera_params, film_settings, total_secs))
+                                }
+                                Err(why) => Err(format!("Loading PBRT v3 scene failed: {}", why)),
+                            },
+                            _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
+                        },
+                        None => Err("Expected a file with an extension".into()),
                     }
-                    Err(why) => Err(format!("Loading PLY failed: {}", why)),
-                },
-                "xml" => match Scene::mitsuba(settings) {
-                    Ok((scene, camera_params, film_settings, total_secs)) => {
-                        yuki_info!(
-                            "Mitsuba 2.0 scene loaded from {}",
-                            settings.path.file_name().unwrap().to_str().unwrap()
-                        );
-                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
-                    }
-                    Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
-                },
-                "pbrt" => match Scene::pbrt_v3(settings) {
-                    Ok((scene, camera_params, film_settings, total_secs)) => {
-                        yuki_info!(
-                            "PBRT v3 scene loaded from {}",
-                            settings.path.file_name().unwrap().to_str().unwrap()
-                        );
-                        Ok((Arc::new(scene), camera_params, film_settings, total_secs))
-                    }
-                    Err(why) => Err(format!("Loading PBRT v3 scene failed: {}", why)),
-                },
-                _ => Err(format!("Unknown extension '{}'", ext.to_str().unwrap())),
-            },
-            None => Err("Expected a file with an extension".into()),
-        }
-    } else if settings.path.as_os_str().is_empty() {
-        Ok(Scene::cornell())
-    } else {
-        Err(format!(
-            "Scene does not exist '{}'",
-            settings.path.to_string_lossy()
-        ))
+                } else if settings.path.as_os_str().is_empty() {
+                    Ok(Scene::cornell())
+                } else {
+                    Err(format!(
+                        "Scene does not exist '{}'",
+                        settings.path.to_string_lossy()
+                    ))
+                }
+            };
+        })
+        .join()
+        .unwrap();
     }
+
+    let result = mresult.lock().unwrap();
+    result.clone()
 }
 
 pub fn exr_path(scene: &Scene) -> Result<PathBuf, String> {
