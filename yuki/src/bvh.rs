@@ -39,6 +39,10 @@ impl BoundingVolumeHierarchy {
         max_shapes_in_node: usize,
         split_method: SplitMethod,
     ) -> (Self, Arc<Vec<Arc<dyn Shape>>>) {
+        superluminal_perf::begin_event("bvh build");
+
+        superluminal_perf::begin_event("bounds setup");
+
         let mut bounds = Bounds3::default();
         let mut shape_info = Vec::new();
         for (i, s) in shapes.iter().enumerate() {
@@ -51,6 +55,8 @@ impl BoundingVolumeHierarchy {
             });
         }
 
+        superluminal_perf::end_event(); // bounds setup
+
         let mut ret = Self {
             split_method,
             max_shapes_in_node,
@@ -60,10 +66,16 @@ impl BoundingVolumeHierarchy {
 
         let mut ordered_shapes = Vec::new();
         let build_start = Instant::now();
+
+        superluminal_perf::begin_event("recursive build");
+
         let RecursiveBuildResult {
             root,
             nodes_in_tree,
         } = ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
+
+        superluminal_perf::end_event(); // recursive build
+
         yuki_info!(
             "BVH: Built the tree in {:.2}s",
             build_start.elapsed().as_secs_f32()
@@ -72,12 +84,19 @@ impl BoundingVolumeHierarchy {
         std::mem::swap(Arc::get_mut(&mut ret.shapes).unwrap(), &mut ordered_shapes);
 
         let flatten_start = Instant::now();
+        superluminal_perf::begin_event("tree flattening");
+
         ret.nodes = vec![BVHNode::default(); nodes_in_tree];
         ret.flatten_tree(root, 0);
+
+        superluminal_perf::end_event(); // tree flattening
+
         yuki_info!(
             "BVH: Flattened the tree in {:.2}s",
             flatten_start.elapsed().as_secs_f32()
         );
+
+        superluminal_perf::end_event(); // bvh build
 
         let shapes_arc = Arc::clone(&ret.shapes);
         (ret, shapes_arc)

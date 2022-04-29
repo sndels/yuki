@@ -91,6 +91,8 @@ bitflags! {
 pub fn load(
     settings: &SceneLoadSettings,
 ) -> Result<(Scene, CameraParameters, FilmSettings), LoadError> {
+    superluminal_perf::begin_event("pbrt load");
+
     // TODO: Very large files should be read on the fly, not as a whole
     let input: Vec<u8> = std::fs::read_to_string(&settings.path)
         .map_err(LoadError::Io)?
@@ -118,6 +120,7 @@ pub fn load(
     let mut background = Spectrum::zeros();
 
     let parse_start = Instant::now();
+    superluminal_perf::begin_event("parse");
 
     let mut fetched_token = None;
     let mut error_token = None;
@@ -699,6 +702,8 @@ pub fn load(
         }
     }
 
+    superluminal_perf::end_event(); // parse
+
     yuki_info!(
         "pbrt-v3: Parse took {:.2}s in total",
         parse_start.elapsed().as_secs_f32()
@@ -730,6 +735,8 @@ pub fn load(
         settings.max_shapes_in_node as usize,
         settings.split_method,
     );
+
+    superluminal_perf::end_event(); // pbrt load
 
     Ok((
         Scene {
