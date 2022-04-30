@@ -218,9 +218,9 @@ impl ply_rs::ply::PropertyAccess for Vertex {
         }
     }
 
-    fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
+    fn set_property(&mut self, key: &str, property: ply_rs::ply::Property) {
         if let ply_rs::ply::Property::Float(v) = property {
-            match key.as_str() {
+            match key {
                 "x" => self.point.x = v,
                 "y" => self.point.y = v,
                 "z" => self.point.z = v,
@@ -248,8 +248,8 @@ impl ply_rs::ply::PropertyAccess for Face {
         }
     }
 
-    fn set_property(&mut self, key: String, property: ply_rs::ply::Property) {
-        match key.as_str() {
+    fn set_property(&mut self, key: &str, property: ply_rs::ply::Property) {
+        match key {
             // For some reason (Paul Bourke's example?), PLYs come with one of two different
             // names for face indices
             "vertex_index" | "vertex_indices" => match property {
