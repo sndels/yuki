@@ -6,7 +6,7 @@ use crate::{
         Bounds3, Normal, Point3, Transform, Vec3,
     },
     shapes::{Mesh, Shape, Triangle},
-    yuki_error, yuki_info,
+    yuki_error, yuki_info, yuki_trace,
 };
 
 use std::{collections::HashSet, path::Path, sync::Arc, time::Instant};
@@ -44,7 +44,7 @@ pub fn load(
         &header.elements["vertex"],
         &header,
     )?;
-    yuki_info!(
+    yuki_trace!(
         "PLY: Parsed {} vertices in {:.2}s",
         vertices.len(),
         vertices_start.elapsed().as_secs_f32()
@@ -54,7 +54,7 @@ pub fn load(
     let face_parser = ply_rs::parser::Parser::<Face>::new();
     let faces =
         face_parser.read_payload_for_element(&mut file_buf, &header.elements["face"], &header)?;
-    yuki_info!(
+    yuki_trace!(
         "PLY: Parsed {} faces in {:.2}s",
         faces.len(),
         faces_start.elapsed().as_secs_f32()
@@ -69,7 +69,7 @@ pub fn load(
             normals.push(n);
         }
     }
-    yuki_info!(
+    yuki_trace!(
         "PLY: Extracted vertex attributes in {:.2}s",
         vertices_start.elapsed().as_secs_f32()
     );
@@ -87,7 +87,7 @@ pub fn load(
             }
         }
     }
-    yuki_info!(
+    yuki_trace!(
         "PLY: Converted faces to an index buffer in {:.2}s",
         indices_start.elapsed().as_secs_f32()
     );
@@ -111,7 +111,7 @@ pub fn load(
             Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(material))) as Arc<dyn Shape>
         })
         .collect();
-    yuki_info!(
+    yuki_trace!(
         "PLY: Gathered {} triangles in {:.2}s",
         shapes.len(),
         triangles_start.elapsed().as_secs_f32()
