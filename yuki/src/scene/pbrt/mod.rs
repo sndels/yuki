@@ -5,6 +5,7 @@ mod param_set;
 use cie::{x_fit_1931, y_fit_1931, z_fit_1931};
 use lexer::{FileLocation, Lexer, LexerError, LexerErrorType, Token};
 use param_set::ParamSet;
+use rayon::prelude::*;
 
 use crate::{
     bvh::BoundingVolumeHierarchy,
@@ -114,8 +115,12 @@ pub fn load(
     let mut active_transform_bits_stack = Vec::new();
 
     // TODO: Support instancing
-    let mut meshes = Vec::new();
-    let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
+    enum ParseShape {
+        Shape(Arc<dyn Shape>),
+        Mesh(Arc<Mesh>, Vec<Arc<dyn Shape>>),
+        PlyMesh(PathBuf, Arc<dyn Material>, Transform<f32>),
+    }
+    let mut parse_shapes = Vec::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
 
@@ -612,7 +617,11 @@ pub fn load(
                 match shape_type.as_str() {
                     "sphere" => {
                         let radius = params.find_f32("radius", 1.0);
-                        shapes.push(Arc::new(Sphere::new(&current_transform, radius, material)));
+                        parse_shapes.push(ParseShape::Shape(Arc::new(Sphere::new(
+                            &current_transform,
+                            radius,
+                            material,
+                        ))));
                     }
                     "trianglemesh" => {
                         let default_indices = Vec::new();
@@ -640,11 +649,17 @@ pub fn load(
 
                         let mesh =
                             Arc::new(Mesh::new(&current_transform, indices, points, normals));
-                        shapes.extend((0..num_indices).step_by(3).map(|v0| {
-                            Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(&material)))
-                                as Arc<dyn Shape>
-                        }));
-                        meshes.push(mesh);
+                        let tri_shapes = (0..num_indices)
+                            .step_by(3)
+                            .map(|v0| {
+                                Arc::new(Triangle::new(
+                                    Arc::clone(&mesh),
+                                    v0,
+                                    Arc::clone(&material),
+                                )) as Arc<dyn Shape>
+                            })
+                            .collect();
+                        parse_shapes.push(ParseShape::Mesh(mesh, tri_shapes));
                     }
                     "plymesh" => {
                         let filename = params.find_string("filename", "");
@@ -661,13 +676,11 @@ pub fn load(
                             }
                         };
 
-                        let ply::PlyResult {
-                            mesh,
-                            shapes: ply_shapes,
-                        } = ply::load(&ply_abspath, &material, Some(current_transform.clone()))
-                            .map_err(|e| LoadError::Ply(e.to_string()))?;
-                        shapes.extend(ply_shapes);
-                        meshes.push(mesh);
+                        parse_shapes.push(ParseShape::PlyMesh(
+                            ply_abspath,
+                            material,
+                            current_transform.clone(),
+                        ));
                     }
                     t => {
                         yuki_info!("Unsupported shape type '{}'. Skipping", t);
@@ -708,6 +721,46 @@ pub fn load(
         "pbrt-v3: Parse took {:.2}s in total",
         parse_start.elapsed().as_secs_f32()
     );
+
+    let ply_start = Instant::now();
+    superluminal_perf::begin_event("load plys");
+
+    parse_shapes.par_iter_mut().try_for_each(|s| match s {
+        ParseShape::PlyMesh(path, material, transform) => {
+            let ply::PlyResult {
+                mesh,
+                shapes: ply_shapes,
+            } = ply::load(&path, &material, Some(transform.clone()))
+                .map_err(|e| LoadError::Ply(e.to_string()))?;
+            *s = ParseShape::Mesh(mesh, ply_shapes);
+            Ok(())
+        }
+        _ => Ok(()),
+    })?;
+
+    superluminal_perf::end_event(); // load plys
+    yuki_info!(
+        "pbrt-v3: Loading PLYs took {:.2}s in total",
+        ply_start.elapsed().as_secs_f32()
+    );
+
+    superluminal_perf::begin_event("collect meshes");
+
+    let mut meshes: Vec<Arc<Mesh>> = Vec::new();
+    let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
+
+    for s in parse_shapes {
+        match s {
+            ParseShape::Shape(shape) => shapes.push(shape),
+            ParseShape::Mesh(mesh, tri_shapes) => {
+                meshes.push(mesh);
+                shapes.extend(tri_shapes);
+            }
+            ParseShape::PlyMesh(..) => unreachable!("We should have converted these to Mesh()"),
+        }
+    }
+
+    superluminal_perf::end_event(); // collect meshes
 
     // TODO: This could be much cleaner
     if render_options.film_settings.res.y < render_options.film_settings.res.x {
