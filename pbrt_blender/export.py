@@ -178,6 +178,10 @@ def _warn(msg: str):
     logger.warning(msg)
 
 
+def _info(msg: str):
+    logger.info(msg)
+
+
 def _export_collection(depsgraph, collection, f: TextIO):
     for obj in collection.objects:
         _export_obj(depsgraph, obj, f)
@@ -218,6 +222,8 @@ def _export_obj(depsgraph, obj, f: TextIO):
                 f"{obj.name_full}: Skipping unimplemented light type '{light.type}'"
             )
     elif obj.type == "MESH":
+        _info(f"Exporting mesh for {obj.name}")
+
         pos, qrot, scale = trfn.decompose()
         rot_axis, rot_angle = qrot.to_axis_angle()
 
@@ -248,14 +254,14 @@ def _export_obj(depsgraph, obj, f: TextIO):
             tris = material_tris[mi]
             indices = []
             for li in tri.loops:
-                l = mesh.loops[li]
-                if l not in loops_content:
+                if li not in loops_content:
+                    l = mesh.loops[li]
                     if tri.use_smooth:
-                        loops.append((l, None))
+                        loops.append((li, None))
                     else:
-                        loops.append((l, tri.normal))
-                    loops_content[l] = len(loops) - 1
-                indices.append(loops_content[l])
+                        loops.append((li, tri.normal))
+                    loops_content[li] = len(loops) - 1
+                indices.append(loops_content[li])
             # Blender uses different winding order
             tris.append((indices[0], indices[2], indices[1]))
 
@@ -299,7 +305,8 @@ def _export_obj(depsgraph, obj, f: TextIO):
                         pf.write(f"element face {len(tris)}\n".encode())
                         pf.write(b"property list uchar int vertex_index\n")
                         pf.write(b"end_header\n")
-                        for (l, face_n) in loops:
+                        for (li, face_n) in loops:
+                            l = mesh.loops[li]
                             p = mesh.vertices[l.vertex_index].co
                             if face_n is not None:
                                 n = face_n
@@ -328,13 +335,14 @@ def _export_obj(depsgraph, obj, f: TextIO):
                 f.write("]\n")
 
                 f.write(f'    "point P" [ ')
-                for (l, _) in loops:
-                    p = mesh.vertices[l.vertex_index].co
+                for (li, _) in loops:
+                    p = mesh.vertices[mesh.loops[li].vertex_index].co
                     f.write(f"{fstr3(p[0], p[2], p[1])} ")
                 f.write("]\n")
 
                 f.write(f'    "normal N" [ ')
-                for (l, face_n) in loops:
+                for (li, face_n) in loops:
+                    l = mesh.loops[li]
                     if face_n is not None:
                         n = face_n
                     else:
