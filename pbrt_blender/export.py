@@ -184,7 +184,8 @@ def _info(msg: str):
 
 def _export_collection(depsgraph, collection, f: TextIO):
     for obj in collection.objects:
-        _export_obj(depsgraph, obj, f)
+        if obj.parent is None:
+            _export_obj(depsgraph, obj, f)
 
     for collection in collection.children:
         _export_collection(depsgraph, collection, f)
