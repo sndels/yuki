@@ -291,7 +291,10 @@ def _export_obj(depsgraph, obj, f: TextIO):
                 f.write(f"  Scale {fstr3(scale[0], scale[2], scale[1])}\n")
 
             if len(tris) > 5000:
-                ply_path = f"plys/{mesh.name}_{material.name}.ply"
+                if material is not None:
+                    ply_path = f"plys/{mesh.name}_{material.name}.ply"
+                else:
+                    ply_path = f"plys/{mesh.name}.ply"
                 if ply_path not in EXPORTED_PLY_MESHES:
                     with open(os.path.join(EXPORT_DIR, ply_path), "wb") as pf:
                         pf.write(b"ply\n")
