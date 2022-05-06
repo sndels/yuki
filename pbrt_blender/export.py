@@ -290,7 +290,7 @@ def _export_obj(depsgraph, obj, f: TextIO):
             if not isclose3(scale, 1.0, 0.001):
                 f.write(f"  Scale {fstr3(scale[0], scale[2], scale[1])}\n")
 
-            if len(tris) > 5000:
+            if len(tris) > 100:
                 if material is not None:
                     ply_path = f"plys/{mesh.name}_{material.name}.ply"
                 else:
