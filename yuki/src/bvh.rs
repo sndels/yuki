@@ -69,10 +69,19 @@ impl BoundingVolumeHierarchy {
 
         superluminal_perf::begin_event("recursive build");
 
+        let mut build_nodes = Vec::new();
+        build_nodes.reserve(ret.shapes.len() * 2 - 1);
+
         let RecursiveBuildResult {
             root,
             nodes_in_tree,
-        } = ret.recursive_build(&mut shape_info, 0, ret.shapes.len(), &mut ordered_shapes);
+        } = ret.recursive_build(
+            &mut build_nodes,
+            &mut shape_info,
+            0,
+            ret.shapes.len(),
+            &mut ordered_shapes,
+        );
 
         superluminal_perf::end_event(); // recursive build
 
@@ -87,7 +96,7 @@ impl BoundingVolumeHierarchy {
         superluminal_perf::begin_event("tree flattening");
 
         ret.nodes = vec![BVHNode::default(); nodes_in_tree];
-        ret.flatten_tree(root, 0);
+        ret.flatten_tree(&build_nodes, root, 0);
 
         superluminal_perf::end_event(); // tree flattening
 
@@ -289,6 +298,7 @@ impl BoundingVolumeHierarchy {
     /// Builds the node structure as a [BVHBuildNode]-tree.
     fn recursive_build(
         &mut self,
+        build_nodes: &mut Vec<BVHBuildNode>,
         shape_info: &mut Vec<BVHPrimitiveInfo>,
         start: usize,
         end: usize,
@@ -308,8 +318,9 @@ impl BoundingVolumeHierarchy {
                         .iter()
                         .map(|s| self.shapes[s.shape_index].clone()),
                 );
+                build_nodes.push(BVHBuildNode::leaf(first_shape_index, shape_count, bounds));
                 RecursiveBuildResult {
-                    root: BVHBuildNode::leaf(first_shape_index, shape_count, bounds),
+                    root: build_nodes.len() - 1,
                     nodes_in_tree: 1,
                 }
             }};
@@ -358,14 +369,15 @@ impl BoundingVolumeHierarchy {
                     let RecursiveBuildResult {
                         root: child0,
                         nodes_in_tree: child0_node_count,
-                    } = self.recursive_build(shape_info, start, mid, ordered_shapes);
+                    } = self.recursive_build(build_nodes, shape_info, start, mid, ordered_shapes);
                     let RecursiveBuildResult {
                         root: child1,
                         nodes_in_tree: child1_node_count,
-                    } = self.recursive_build(shape_info, mid, end, ordered_shapes);
+                    } = self.recursive_build(build_nodes, shape_info, mid, end, ordered_shapes);
 
+                    build_nodes.push(BVHBuildNode::interior(build_nodes, axis, child0, child1));
                     RecursiveBuildResult {
-                        root: BVHBuildNode::interior(axis, child0, child1),
+                        root: build_nodes.len() - 1,
                         nodes_in_tree: 1 + child0_node_count + child1_node_count,
                     }
                 }
@@ -377,24 +389,32 @@ impl BoundingVolumeHierarchy {
     ///
     /// Returns the next available index in the internal node array.
     #[allow(clippy::boxed_local)] // Box is more convenient here as the input is boxed anyway
-    fn flatten_tree(&mut self, root: Box<BVHBuildNode>, mut next_index: usize) -> usize {
-        match root.content {
+    fn flatten_tree(
+        &mut self,
+        build_nodes: &Vec<BVHBuildNode>,
+        root: usize,
+        mut next_index: usize,
+    ) -> usize {
+        let root_node = &build_nodes[root];
+        match root_node.content {
             BuildNodeContent::Interior {
-                children: [child0, child1],
+                child0,
+                child1,
                 split_axis,
             } => {
                 // TODO: Flatten with the two children together?
                 let self_index = next_index;
-                let second_child_index = self.flatten_tree(child0, self_index + 1);
-                next_index = self.flatten_tree(child1, second_child_index);
+                let second_child_index = self.flatten_tree(build_nodes, child0, self_index + 1);
+                next_index = self.flatten_tree(build_nodes, child1, second_child_index);
                 self.nodes[self_index] =
-                    BVHNode::interior(root.bounds, second_child_index, split_axis);
+                    BVHNode::interior(root_node.bounds, second_child_index, split_axis);
             }
             BuildNodeContent::Leaf {
                 first_shape_index,
                 shape_count,
             } => {
-                self.nodes[next_index] = BVHNode::leaf(root.bounds, first_shape_index, shape_count);
+                self.nodes[next_index] =
+                    BVHNode::leaf(root_node.bounds, first_shape_index, shape_count);
                 next_index += 1;
             }
         }
@@ -502,7 +522,7 @@ fn split_sah(
 }
 
 struct RecursiveBuildResult {
-    root: Box<BVHBuildNode>,
+    root: usize,
     nodes_in_tree: usize,
 }
 
@@ -567,7 +587,8 @@ impl BVHNode {
 
 enum BuildNodeContent {
     Interior {
-        children: [Box<BVHBuildNode>; 2],
+        child0: usize,
+        child1: usize,
         split_axis: usize,
     },
     /// Indexes into the ordered shape array.
@@ -585,27 +606,31 @@ struct BVHBuildNode {
 impl BVHBuildNode {
     /// Creates an interior `BVHBuildNode`.
     fn interior(
+        build_nodes: &Vec<BVHBuildNode>,
         split_axis: usize,
-        child0: Box<BVHBuildNode>,
-        child1: Box<BVHBuildNode>,
-    ) -> Box<Self> {
-        Box::new(Self {
-            bounds: child0.bounds.union_b(child1.bounds),
+        child0: usize,
+        child1: usize,
+    ) -> Self {
+        Self {
+            bounds: build_nodes[child0]
+                .bounds
+                .union_b(build_nodes[child1].bounds),
             content: BuildNodeContent::Interior {
-                children: [child0, child1],
+                child0,
+                child1,
                 split_axis,
             },
-        })
+        }
     }
 
     /// Creates a leaf `BVHBuildNode`.
-    fn leaf(first_shape_index: usize, shape_count: usize, bounds: Bounds3<f32>) -> Box<Self> {
-        Box::new(Self {
+    fn leaf(first_shape_index: usize, shape_count: usize, bounds: Bounds3<f32>) -> Self {
+        Self {
             bounds,
             content: BuildNodeContent::Leaf {
                 first_shape_index,
                 shape_count,
             },
-        })
+        }
     }
 }
