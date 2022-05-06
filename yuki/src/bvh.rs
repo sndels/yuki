@@ -1,3 +1,4 @@
+use allocators::{LinearAllocator, ScopedScratch};
 use serde::{Deserialize, Serialize};
 use std::{collections::VecDeque, sync::Arc, time::Instant};
 use strum::{Display, EnumString, EnumVariantNames};
@@ -69,14 +70,15 @@ impl BoundingVolumeHierarchy {
 
         superluminal_perf::begin_event("recursive build");
 
-        let mut build_nodes = Vec::new();
-        build_nodes.reserve(ret.shapes.len() * 2 - 1);
+        let mut allocator =
+            LinearAllocator::new(std::mem::size_of::<BVHBuildNode>() * (ret.shapes.len() * 2 - 1));
+        let scratch = ScopedScratch::new(&mut allocator);
 
         let RecursiveBuildResult {
             root,
             nodes_in_tree,
         } = ret.recursive_build(
-            &mut build_nodes,
+            &scratch,
             &mut shape_info,
             0,
             ret.shapes.len(),
@@ -96,7 +98,7 @@ impl BoundingVolumeHierarchy {
         superluminal_perf::begin_event("tree flattening");
 
         ret.nodes = vec![BVHNode::default(); nodes_in_tree];
-        ret.flatten_tree(&build_nodes, root, 0);
+        ret.flatten_tree(root, 0);
 
         superluminal_perf::end_event(); // tree flattening
 
@@ -296,14 +298,14 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Builds the node structure as a [BVHBuildNode]-tree.
-    fn recursive_build(
+    fn recursive_build<'a>(
         &mut self,
-        build_nodes: &mut Vec<BVHBuildNode>,
+        scratch: &'a ScopedScratch,
         shape_info: &mut Vec<BVHPrimitiveInfo>,
         start: usize,
         end: usize,
         ordered_shapes: &mut Vec<Arc<dyn Shape>>,
-    ) -> RecursiveBuildResult {
+    ) -> RecursiveBuildResult<'a> {
         let bounds = shape_info[start..end]
             .iter()
             .fold(Bounds3::default(), |b, s| b.union_b(s.bounds));
@@ -318,9 +320,8 @@ impl BoundingVolumeHierarchy {
                         .iter()
                         .map(|s| self.shapes[s.shape_index].clone()),
                 );
-                build_nodes.push(BVHBuildNode::leaf(first_shape_index, shape_count, bounds));
                 RecursiveBuildResult {
-                    root: build_nodes.len() - 1,
+                    root: scratch.alloc(BVHBuildNode::leaf(first_shape_index, shape_count, bounds)),
                     nodes_in_tree: 1,
                 }
             }};
@@ -369,15 +370,14 @@ impl BoundingVolumeHierarchy {
                     let RecursiveBuildResult {
                         root: child0,
                         nodes_in_tree: child0_node_count,
-                    } = self.recursive_build(build_nodes, shape_info, start, mid, ordered_shapes);
+                    } = self.recursive_build(scratch, shape_info, start, mid, ordered_shapes);
                     let RecursiveBuildResult {
                         root: child1,
                         nodes_in_tree: child1_node_count,
-                    } = self.recursive_build(build_nodes, shape_info, mid, end, ordered_shapes);
+                    } = self.recursive_build(scratch, shape_info, mid, end, ordered_shapes);
 
-                    build_nodes.push(BVHBuildNode::interior(build_nodes, axis, child0, child1));
                     RecursiveBuildResult {
-                        root: build_nodes.len() - 1,
+                        root: scratch.alloc(BVHBuildNode::interior(axis, child0, child1)),
                         nodes_in_tree: 1 + child0_node_count + child1_node_count,
                     }
                 }
@@ -389,14 +389,8 @@ impl BoundingVolumeHierarchy {
     ///
     /// Returns the next available index in the internal node array.
     #[allow(clippy::boxed_local)] // Box is more convenient here as the input is boxed anyway
-    fn flatten_tree(
-        &mut self,
-        build_nodes: &Vec<BVHBuildNode>,
-        root: usize,
-        mut next_index: usize,
-    ) -> usize {
-        let root_node = &build_nodes[root];
-        match root_node.content {
+    fn flatten_tree(&mut self, root: &BVHBuildNode, mut next_index: usize) -> usize {
+        match root.content {
             BuildNodeContent::Interior {
                 child0,
                 child1,
@@ -404,17 +398,16 @@ impl BoundingVolumeHierarchy {
             } => {
                 // TODO: Flatten with the two children together?
                 let self_index = next_index;
-                let second_child_index = self.flatten_tree(build_nodes, child0, self_index + 1);
-                next_index = self.flatten_tree(build_nodes, child1, second_child_index);
+                let second_child_index = self.flatten_tree(child0, self_index + 1);
+                next_index = self.flatten_tree(child1, second_child_index);
                 self.nodes[self_index] =
-                    BVHNode::interior(root_node.bounds, second_child_index, split_axis);
+                    BVHNode::interior(root.bounds, second_child_index, split_axis);
             }
             BuildNodeContent::Leaf {
                 first_shape_index,
                 shape_count,
             } => {
-                self.nodes[next_index] =
-                    BVHNode::leaf(root_node.bounds, first_shape_index, shape_count);
+                self.nodes[next_index] = BVHNode::leaf(root.bounds, first_shape_index, shape_count);
                 next_index += 1;
             }
         }
@@ -521,8 +514,8 @@ fn split_sah(
     }
 }
 
-struct RecursiveBuildResult {
-    root: usize,
+struct RecursiveBuildResult<'a> {
+    root: &'a BVHBuildNode<'a>,
     nodes_in_tree: usize,
 }
 
@@ -585,10 +578,10 @@ impl BVHNode {
     }
 }
 
-enum BuildNodeContent {
+enum BuildNodeContent<'a> {
     Interior {
-        child0: usize,
-        child1: usize,
+        child0: &'a BVHBuildNode<'a>,
+        child1: &'a BVHBuildNode<'a>,
         split_axis: usize,
     },
     /// Indexes into the ordered shape array.
@@ -598,23 +591,16 @@ enum BuildNodeContent {
     },
 }
 
-struct BVHBuildNode {
+struct BVHBuildNode<'a> {
     bounds: Bounds3<f32>,
-    content: BuildNodeContent,
+    content: BuildNodeContent<'a>,
 }
 
-impl BVHBuildNode {
+impl<'a> BVHBuildNode<'a> {
     /// Creates an interior `BVHBuildNode`.
-    fn interior(
-        build_nodes: &Vec<BVHBuildNode>,
-        split_axis: usize,
-        child0: usize,
-        child1: usize,
-    ) -> Self {
+    fn interior(split_axis: usize, child0: &'a BVHBuildNode, child1: &'a BVHBuildNode) -> Self {
         Self {
-            bounds: build_nodes[child0]
-                .bounds
-                .union_b(build_nodes[child1].bounds),
+            bounds: child0.bounds.union_b(child1.bounds),
             content: BuildNodeContent::Interior {
                 child0,
                 child1,
