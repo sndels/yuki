@@ -170,6 +170,7 @@ pub fn vec_like_impl(
                 }
             }
 
+            #[inline]
             #[doc = #permuted_doc]
             pub fn permuted(&self #permuted_args) -> Self {
                 debug_assert!(!self.has_nans());
