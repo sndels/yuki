@@ -1,4 +1,4 @@
-use super::{Light, LightSample};
+use super::{AreaLight, Light, LightSample};
 use crate::{
     interaction::{Interaction, SurfaceInteraction},
     math::{
@@ -66,6 +66,16 @@ impl Light for RectangularLight {
             li,
             vis,
             pdf,
+        }
+    }
+}
+
+impl AreaLight for RectangularLight {
+    fn radiance(&self, si: &SurfaceInteraction, w: Vec3<f32>) -> Spectrum<f32> {
+        if si.n.dot_v(w) > 0.0 {
+            self.l
+        } else {
+            Spectrum::zeros()
         }
     }
 }
