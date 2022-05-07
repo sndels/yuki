@@ -92,6 +92,12 @@ bitflags! {
 pub fn load(
     settings: &SceneLoadSettings,
 ) -> Result<(Scene, CameraParameters, FilmSettings), LoadError> {
+    enum ParseShape {
+        Shape(Arc<dyn Shape>),
+        Mesh(Arc<Mesh>, Vec<Arc<dyn Shape>>),
+        PlyMesh(PathBuf, Arc<dyn Material>, Transform<f32>),
+    }
+
     superluminal_perf::begin_event("pbrt load");
 
     // TODO: Very large files should be read on the fly, not as a whole
@@ -115,11 +121,6 @@ pub fn load(
     let mut active_transform_bits_stack = Vec::new();
 
     // TODO: Support instancing
-    enum ParseShape {
-        Shape(Arc<dyn Shape>),
-        Mesh(Arc<Mesh>, Vec<Arc<dyn Shape>>),
-        PlyMesh(PathBuf, Arc<dyn Material>, Transform<f32>),
-    }
     let mut parse_shapes = Vec::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
@@ -730,7 +731,7 @@ pub fn load(
             let ply::PlyResult {
                 mesh,
                 shapes: ply_shapes,
-            } = ply::load(&path, &material, Some(transform.clone()))
+            } = ply::load(path, material, Some(transform.clone()))
                 .map_err(|e| LoadError::Ply(e.to_string()))?;
             *s = ParseShape::Mesh(mesh, ply_shapes);
             Ok(())

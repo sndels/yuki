@@ -138,7 +138,7 @@ pub trait Integrator {
                 }
 
                 sampler.start_sample();
-                let sample_scratch = ScopedScratch::new_scope(&scratch);
+                let sample_scratch = ScopedScratch::new_scope(scratch);
 
                 let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
 

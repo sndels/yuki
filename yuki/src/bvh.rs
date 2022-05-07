@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Copy, Clone, Deserialize, Serialize, Display, EnumVariantNames, EnumString)]
 pub enum SplitMethod {
-    SAH,
+    SurfaceAreaHeuristic,
     Middle,
     EqualCounts,
 }
@@ -133,24 +133,23 @@ impl BoundingVolumeHierarchy {
             if target_level >= 0 && level > target_level {
                 break;
             }
-            match self.nodes[index].content {
-                NodeContent::Interior {
-                    second_child_index, ..
-                } => {
-                    if target_level < 0 || level == target_level {
-                        bounds.push(self.nodes[index + 1].bounds);
-                        bounds.push(self.nodes[second_child_index as usize].bounds);
-                    }
-                    stack.push_back(Node {
-                        index: index + 1,
-                        level: level + 1,
-                    });
-                    stack.push_back(Node {
-                        index: second_child_index as usize,
-                        level: level + 1,
-                    });
+
+            if let NodeContent::Interior {
+                second_child_index, ..
+            } = self.nodes[index].content
+            {
+                if target_level < 0 || level == target_level {
+                    bounds.push(self.nodes[index + 1].bounds);
+                    bounds.push(self.nodes[second_child_index as usize].bounds);
                 }
-                _ => (),
+                stack.push_back(Node {
+                    index: index + 1,
+                    level: level + 1,
+                });
+                stack.push_back(Node {
+                    index: second_child_index as usize,
+                    level: level + 1,
+                });
             }
         }
         bounds
@@ -312,7 +311,7 @@ impl BoundingVolumeHierarchy {
     fn recursive_build<'a>(
         &mut self,
         scratch: &'a ScopedScratch,
-        shape_info: &mut Vec<BVHPrimitiveInfo>,
+        shape_info: &mut [BVHPrimitiveInfo],
         start: usize,
         end: usize,
         ordered_shapes: &mut Vec<Arc<dyn Shape>>,
@@ -352,7 +351,7 @@ impl BoundingVolumeHierarchy {
                 init_leaf!()
             } else {
                 let mid = match self.split_method {
-                    SplitMethod::SAH => {
+                    SplitMethod::SurfaceAreaHeuristic => {
                         let mid =
                             split_sah(shape_info, &bounds, &centroid_bounds, start, end, axis);
                         if mid != start && mid != end {
@@ -427,7 +426,7 @@ impl BoundingVolumeHierarchy {
 }
 
 fn split_equal_counts(
-    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    shape_info: &mut [BVHPrimitiveInfo],
     start: usize,
     end: usize,
     axis: usize,
@@ -443,7 +442,7 @@ fn split_equal_counts(
 }
 
 fn split_middle(
-    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    shape_info: &mut [BVHPrimitiveInfo],
     centroid_bounds: &Bounds3<f32>,
     start: usize,
     end: usize,
@@ -457,7 +456,7 @@ fn split_middle(
 }
 
 fn split_sah(
-    shape_info: &mut Vec<BVHPrimitiveInfo>,
+    shape_info: &mut [BVHPrimitiveInfo],
     bounds: &Bounds3<f32>,
     centroid_bounds: &Bounds3<f32>,
     start: usize,
@@ -481,8 +480,10 @@ fn split_sah(
             bounds: Bounds3::default(),
         }; N_BUCKETS];
         for si in &shape_info[start..end] {
-            let b = ((N_BUCKETS as f32 * centroid_bounds.offset(si.centroid)[axis]) as usize)
-                .min(N_BUCKETS - 1);
+            let bf = N_BUCKETS as f32 * centroid_bounds.offset(si.centroid)[axis];
+            #[allow(clippy::cast_sign_loss)] // Explicit max is used
+            let b = (bf.max(0.0) as usize).min(N_BUCKETS - 1);
+
             buckets[b].count += 1;
             buckets[b].bounds = buckets[b].bounds.union_b(si.bounds);
         }
@@ -515,8 +516,10 @@ fn split_sah(
         let leaf_cost = shape_count as f32;
         if min_cost < leaf_cost {
             itertools::partition(shape_info[start..end].iter_mut(), |s| {
-                let b = ((N_BUCKETS as f32 * centroid_bounds.offset(s.centroid)[axis]) as usize)
-                    .min(N_BUCKETS - 1);
+                let bf = N_BUCKETS as f32 * centroid_bounds.offset(s.centroid)[axis];
+                #[allow(clippy::cast_sign_loss)] // Explicit max is used
+                let b = (bf.max(0.0) as usize).min(N_BUCKETS - 1);
+
                 b <= min_cost_split_bucket
             }) + start
         } else {

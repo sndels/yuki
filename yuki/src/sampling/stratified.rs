@@ -168,7 +168,7 @@ fn stratified_sample_2d(
     }
 }
 
-fn shuffle<T>(samples: &mut Vec<T>, rng: &mut Pcg32) {
+fn shuffle<T>(samples: &mut [T], rng: &mut Pcg32) {
     for i in 0..samples.len() {
         let other = i + rng.sample(Uniform::from(0..(samples.len() - i)));
         samples.swap(i, other);
