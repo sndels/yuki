@@ -6,6 +6,8 @@ use crate::{
     scene::Scene,
 };
 
+use allocators::ScopedScratch;
+
 /// The first channel of returned color is the number of BVH intersections performed.
 /// The second channel is the number of BVH node hits found.
 /// The third channel is the number of BVH node hits found if the ray also hit scene geometry.
@@ -14,6 +16,7 @@ pub struct BVHIntersections {}
 impl Integrator for BVHIntersections {
     fn li(
         &self,
+        scratch: &ScopedScratch,
         ray: Ray<f32>,
         scene: &Scene,
         _depth: u32,
@@ -24,7 +27,7 @@ impl Integrator for BVHIntersections {
             hit,
             intersection_test_count,
             intersection_count,
-        } = scene.bvh.intersect(ray);
+        } = scene.bvh.intersect(scratch, ray);
         let ray_count = 1;
 
         let color = Spectrum::new(

@@ -27,17 +27,17 @@ pub trait MicrofacetDistribution {
     }
 }
 
-pub struct MicrofacetReflection {
+pub struct MicrofacetReflection<'a> {
     r: Spectrum<f32>,
-    distribution: Box<dyn MicrofacetDistribution>,
-    fresnel: Box<dyn Fresnel>,
+    distribution: &'a dyn MicrofacetDistribution,
+    fresnel: &'a dyn Fresnel,
 }
 
-impl MicrofacetReflection {
+impl<'a> MicrofacetReflection<'a> {
     pub fn new(
         r: Spectrum<f32>,
-        distribution: Box<dyn MicrofacetDistribution>,
-        fresnel: Box<dyn Fresnel>,
+        distribution: &'a dyn MicrofacetDistribution,
+        fresnel: &'a dyn Fresnel,
     ) -> Self {
         Self {
             r,
@@ -47,7 +47,7 @@ impl MicrofacetReflection {
     }
 }
 
-impl Bxdf for MicrofacetReflection {
+impl<'a> Bxdf for MicrofacetReflection<'a> {
     fn f(&self, wo: Vec3<f32>, wi: Vec3<f32>) -> Spectrum<f32> {
         let cos_theta_o = cos_theta(wo).abs();
         let cos_theta_i = cos_theta(wi).abs();

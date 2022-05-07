@@ -10,6 +10,8 @@ pub use glossy::Glossy;
 pub use matte::Matte;
 pub use metal::Metal;
 
+use allocators::ScopedScratch;
+
 use crate::interaction::SurfaceInteraction;
 
 // Based on Physically Based Rendering 3rd ed.
@@ -17,5 +19,9 @@ use crate::interaction::SurfaceInteraction;
 
 pub trait Material: Send + Sync {
     /// Returns the [`Bsdf`] for the given [`SurfaceInteraction`]
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf;
+    fn compute_scattering_functions<'a>(
+        &self,
+        scratch: &'a ScopedScratch,
+        si: &SurfaceInteraction,
+    ) -> Bsdf<'a>;
 }

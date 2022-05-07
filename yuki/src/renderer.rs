@@ -1,3 +1,4 @@
+use allocators::{LinearAllocator, ScopedScratch};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
@@ -390,6 +391,9 @@ fn launch_worker(
 ) {
     yuki_debug!("Render thread {}: Begin", thread_id);
 
+    let mut alloc = LinearAllocator::new(1024 * 256);
+    let scratch = ScopedScratch::new(&mut alloc);
+
     'thread: loop {
         let mut thread_info = ThreadInfo {
             render_id: 0,
@@ -452,6 +456,7 @@ fn launch_worker(
             };
 
             if let Some(mut tile) = tile {
+                let tile_scratch = ScopedScratch::new_scope(&scratch);
                 assert!(payload.is_some(), "Active tile without payload");
 
                 let tile_start = Instant::now();
@@ -474,6 +479,7 @@ fn launch_worker(
                 let mut interrupted = false;
                 let integrator = payload.integrator_type.instantiate();
                 let ray_count = integrator.render(
+                    &tile_scratch,
                     &payload.scene,
                     &payload.camera,
                     &payload.sampler,

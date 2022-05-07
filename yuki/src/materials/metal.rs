@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{interaction::SurfaceInteraction, math::Spectrum, textures::Texture};
 
+use allocators::ScopedScratch;
 use std::sync::Arc;
 
 pub struct Metal {
@@ -30,7 +31,11 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
+    fn compute_scattering_functions<'a>(
+        &self,
+        scratch: &'a ScopedScratch,
+        si: &SurfaceInteraction,
+    ) -> Bsdf<'a> {
         let mut bsdf = Bsdf::new(si);
 
         let roughness = if self.remap_roughness {
@@ -46,10 +51,10 @@ impl Material for Metal {
         );
         let distribution = TrowbridgeReitzDistribution::new(roughness);
 
-        bsdf.add(Box::new(MicrofacetReflection::new(
+        bsdf.add(scratch.alloc(MicrofacetReflection::new(
             Spectrum::new(1.0, 1.0, 1.0),
-            Box::new(distribution),
-            Box::new(fresnel),
+            scratch.alloc(distribution),
+            scratch.alloc(fresnel),
         )));
 
         bsdf

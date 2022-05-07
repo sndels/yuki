@@ -19,8 +19,8 @@ pub enum SplitMethod {
     EqualCounts,
 }
 
-pub struct IntersectionResult {
-    pub hit: Option<Hit>,
+pub struct IntersectionResult<'a> {
+    pub hit: Option<Hit<'a>>,
     pub intersection_test_count: usize,
     pub intersection_count: usize,
 }
@@ -157,7 +157,11 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
-    pub fn intersect(&self, mut ray: Ray<f32>) -> IntersectionResult {
+    pub fn intersect<'a>(
+        &'a self,
+        scratch: &'a ScopedScratch,
+        mut ray: Ray<f32>,
+    ) -> IntersectionResult<'a> {
         let mut hit: Option<Hit> = None;
 
         // Pre-calculated to speed up Bounds3 intersection tests
@@ -203,14 +207,17 @@ impl BoundingVolumeHierarchy {
                                 if let Some(old_hit) = hit.as_ref() {
                                     if new_hit.t < old_hit.t {
                                         ray.t_max = new_hit.t;
-                                        new_hit.bsdf =
-                                            Some(shape.compute_scattering_functions(&new_hit.si));
+                                        new_hit.bsdf = Some(
+                                            shape
+                                                .compute_scattering_functions(scratch, &new_hit.si),
+                                        );
                                         hit = Some(new_hit);
                                     }
                                 } else {
                                     ray.t_max = new_hit.t;
-                                    new_hit.bsdf =
-                                        Some(shape.compute_scattering_functions(&new_hit.si));
+                                    new_hit.bsdf = Some(
+                                        shape.compute_scattering_functions(scratch, &new_hit.si),
+                                    );
                                     hit = Some(new_hit);
                                 }
                             }

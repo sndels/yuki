@@ -10,6 +10,7 @@ use path::Path;
 use shading_normals::ShadingNormals;
 use whitted::Whitted;
 
+use allocators::ScopedScratch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString, EnumVariantNames};
 
@@ -101,6 +102,7 @@ pub trait Integrator {
     /// If called with `collect_rays` true, populates the list of rays launched.
     fn li(
         &self,
+        scratch: &ScopedScratch,
         ray: Ray<f32>,
         scene: &Scene,
         depth: u32,
@@ -111,6 +113,7 @@ pub trait Integrator {
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
         &self,
+        scratch: &ScopedScratch,
         scene: &Scene,
         camera: &Camera,
         sampler: &Arc<dyn Sampler>,
@@ -135,12 +138,13 @@ pub trait Integrator {
                 }
 
                 sampler.start_sample();
+                let sample_scratch = ScopedScratch::new_scope(&scratch);
 
                 let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = self.li(ray, scene, 0, &mut sampler, false);
+                let result = self.li(&sample_scratch, ray, scene, 0, &mut sampler, false);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

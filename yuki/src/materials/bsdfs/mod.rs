@@ -71,15 +71,15 @@ pub trait Bxdf {
 }
 
 /// A collection of BxDF functions.
-pub struct Bsdf {
-    bxdfs: Vec<Box<dyn Bxdf>>,
+pub struct Bsdf<'a> {
+    bxdfs: Vec<&'a dyn Bxdf>,
     n_geom: Normal<f32>,
     n_shading: Normal<f32>,
     s_shading: Vec3<f32>,
     t_shading: Vec3<f32>,
 }
 
-impl Bsdf {
+impl<'a> Bsdf<'a> {
     /// Initializes `Bsdf` for given [`SurfaceInteraction`].
     /// Note that [`SurfaceInteraction::set_shading_geometry()`] should be called before this
     /// if shading geometry is different from the surface geometry
@@ -98,7 +98,7 @@ impl Bsdf {
     }
 
     /// Adds 'bxdf' into this [`Bsdf`].
-    pub fn add(&mut self, bxdf: Box<dyn Bxdf>) {
+    pub fn add(&mut self, bxdf: &'a dyn Bxdf) {
         self.bxdfs.push(bxdf);
     }
 

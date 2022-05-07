@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{interaction::SurfaceInteraction, math::Spectrum, textures::Texture};
 
+use allocators::ScopedScratch;
 use std::sync::Arc;
 
 pub struct Glass {
@@ -23,14 +24,18 @@ impl Glass {
 }
 
 impl Material for Glass {
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
+    fn compute_scattering_functions<'a>(
+        &self,
+        scratch: &'a ScopedScratch,
+        si: &SurfaceInteraction,
+    ) -> Bsdf<'a> {
         let mut bsdf = Bsdf::new(si);
-        bsdf.add(Box::new(specular::Reflection::new(
+        bsdf.add(scratch.alloc(specular::Reflection::new(
             self.r.evaluate(si),
-            Box::new(fresnel::Dielectric::new(1.0, self.eta)),
+            scratch.alloc(fresnel::Dielectric::new(1.0, self.eta)),
         )));
 
-        bsdf.add(Box::new(specular::Transmission::new(
+        bsdf.add(scratch.alloc(specular::Transmission::new(
             self.t.evaluate(si),
             1.0,
             self.eta,

@@ -4,18 +4,19 @@ use crate::math::{Normal, Point2, Spectrum, Vec3};
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission
 
-pub struct Reflection {
+#[derive(Clone, Copy)]
+pub struct Reflection<'a> {
     r: Spectrum<f32>,
-    fresnel: Box<dyn Fresnel>,
+    fresnel: &'a dyn Fresnel,
 }
 
-impl Reflection {
-    pub fn new(r: Spectrum<f32>, fresnel: Box<dyn Fresnel>) -> Self {
+impl<'a> Reflection<'a> {
+    pub fn new(r: Spectrum<f32>, fresnel: &'a dyn Fresnel) -> Self {
         Self { r, fresnel }
     }
 }
 
-impl Bxdf for Reflection {
+impl<'a> Bxdf for Reflection<'a> {
     fn f(&self, _: Vec3<f32>, _: Vec3<f32>) -> Spectrum<f32> {
         Spectrum::zeros()
     }

@@ -1,3 +1,4 @@
+use allocators::ScopedScratch;
 use std::sync::Arc;
 
 use super::{mesh::Mesh, Hit, Shape};
@@ -212,7 +213,11 @@ impl Shape for Triangle {
         self.mesh.transform_swaps_handedness
     }
 
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
-        self.material.compute_scattering_functions(si)
+    fn compute_scattering_functions<'a>(
+        &self,
+        scratch: &'a ScopedScratch,
+        si: &SurfaceInteraction,
+    ) -> Bsdf<'a> {
+        self.material.compute_scattering_functions(scratch, si)
     }
 }

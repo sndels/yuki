@@ -1,3 +1,4 @@
+use allocators::{LinearAllocator, ScopedScratch};
 use approx::relative_ne;
 use glium::glutin;
 use glium::{
@@ -810,7 +811,10 @@ fn launch_debug_ray(
                 p_film: p_film + sampler.get_2d(),
             });
 
-            let result = integrator.li(ray, scene, 0, &mut sampler, true);
+            let mut alloc = LinearAllocator::new(1024 * 256);
+            let scratch = ScopedScratch::new(&mut alloc);
+
+            let result = integrator.li(&scratch, ray, scene, 0, &mut sampler, true);
             Some(result.rays)
         }
     } else {

@@ -10,6 +10,7 @@ use crate::{
     shapes::Hit,
 };
 
+use allocators::ScopedScratch;
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Deserialize, Serialize)]
@@ -36,6 +37,7 @@ impl Whitted {
 
     fn specular_contribution(
         &self,
+        scratch: &ScopedScratch,
         si: &SurfaceInteraction,
         bsdf: &Bsdf,
         scene: &Scene,
@@ -52,7 +54,7 @@ impl Whitted {
         } else {
             let refl = Interaction::from(si).spawn_ray(wi);
 
-            let mut ret = self.li(refl, scene, depth + 1, sampler, collect_rays);
+            let mut ret = self.li(scratch, refl, scene, depth + 1, sampler, collect_rays);
             ret.li = f * ret.li * wi.dot_n(si.shading.n).abs();
 
             ret
@@ -63,13 +65,14 @@ impl Whitted {
 impl Integrator for Whitted {
     fn li(
         &self,
+        scratch: &ScopedScratch,
         ray: Ray<f32>,
         scene: &Scene,
         depth: u32,
         sampler: &mut Box<dyn Sampler>,
         collect_rays: bool,
     ) -> RadianceResult {
-        let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
+        let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
 
         let min_debug_ray_length = {
             let bounds = scene.bvh.bounds();
@@ -129,6 +132,7 @@ impl Integrator for Whitted {
                             ray_scene_intersections,
                             mut rays,
                         } = self.specular_contribution(
+                            scratch,
                             &si,
                             bsdf.as_ref().unwrap(),
                             scene,

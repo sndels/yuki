@@ -6,6 +6,8 @@ pub use mesh::Mesh;
 pub use sphere::Sphere;
 pub use triangle::Triangle;
 
+use allocators::ScopedScratch;
+
 use crate::{
     interaction::SurfaceInteraction,
     materials::Bsdf,
@@ -15,12 +17,12 @@ use crate::{
 // Based on Physically Based Rendering 3rd ed.
 // http://www.pbr-book.org/3ed-2018/Shapes/Basic_Shape_Interface.html#Shape
 
-pub struct Hit {
+pub struct Hit<'a> {
     pub t: f32,
     pub si: SurfaceInteraction,
     // Don't store in SurfaceInteraction like in pbrt to make lifetimes simpler
     // with allocator
-    pub bsdf: Option<Bsdf>,
+    pub bsdf: Option<Bsdf<'a>>,
 }
 
 pub trait Shape: Send + Sync {
@@ -31,5 +33,9 @@ pub trait Shape: Send + Sync {
     /// Returns `true` if the `Shape`s transform swaps coordinate system handedness
     fn transform_swaps_handedness(&self) -> bool;
     /// Computes the scattering functions for the intersection
-    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf;
+    fn compute_scattering_functions<'a>(
+        &self,
+        scratch: &'a ScopedScratch,
+        si: &SurfaceInteraction,
+    ) -> Bsdf<'a>;
 }

@@ -10,6 +10,7 @@ use crate::{
     shapes::Hit,
 };
 
+use allocators::ScopedScratch;
 use serde::{Deserialize, Serialize};
 
 // Based on Physically Based Rendering 3rd ed.
@@ -41,6 +42,7 @@ impl Path {
 impl Integrator for Path {
     fn li(
         &self,
+        scratch: &ScopedScratch,
         mut ray: Ray<f32>,
         scene: &Scene,
         _depth: u32,
@@ -76,7 +78,7 @@ impl Integrator for Path {
             }
             ray_count += 1;
 
-            let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
+            let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
 
             if let Some(Hit { si, t, bsdf }) = hit {
                 if collect_rays {
