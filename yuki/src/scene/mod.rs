@@ -194,16 +194,22 @@ impl Scene {
 
         // Walls
         {
+            const LEFT: f32 = 555.0;
+            const RIGHT: f32 = 0.0;
+            const BOTTOM: f32 = 0.0;
+            const TOP: f32 = 550.0;
+            const FRONT: f32 = 0.0;
+            const BACK: f32 = 560.0;
             let wall_meshes = vec![
                 // Floor
                 Arc::new(Mesh::new(
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 0.0, 559.2),
-                        Point3::new(549.6, 0.0, 559.2),
-                        Point3::new(552.8, 0.0, 0.0),
-                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(RIGHT, BOTTOM, BACK),
+                        Point3::new(LEFT, BOTTOM, BACK),
+                        Point3::new(LEFT, BOTTOM, FRONT),
+                        Point3::new(RIGHT, BOTTOM, FRONT),
                     ],
                     Vec::new(),
                 )),
@@ -212,10 +218,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 548.8, 0.0),
-                        Point3::new(556.0, 548.8, 0.0),
-                        Point3::new(556.0, 548.8, 559.2),
-                        Point3::new(0.0, 548.8, 559.2),
+                        Point3::new(RIGHT, TOP, FRONT),
+                        Point3::new(LEFT, TOP, FRONT),
+                        Point3::new(LEFT, TOP, BACK),
+                        Point3::new(RIGHT, TOP, BACK),
                     ],
                     Vec::new(),
                 )),
@@ -224,10 +230,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 548.8, 559.2),
-                        Point3::new(556.0, 548.8, 559.2),
-                        Point3::new(549.6, 0.0, 559.2),
-                        Point3::new(0.0, 0.0, 559.2),
+                        Point3::new(RIGHT, TOP, BACK),
+                        Point3::new(LEFT, TOP, BACK),
+                        Point3::new(LEFT, BOTTOM, BACK),
+                        Point3::new(RIGHT, BOTTOM, BACK),
                     ],
                     Vec::new(),
                 )),
@@ -236,10 +242,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(0.0, 548.8, 0.0),
-                        Point3::new(0.0, 548.8, 559.2),
-                        Point3::new(0.0, 0.0, 559.2),
-                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(RIGHT, TOP, FRONT),
+                        Point3::new(RIGHT, TOP, BACK),
+                        Point3::new(RIGHT, BOTTOM, BACK),
+                        Point3::new(RIGHT, BOTTOM, FRONT),
                     ],
                     Vec::new(),
                 )),
@@ -248,10 +254,10 @@ impl Scene {
                     &handedness_swap,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
-                        Point3::new(552.8, 0.0, 0.0),
-                        Point3::new(549.6, 0.0, 559.2),
-                        Point3::new(556.0, 548.8, 559.2),
-                        Point3::new(556.0, 548.8, 0.0),
+                        Point3::new(LEFT, BOTTOM, FRONT),
+                        Point3::new(LEFT, BOTTOM, BACK),
+                        Point3::new(LEFT, TOP, BACK),
+                        Point3::new(LEFT, TOP, FRONT),
                     ],
                     Vec::new(),
                 )),
