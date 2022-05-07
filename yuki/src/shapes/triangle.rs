@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::{mesh::Mesh, Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
-    materials::Material,
+    materials::{Bsdf, Material},
     math::{coordinate_system, Bounds3, Normal, Point2, Ray, Vec3},
 };
 
@@ -197,9 +197,7 @@ impl Shape for Triangle {
             si.set_shading_geometry(ss, ts);
         }
 
-        si.bsdf = Some(self.material.compute_scattering_functions(&si));
-
-        Some(Hit { t, si })
+        Some(Hit { t, si, bsdf: None })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {
@@ -212,5 +210,9 @@ impl Shape for Triangle {
 
     fn transform_swaps_handedness(&self) -> bool {
         self.mesh.transform_swaps_handedness
+    }
+
+    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
+        self.material.compute_scattering_functions(si)
     }
 }

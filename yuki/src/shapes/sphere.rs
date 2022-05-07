@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::{Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
-    materials::Material,
+    materials::{Bsdf, Material},
     math::{Bounds3, Point3, Ray, Transform, Vec3},
 };
 
@@ -101,10 +101,9 @@ impl Shape for Sphere {
                 * (theta_max - theta_min);
             (dpdu, dpdv)
         };
-        let mut si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self);
-        si.bsdf = Some(self.material.compute_scattering_functions(&si));
+        let si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self);
 
-        Some(Hit { t, si })
+        Some(Hit { t, si, bsdf: None })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {
@@ -113,5 +112,9 @@ impl Shape for Sphere {
 
     fn transform_swaps_handedness(&self) -> bool {
         self.transform_swaps_handedness
+    }
+
+    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf {
+        self.material.compute_scattering_functions(si)
     }
 }

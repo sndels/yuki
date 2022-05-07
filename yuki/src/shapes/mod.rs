@@ -8,6 +8,7 @@ pub use triangle::Triangle;
 
 use crate::{
     interaction::SurfaceInteraction,
+    materials::Bsdf,
     math::{Bounds3, Ray},
 };
 
@@ -17,6 +18,9 @@ use crate::{
 pub struct Hit {
     pub t: f32,
     pub si: SurfaceInteraction,
+    // Don't store in SurfaceInteraction like in pbrt to make lifetimes simpler
+    // with allocator
+    pub bsdf: Option<Bsdf>,
 }
 
 pub trait Shape: Send + Sync {
@@ -26,4 +30,6 @@ pub trait Shape: Send + Sync {
     fn world_bound(&self) -> Bounds3<f32>;
     /// Returns `true` if the `Shape`s transform swaps coordinate system handedness
     fn transform_swaps_handedness(&self) -> bool;
+    /// Computes the scattering functions for the intersection
+    fn compute_scattering_functions(&self, si: &SurfaceInteraction) -> Bsdf;
 }

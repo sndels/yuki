@@ -1,5 +1,4 @@
 use crate::{
-    materials::Bsdf,
     math::{Normal, Point3, Ray, Transform, Vec3},
     shapes::Shape,
 };
@@ -85,7 +84,6 @@ pub struct SurfaceInteraction {
     pub n: Normal<f32>,
     pub shading: ShadingGeometry,
     pub wo: Vec3<f32>,
-    pub bsdf: Option<Bsdf>,
     shape_transform_swaps_handedness: bool,
 }
 
@@ -114,7 +112,6 @@ impl SurfaceInteraction {
             n,
             shading: ShadingGeometry { n, dpdu, dpdv },
             wo,
-            bsdf: None,
             shape_transform_swaps_handedness,
         }
     }
@@ -143,7 +140,6 @@ impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
             wo: (self * other.wo).normalized(),
             n,
             shading,
-            bsdf: other.bsdf,
             shape_transform_swaps_handedness: other.shape_transform_swaps_handedness,
         };
         ret.shading.n = ret.shading.n.faceforward_n(ret.n);

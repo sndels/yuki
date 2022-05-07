@@ -3,7 +3,7 @@ use crate::{
     bvh::IntersectionResult,
     interaction::{Interaction, SurfaceInteraction},
     lights::LightSample,
-    materials::{BxdfSample, BxdfType},
+    materials::{Bsdf, BxdfSample, BxdfType},
     math::{Point2, Ray, Spectrum},
     sampling::Sampler,
     scene::Scene,
@@ -37,6 +37,7 @@ impl Whitted {
     fn specular_contribution(
         &self,
         si: &SurfaceInteraction,
+        bsdf: &Bsdf,
         scene: &Scene,
         depth: u32,
         sampler: &mut Box<dyn Sampler>,
@@ -45,11 +46,7 @@ impl Whitted {
     ) -> RadianceResult {
         let BxdfSample {
             wi, f, sample_type, ..
-        } = si.bsdf.as_ref().unwrap().sample_f(
-            si.wo,
-            Point2::new(0.0, 0.0),
-            BxdfType::SPECULAR | ray_type,
-        );
+        } = bsdf.sample_f(si.wo, Point2::new(0.0, 0.0), BxdfType::SPECULAR | ray_type);
         if sample_type == BxdfType::NONE {
             RadianceResult::default()
         } else {
@@ -95,7 +92,7 @@ impl Integrator for Whitted {
         } else {
             Vec::new()
         };
-        let (incoming_radiance, ray_count) = if let Some(Hit { si, t, .. }) = hit {
+        let (incoming_radiance, ray_count) = if let Some(Hit { si, t, bsdf }) = hit {
             if collect_rays {
                 collected_rays[0].ray.t_max = t;
                 collected_rays.push(IntegratorRay {
@@ -108,7 +105,7 @@ impl Integrator for Whitted {
             let mut sum_li = scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                 let LightSample { l, li, vis } = l.sample_li(&si);
                 if !li.is_black() {
-                    let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                    let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                     if let Some(test) = vis {
                         if collect_rays {
                             collected_rays.push(IntegratorRay {
@@ -133,6 +130,7 @@ impl Integrator for Whitted {
                             mut rays,
                         } = self.specular_contribution(
                             &si,
+                            bsdf.as_ref().unwrap(),
                             scene,
                             depth,
                             sampler,

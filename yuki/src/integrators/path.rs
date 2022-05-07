@@ -78,7 +78,7 @@ impl Integrator for Path {
 
             let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
-            if let Some(Hit { si, t, .. }) = hit {
+            if let Some(Hit { si, t, bsdf }) = hit {
                 if collect_rays {
                     collected_rays[0].ray.t_max = t;
                     collected_rays.push(IntegratorRay {
@@ -91,7 +91,7 @@ impl Integrator for Path {
                     * scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                         let LightSample { l, li, vis } = l.sample_li(&si);
                         if !li.is_black() {
-                            let f = si.bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                            let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
                             if let Some(test) = vis {
                                 if collect_rays {
                                     collected_rays.push(IntegratorRay {
@@ -113,8 +113,7 @@ impl Integrator for Path {
                     f,
                     pdf,
                     sample_type,
-                } = si
-                    .bsdf
+                } = bsdf
                     .as_ref()
                     .unwrap()
                     .sample_f(wo, sampler.get_2d(), BxdfType::all());

@@ -199,14 +199,18 @@ impl BoundingVolumeHierarchy {
                         let shape_range = (first_shape_index as usize)
                             ..((first_shape_index + (shape_count as u32)) as usize);
                         for shape in &self.shapes[shape_range] {
-                            if let Some(new_hit) = shape.intersect(ray) {
+                            if let Some(mut new_hit) = shape.intersect(ray) {
                                 if let Some(old_hit) = hit.as_ref() {
                                     if new_hit.t < old_hit.t {
                                         ray.t_max = new_hit.t;
+                                        new_hit.bsdf =
+                                            Some(shape.compute_scattering_functions(&new_hit.si));
                                         hit = Some(new_hit);
                                     }
                                 } else {
                                     ray.t_max = new_hit.t;
+                                    new_hit.bsdf =
+                                        Some(shape.compute_scattering_functions(&new_hit.si));
                                     hit = Some(new_hit);
                                 }
                             }
