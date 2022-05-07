@@ -87,7 +87,7 @@ pub struct IntegratorRay {
     pub ray_type: RayType,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RayType {
     Direct,
     Reflection,

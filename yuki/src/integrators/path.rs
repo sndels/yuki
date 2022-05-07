@@ -59,6 +59,7 @@ impl Integrator for Path {
         let mut incoming_radiance = Spectrum::zeros();
         let mut beta = Spectrum::ones();
         let mut bounces = 0;
+        let mut specular_bounce = false;
         let mut ray_count = 0;
         let mut ray_type = RayType::Direct;
         while bounces < self.max_depth {
@@ -87,6 +88,10 @@ impl Integrator for Path {
                         ray: Ray::new(si.p, si.n.into(), min_debug_ray_length),
                         ray_type: RayType::Normal,
                     });
+                }
+
+                if bounces == 0 || specular_bounce {
+                    incoming_radiance += beta * si.emitted_radiance(-ray.d);
                 }
 
                 incoming_radiance += beta
@@ -124,6 +129,7 @@ impl Integrator for Path {
                 if f.is_black() || pdf == 0.0 {
                     break;
                 }
+                specular_bounce = sample_type.contains(BxdfType::SPECULAR);
 
                 beta *= f * wi.dot_n(si.shading.n).abs() / pdf;
                 ray = Interaction::from(&si).spawn_ray(wi);

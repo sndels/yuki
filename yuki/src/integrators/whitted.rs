@@ -54,16 +54,22 @@ impl Whitted {
         } else {
             let refl = Interaction::from(si).spawn_ray(wi);
 
-            let mut ret = self.li(scratch, refl, scene, depth + 1, sampler, collect_rays);
+            let mut ret = self.li_internal(
+                scratch,
+                refl,
+                scene,
+                depth + 1,
+                sampler,
+                collect_rays,
+                sample_type.contains(BxdfType::SPECULAR),
+            );
             ret.li = f * ret.li * wi.dot_n(si.shading.n).abs();
 
             ret
         }
     }
-}
 
-impl Integrator for Whitted {
-    fn li(
+    fn li_internal(
         &self,
         scratch: &ScopedScratch,
         ray: Ray<f32>,
@@ -71,6 +77,7 @@ impl Integrator for Whitted {
         depth: u32,
         sampler: &mut Box<dyn Sampler>,
         collect_rays: bool,
+        is_specular: bool,
     ) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
 
@@ -124,6 +131,10 @@ impl Integrator for Whitted {
                 c
             });
 
+            if depth == 0 || is_specular {
+                sum_li += si.emitted_radiance(-ray.d);
+            }
+
             if depth + 1 < self.max_depth {
                 macro_rules! spec {
                     ($t:expr, $rt:expr) => {{
@@ -163,5 +174,19 @@ impl Integrator for Whitted {
             ray_scene_intersections: ray_count,
             rays: collected_rays,
         }
+    }
+}
+
+impl Integrator for Whitted {
+    fn li(
+        &self,
+        scratch: &ScopedScratch,
+        ray: Ray<f32>,
+        scene: &Scene,
+        depth: u32,
+        sampler: &mut Box<dyn Sampler>,
+        collect_rays: bool,
+    ) -> RadianceResult {
+        self.li_internal(scratch, ray, scene, depth, sampler, collect_rays, false)
     }
 }
