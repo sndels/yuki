@@ -6,7 +6,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "clippy",
             ],
             "options": {
@@ -24,7 +23,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "build",
                 "--release",
             ],
@@ -43,7 +41,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "build",
                 "--profile=dev-optimized",
             ],
@@ -62,7 +59,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "build",
             ],
             "options": {
@@ -80,7 +76,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "check",
                 "--bin",
                 "yuki"
@@ -97,7 +92,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "build",
                 "--release"
             ],
@@ -116,7 +110,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "test",
                 "tests"
             ],
@@ -132,7 +125,6 @@
             "group": "build",
             "command": "cargo",
             "args": [
-                "+nightly",
                 "doc",
                 "--open"
             ],

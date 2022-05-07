@@ -825,7 +825,7 @@ fn sampled_spectrum_into_rgb(lambda: &[f32], samples: &[f32]) -> Spectrum<f32> {
         lambda.len() == samples.len(),
         "Sample count doesn't match the number of wavelengths"
     );
-    if !lambda.is_sorted() {
+    if !is_sorted(lambda) {
         let mut sorted_pairs: Vec<(&f32, &f32)> = lambda.iter().zip(samples.iter()).collect();
         sorted_pairs.sort_unstable_by(|p0, p1| p0.0.partial_cmp(p1.0).unwrap());
 
@@ -857,6 +857,15 @@ fn sampled_spectrum_into_rgb(lambda: &[f32], samples: &[f32]) -> Spectrum<f32> {
         -0.969_256 * xyz.0 + 1.875_991 * xyz.1 + 0.041_556 * xyz.2,
         0.055_648 * xyz.0 - 0.204_043 * xyz.1 + 1.057_311 * xyz.2,
     )
+}
+
+fn is_sorted<T: PartialOrd + Copy>(values: &[T]) -> bool {
+    for i in 0..(values.len() - 1) {
+        if values[i].gt(&values[i + 1]) {
+            return false;
+        }
+    }
+    true
 }
 
 const N_COPPER_SAMPLES: usize = 56;

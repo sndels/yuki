@@ -6,13 +6,11 @@ Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http:
 
 ## Running
 
-Nightly rust is required and the project can be run most easily with
+The project can be run most easily with
 
 ```
-cd yuki && cargo +nightly run --release
+cd yuki && cargo run --release
 ```
-
-Due to the nature of nightly rust, things might spontaneously break depending on the release. 1.62.0-nightly (f4ec0e7cf 2022-04-22) should work, however.
 
 ## Goals
 - Explore offline rendering techniques
