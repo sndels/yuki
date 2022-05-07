@@ -202,10 +202,20 @@ impl Scene {
         // for simplicity
         const LEFT: f32 = 555.0;
         const RIGHT: f32 = 0.0;
+        const X_CENTER: f32 = (LEFT + RIGHT) / 2.0;
         const BOTTOM: f32 = 0.0;
         const TOP: f32 = 550.0;
         const FRONT: f32 = 0.0;
         const BACK: f32 = 560.0;
+        const Z_CENTER: f32 = (FRONT + BACK) / 2.0;
+        const HEIGHT: f32 = TOP - BOTTOM;
+        const LIGHT_WH: f32 = 100.0;
+        const LIGHT_HALF_WH: f32 = LIGHT_WH / 2.0;
+        const LIGHT_FRONT: f32 = Z_CENTER - LIGHT_HALF_WH;
+        const LIGHT_BACK: f32 = Z_CENTER + LIGHT_HALF_WH;
+        const LIGHT_LEFT: f32 = X_CENTER + LIGHT_HALF_WH;
+        const LIGHT_RIGHT: f32 = X_CENTER - LIGHT_HALF_WH;
+        const HOLE_TOP: f32 = TOP + HEIGHT * 0.025;
 
         // Walls
         {
@@ -222,15 +232,99 @@ impl Scene {
                     ],
                     Vec::new(),
                 )),
-                // Ceiling
+                // Ceiling, front
                 Arc::new(Mesh::new(
                     &handedness_swap_and_into_meters,
                     vec![0, 1, 2, 0, 2, 3],
                     vec![
                         Point3::new(RIGHT, TOP, FRONT),
                         Point3::new(LEFT, TOP, FRONT),
+                        Point3::new(LEFT, TOP, LIGHT_FRONT),
+                        Point3::new(RIGHT, TOP, LIGHT_FRONT),
+                    ],
+                    Vec::new(),
+                )),
+                // Ceiling, back
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(RIGHT, TOP, LIGHT_BACK),
+                        Point3::new(LEFT, TOP, LIGHT_BACK),
                         Point3::new(LEFT, TOP, BACK),
                         Point3::new(RIGHT, TOP, BACK),
+                    ],
+                    Vec::new(),
+                )),
+                // Ceiling, left
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(LIGHT_LEFT, TOP, FRONT),
+                        Point3::new(LEFT, TOP, FRONT),
+                        Point3::new(LEFT, TOP, BACK),
+                        Point3::new(LIGHT_LEFT, TOP, BACK),
+                    ],
+                    Vec::new(),
+                )),
+                // Ceiling, right
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(RIGHT, TOP, FRONT),
+                        Point3::new(LIGHT_RIGHT, TOP, FRONT),
+                        Point3::new(LIGHT_RIGHT, TOP, BACK),
+                        Point3::new(RIGHT, TOP, BACK),
+                    ],
+                    Vec::new(),
+                )),
+                // Hole, front
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 2, 1, 0, 3, 2],
+                    vec![
+                        Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_FRONT),
+                        Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_FRONT),
+                        Point3::new(LIGHT_LEFT, TOP, LIGHT_FRONT),
+                        Point3::new(LIGHT_RIGHT, TOP, LIGHT_FRONT),
+                    ],
+                    Vec::new(),
+                )),
+                // Hole, front
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_LEFT, TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_RIGHT, TOP, LIGHT_BACK),
+                    ],
+                    Vec::new(),
+                )),
+                // Hole, left
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(LIGHT_LEFT, TOP, LIGHT_FRONT),
+                        Point3::new(LIGHT_LEFT, TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_FRONT),
+                    ],
+                    Vec::new(),
+                )),
+                // Hole, right
+                Arc::new(Mesh::new(
+                    &handedness_swap_and_into_meters,
+                    vec![0, 1, 2, 0, 2, 3],
+                    vec![
+                        Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_FRONT),
+                        Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_RIGHT, TOP, LIGHT_BACK),
+                        Point3::new(LIGHT_RIGHT, TOP, LIGHT_FRONT),
                     ],
                     Vec::new(),
                 )),
@@ -276,9 +370,17 @@ impl Scene {
                 Arc::clone(&white),
                 Arc::clone(&white),
                 Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
+                Arc::clone(&white),
                 green,
                 red,
             ];
+            assert!(materials.len() == wall_meshes.len());
             for (mesh, material) in wall_meshes.iter().zip(materials.iter()) {
                 for v0 in (0..mesh.indices.len()).step_by(3) {
                     shapes.push(Arc::new(Triangle::new(
@@ -331,18 +433,12 @@ impl Scene {
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
 
         let light = {
-            let size = Vec2::new(0.05, 0.05);
+            let size = Vec2::new(LIGHT_WH, LIGHT_WH) / 1000.0;
             let area = size.x * size.y;
             let power = 2.0;
             let radiance = power / (area * std::f32::consts::PI);
             Arc::new(RectangularLight::new(
-                &translation(
-                    Vec3::new(
-                        (LEFT + RIGHT) / 2.0,
-                        TOP - (TOP - BOTTOM) * 0.001,
-                        -(FRONT + BACK) / 2.0,
-                    ) / 1000.0,
-                ),
+                &translation(Vec3::new(X_CENTER, HOLE_TOP, -Z_CENTER) / 1000.0),
                 Spectrum::ones() * radiance,
                 size,
             ))
