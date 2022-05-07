@@ -6,7 +6,7 @@ use crate::{
     bvh::{BoundingVolumeHierarchy, SplitMethod},
     camera::{CameraParameters, FoV},
     film::FilmSettings,
-    lights::{Light, PointLight, RectangularLight},
+    lights::{AreaLight, Light, PointLight, RectangularLight},
     materials::{Glass, Material, Matte, Metal},
     math::{
         transforms::{scale, translation},
@@ -179,6 +179,10 @@ impl Scene {
             Arc::new(ConstantTexture::new(Spectrum::new(0.0, 180.0, 0.0) / 255.0)),
             Arc::new(ConstantTexture::new(0.0)),
         ));
+        let blackbody = Arc::new(Matte::new(
+            Arc::new(ConstantTexture::new(Spectrum::zeros())),
+            Arc::new(ConstantTexture::new(0.0)),
+        ));
         let copper = Arc::new(Metal::new(
             Arc::new(ConstantTexture::new(Spectrum::new(
                 0.271_05, 0.676_93, 1.316_40,
@@ -194,6 +198,18 @@ impl Scene {
             Arc::new(ConstantTexture::new(Spectrum::ones())),
             1.5,
         ));
+
+        let light = {
+            let size = Vec2::new(LIGHT_WH, LIGHT_WH) / 1000.0;
+            let area = size.x * size.y;
+            let power = 2.0;
+            let radiance = power / (area * std::f32::consts::PI);
+            Arc::new(RectangularLight::new(
+                &translation(Vec3::new(X_CENTER, HOLE_TOP, -Z_CENTER) / 1000.0),
+                Spectrum::ones() * radiance,
+                size,
+            ))
+        };
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
@@ -216,6 +232,30 @@ impl Scene {
         const LIGHT_LEFT: f32 = X_CENTER + LIGHT_HALF_WH;
         const LIGHT_RIGHT: f32 = X_CENTER - LIGHT_HALF_WH;
         const HOLE_TOP: f32 = TOP + HEIGHT * 0.025;
+
+        // Light
+        {
+            let mesh = Arc::new(Mesh::new(
+                &handedness_swap_and_into_meters,
+                vec![0, 1, 2, 0, 2, 3],
+                vec![
+                    Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_FRONT),
+                    Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_FRONT),
+                    Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_BACK),
+                    Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_BACK),
+                ],
+                Vec::new(),
+            ));
+            for v0 in (0..mesh.indices.len()).step_by(3) {
+                shapes.push(Arc::new(Triangle::new(
+                    Arc::clone(&mesh),
+                    v0,
+                    Arc::clone(&blackbody) as Arc<dyn Material>,
+                    Some(Arc::clone(&light) as Arc<dyn AreaLight>),
+                )));
+            }
+            meshes.push(mesh);
+        }
 
         // Walls
         {
@@ -387,6 +427,7 @@ impl Scene {
                         Arc::clone(mesh),
                         v0,
                         Arc::<Matte>::clone(material),
+                        None,
                     )));
                 }
             }
@@ -419,6 +460,7 @@ impl Scene {
                     Arc::clone(&mesh),
                     v0,
                     Arc::<Glass>::clone(&glass),
+                    None,
                 )));
             }
             meshes.push(mesh);
@@ -431,18 +473,6 @@ impl Scene {
         )));
 
         let (bvh, shapes) = BoundingVolumeHierarchy::new(shapes, 1, SplitMethod::Middle);
-
-        let light = {
-            let size = Vec2::new(LIGHT_WH, LIGHT_WH) / 1000.0;
-            let area = size.x * size.y;
-            let power = 2.0;
-            let radiance = power / (area * std::f32::consts::PI);
-            Arc::new(RectangularLight::new(
-                &translation(Vec3::new(X_CENTER, HOLE_TOP, -Z_CENTER) / 1000.0),
-                Spectrum::ones() * radiance,
-                size,
-            ))
-        };
 
         let cam_pos = Point3::new(0.278, 0.273, 0.800);
         let cam_target = Point3::new(0.278, 0.273, -0.260);

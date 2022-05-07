@@ -108,7 +108,12 @@ pub fn load(
     let shapes: Vec<Arc<dyn Shape>> = (0..mesh.indices.len())
         .step_by(3)
         .map(|v0| {
-            Arc::new(Triangle::new(Arc::clone(&mesh), v0, Arc::clone(material))) as Arc<dyn Shape>
+            Arc::new(Triangle::new(
+                Arc::clone(&mesh),
+                v0,
+                Arc::clone(material),
+                None,
+            )) as Arc<dyn Shape>
         })
         .collect();
     yuki_trace!(

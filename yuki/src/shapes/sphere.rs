@@ -102,7 +102,7 @@ impl Shape for Sphere {
                 * (theta_max - theta_min);
             (dpdu, dpdv)
         };
-        let si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self);
+        let si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self, None);
 
         Some(Hit { t, si, bsdf: None })
     }

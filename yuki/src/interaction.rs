@@ -1,8 +1,9 @@
 use crate::{
-    math::{Normal, Point3, Ray, Transform, Vec3},
+    lights::AreaLight,
+    math::{Normal, Point3, Ray, Spectrum, Transform, Vec3},
     shapes::Shape,
 };
-use std::ops::Mul;
+use std::{ops::Mul, sync::Arc};
 
 // Based on Physically Based Rendering 3rd ed.
 // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Interactions#SurfaceInteraction
@@ -85,6 +86,7 @@ pub struct SurfaceInteraction {
     pub shading: ShadingGeometry,
     pub wo: Vec3<f32>,
     shape_transform_swaps_handedness: bool,
+    area_light: Option<Arc<dyn AreaLight>>,
 }
 
 impl SurfaceInteraction {
@@ -95,6 +97,7 @@ impl SurfaceInteraction {
         dpdu: Vec3<f32>,
         dpdv: Vec3<f32>,
         shape: &dyn Shape,
+        area_light: Option<Arc<dyn AreaLight>>,
     ) -> Self {
         let shape_transform_swaps_handedness = shape.transform_swaps_handedness();
         let n = {
@@ -113,6 +116,7 @@ impl SurfaceInteraction {
             shading: ShadingGeometry { n, dpdu, dpdv },
             wo,
             shape_transform_swaps_handedness,
+            area_light,
         }
     }
 
@@ -122,6 +126,12 @@ impl SurfaceInteraction {
 
         self.shading.dpdu = dpdus;
         self.shading.dpdv = dpdvs;
+    }
+
+    pub fn emitted_radiance(&self, w: Vec3<f32>) -> Spectrum<f32> {
+        self.area_light
+            .as_ref()
+            .map_or(Spectrum::zeros(), |l| l.radiance(self, w))
     }
 }
 
@@ -140,6 +150,7 @@ impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
             wo: (self * other.wo).normalized(),
             n,
             shading,
+            area_light: other.area_light,
             shape_transform_swaps_handedness: other.shape_transform_swaps_handedness,
         };
         ret.shading.n = ret.shading.n.faceforward_n(ret.n);

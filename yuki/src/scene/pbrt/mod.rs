@@ -657,6 +657,7 @@ pub fn load(
                                     Arc::clone(&mesh),
                                     v0,
                                     Arc::clone(&material),
+                                    None,
                                 )) as Arc<dyn Shape>
                             })
                             .collect();

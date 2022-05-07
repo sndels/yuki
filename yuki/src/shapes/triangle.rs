@@ -4,6 +4,7 @@ use std::sync::Arc;
 use super::{mesh::Mesh, Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
+    lights::AreaLight,
     materials::{Bsdf, Material},
     math::{coordinate_system, Bounds3, Normal, Point2, Ray, Vec3},
 };
@@ -16,13 +17,19 @@ pub struct Triangle {
     mesh: Arc<Mesh>,
     vertices: [usize; 3],
     material: Arc<dyn Material>,
+    area_light: Option<Arc<dyn AreaLight>>,
 }
 
 impl Triangle {
     /// Creates a new `Triangle`.
     /// `first_vertex` is the index of the first vertex index in `mesh`'s index list.
     /// Expects counter clockwise winding
-    pub fn new(mesh: Arc<Mesh>, first_vertex: usize, material: Arc<dyn Material>) -> Self {
+    pub fn new(
+        mesh: Arc<Mesh>,
+        first_vertex: usize,
+        material: Arc<dyn Material>,
+        area_light: Option<Arc<dyn AreaLight>>,
+    ) -> Self {
         let vertices = [
             mesh.indices[first_vertex],
             mesh.indices[first_vertex + 1],
@@ -33,6 +40,7 @@ impl Triangle {
             mesh,
             vertices,
             material,
+            area_light,
         }
     }
 }
@@ -156,7 +164,8 @@ impl Shape for Triangle {
         };
 
         let p_hit = p0 * b0 + p1 * b1 + p2 * b2;
-        let mut si = SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self);
+        let mut si =
+            SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self, self.area_light.to_owned());
 
         // Authored mesh UVs might not preserve orientation, but winding order is typically constant
         let n = Normal::from(dp02.cross(dp12).normalized());
