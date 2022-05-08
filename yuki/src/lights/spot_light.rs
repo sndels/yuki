@@ -67,6 +67,7 @@ impl Light for SpotLight {
                     p: self.p,
                     ..Interaction::default()
                 },
+                None,
             ))
         };
 

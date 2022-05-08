@@ -31,6 +31,7 @@ impl Light for DistantLight {
                 p: si.p + self.w * 10000.0, // TODO: put point at distance of 2x world radius
                 ..Interaction::default()
             },
+            None,
         ));
 
         LightSample {

@@ -57,6 +57,7 @@ impl Light for RectangularLight {
         let vis = Some(VisibilityTester::new(
             Interaction::from(si),
             Interaction { p, n },
+            Some(self),
         ));
 
         let pdf = si.p.dist_sqr(p) / (n.dot_v(-wi).abs() * self.area);

@@ -37,6 +37,7 @@ impl Light for PointLight {
                 p: self.p,
                 ..Interaction::default()
             },
+            None,
         ));
 
         LightSample {

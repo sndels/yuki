@@ -86,7 +86,7 @@ pub struct SurfaceInteraction {
     pub shading: ShadingGeometry,
     pub wo: Vec3<f32>,
     shape_transform_swaps_handedness: bool,
-    area_light: Option<Arc<dyn AreaLight>>,
+    pub area_light: Option<Arc<dyn AreaLight>>,
 }
 
 impl SurfaceInteraction {

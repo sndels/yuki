@@ -19,10 +19,10 @@ use crate::{
 // https://pbr-book.org/3ed-2018/Light_Sources/Area_Lights
 
 /// Sample from a light source for visibility testing and shading
-pub struct LightSample {
+pub struct LightSample<'a> {
     pub l: Vec3<f32>,
     pub li: Spectrum<f32>,
-    pub vis: Option<VisibilityTester>,
+    pub vis: Option<VisibilityTester<'a>>,
     pub pdf: f32,
 }
 
