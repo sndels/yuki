@@ -19,22 +19,28 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct Params {
     pub max_depth: u32,
+    pub indirect_clamp: Option<f32>,
 }
 
 impl Default for Params {
     fn default() -> Self {
-        Self { max_depth: 3 }
+        Self {
+            max_depth: 3,
+            indirect_clamp: None,
+        }
     }
 }
 
 pub struct Path {
     max_depth: u32,
+    indirect_clamp: Option<f32>,
 }
 
 impl Path {
     pub fn new(params: Params) -> Self {
         Self {
             max_depth: params.max_depth,
+            indirect_clamp: params.indirect_clamp,
         }
     }
 }
@@ -90,30 +96,34 @@ impl Integrator for Path {
                     });
                 }
 
-                if bounces == 0 || specular_bounce {
-                    incoming_radiance += beta * si.emitted_radiance(-ray.d);
-                }
-
-                incoming_radiance += beta
-                    * scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
-                        let LightSample { l, li, vis, pdf } = l.sample_li(&si, sampler.get_2d());
-                        if !li.is_black() {
-                            let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
-                            if let Some(test) = vis {
-                                if collect_rays {
-                                    collected_rays.push(IntegratorRay {
-                                        ray: test.ray(),
-                                        ray_type: RayType::Shadow,
-                                    });
-                                }
-                                if !f.is_black() && test.unoccluded(scene) {
-                                    return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0)
-                                        / pdf;
-                                }
+                let mut radiance = scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
+                    let LightSample { l, li, vis, pdf } = l.sample_li(&si, sampler.get_2d());
+                    if !li.is_black() {
+                        let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                        if let Some(test) = vis {
+                            if collect_rays {
+                                collected_rays.push(IntegratorRay {
+                                    ray: test.ray(),
+                                    ray_type: RayType::Shadow,
+                                });
+                            }
+                            if !f.is_black() && test.unoccluded(scene) {
+                                return c + f * li * si.shading.n.dot_v(l).clamp(0.0, 1.0) / pdf;
                             }
                         }
-                        c
-                    });
+                    }
+                    c
+                });
+
+                if bounces == 0 || specular_bounce {
+                    radiance += beta * si.emitted_radiance(-ray.d);
+                }
+
+                if bounces > 0 && self.indirect_clamp.is_some() {
+                    radiance = radiance.min(Spectrum::ones() * self.indirect_clamp.unwrap());
+                }
+
+                incoming_radiance += beta * radiance;
 
                 let wo = -ray.d;
                 let BxdfSample {

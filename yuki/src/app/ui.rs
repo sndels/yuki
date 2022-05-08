@@ -470,13 +470,43 @@ fn generate_integrator_settings(ui: &imgui::Ui, integrator: &mut IntegratorType)
 
             ui.indent();
             match integrator {
-                IntegratorType::Whitted(WhittedParams { max_depth })
-                | IntegratorType::Path(PathParams { max_depth }) => {
+                IntegratorType::Whitted(WhittedParams { max_depth }) => {
                     let _width = ui.push_item_width(118.0);
+
                     changed |= imgui::Drag::new("Max depth##Integrator")
                         .range(1, u32::MAX)
                         .flags(imgui::SliderFlags::ALWAYS_CLAMP)
                         .build(ui, max_depth);
+                }
+                IntegratorType::Path(PathParams {
+                    max_depth,
+                    indirect_clamp,
+                }) => {
+                    let _width = ui.push_item_width(118.0);
+
+                    changed |= imgui::Drag::new("Max depth##Integrator")
+                        .range(1, u32::MAX)
+                        .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                        .build(ui, max_depth);
+
+                    let mut clamp_active = indirect_clamp.is_some();
+                    let clamp_changed =
+                        ui.checkbox("Indirect clamp##Integrator", &mut clamp_active);
+                    if clamp_changed {
+                        if clamp_active {
+                            *indirect_clamp = Some(2.0);
+                        } else {
+                            *indirect_clamp = None;
+                        }
+                        changed = true;
+                    }
+                    if let Some(c) = indirect_clamp.as_mut() {
+                        changed |= imgui::Drag::new("##IntegratorIndirectClampSlider")
+                            .range(1.0, 10.0)
+                            .speed(0.1)
+                            .flags(imgui::SliderFlags::ALWAYS_CLAMP)
+                            .build(ui, c);
+                    }
                 }
                 IntegratorType::BVHIntersections
                 | IntegratorType::GeometryNormals
