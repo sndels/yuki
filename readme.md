@@ -45,9 +45,13 @@ cd yuki && cargo run --release
 - Tile-based rendering
   - Unwinding spiral pattern
     - Camera controls usable with longer frame times than if rendered row-by-row
-  - Active work tiles are marked
+  - Active work tiles can be marked
     - Not separately cleared when film clear is disabled to minimize lag
 - BVH
+  - Splits
+    - Surface area heuristic
+    - Middle
+    - Equal counts
 - Integrator abstraction
   - Whitted
     - Direct diffuse lighting
@@ -63,6 +67,7 @@ cd yuki && cargo run --release
 - Light types
   - Point
   - Spot
+  - Rectangular
 - Material types (pbrt's Material/BSDF/BxDF abstraction)
   - Matte
     - Lambertian for rough, Oren-Nayar otherwise
