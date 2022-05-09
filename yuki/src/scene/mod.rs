@@ -152,6 +152,25 @@ impl Scene {
     /// Constructs the Cornell box holding a tall box and a sphere
     // Lifted from http://www.graphics.cornell.edu/online/box/data.html
     pub fn cornell() -> (Arc<Scene>, CameraParameters, FilmSettings, f32) {
+        // These are close to the real measurements, but let's align everything
+        // for simplicity
+        const LEFT: f32 = 555.0;
+        const RIGHT: f32 = 0.0;
+        const X_CENTER: f32 = (LEFT + RIGHT) / 2.0;
+        const BOTTOM: f32 = 0.0;
+        const TOP: f32 = 550.0;
+        const FRONT: f32 = 0.0;
+        const BACK: f32 = 560.0;
+        const Z_CENTER: f32 = (FRONT + BACK) / 2.0;
+        const HEIGHT: f32 = TOP - BOTTOM;
+        const LIGHT_WH: f32 = 100.0;
+        const LIGHT_HALF_WH: f32 = LIGHT_WH / 2.0;
+        const LIGHT_FRONT: f32 = Z_CENTER - LIGHT_HALF_WH;
+        const LIGHT_BACK: f32 = Z_CENTER + LIGHT_HALF_WH;
+        const LIGHT_LEFT: f32 = X_CENTER + LIGHT_HALF_WH;
+        const LIGHT_RIGHT: f32 = X_CENTER - LIGHT_HALF_WH;
+        const HOLE_TOP: f32 = TOP + HEIGHT * 0.025;
+
         let load_start = Instant::now();
 
         // Original uses a right-handed coordinate system so flip z
@@ -213,25 +232,6 @@ impl Scene {
 
         let mut meshes: Vec<Arc<Mesh>> = Vec::new();
         let mut shapes: Vec<Arc<dyn Shape>> = Vec::new();
-
-        // These are close to the real measurements, but let's align everything
-        // for simplicity
-        const LEFT: f32 = 555.0;
-        const RIGHT: f32 = 0.0;
-        const X_CENTER: f32 = (LEFT + RIGHT) / 2.0;
-        const BOTTOM: f32 = 0.0;
-        const TOP: f32 = 550.0;
-        const FRONT: f32 = 0.0;
-        const BACK: f32 = 560.0;
-        const Z_CENTER: f32 = (FRONT + BACK) / 2.0;
-        const HEIGHT: f32 = TOP - BOTTOM;
-        const LIGHT_WH: f32 = 100.0;
-        const LIGHT_HALF_WH: f32 = LIGHT_WH / 2.0;
-        const LIGHT_FRONT: f32 = Z_CENTER - LIGHT_HALF_WH;
-        const LIGHT_BACK: f32 = Z_CENTER + LIGHT_HALF_WH;
-        const LIGHT_LEFT: f32 = X_CENTER + LIGHT_HALF_WH;
-        const LIGHT_RIGHT: f32 = X_CENTER - LIGHT_HALF_WH;
-        const HOLE_TOP: f32 = TOP + HEIGHT * 0.025;
 
         // Light
         {

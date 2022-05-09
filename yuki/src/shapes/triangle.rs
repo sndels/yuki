@@ -165,7 +165,7 @@ impl Shape for Triangle {
 
         let p_hit = p0 * b0 + p1 * b1 + p2 * b2;
         let mut si =
-            SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self, self.area_light.to_owned());
+            SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self, self.area_light.clone());
 
         // Authored mesh UVs might not preserve orientation, but winding order is typically constant
         let n = Normal::from(dp02.cross(dp12).normalized());

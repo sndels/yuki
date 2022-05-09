@@ -19,6 +19,6 @@ impl<'a> VisibilityTester<'a> {
     }
 
     pub fn unoccluded(&self, scene: &Scene) -> bool {
-        !scene.bvh.any_intersect(self.ray(), &self.area_light)
+        !scene.bvh.any_intersect(self.ray(), self.area_light)
     }
 }

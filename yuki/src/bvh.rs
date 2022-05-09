@@ -248,7 +248,7 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Checks if`ray` intersects with any of the shapes in this `BoundingVolumeHierarchy`.
-    pub fn any_intersect(&self, ray: Ray<f32>, area_light: &Option<&dyn AreaLight>) -> bool {
+    pub fn any_intersect(&self, ray: Ray<f32>, area_light: Option<&dyn AreaLight>) -> bool {
         // Pre-calculated to speed up Bounds3 intersection tests
         let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
 
@@ -284,7 +284,10 @@ impl BoundingVolumeHierarchy {
                         for shape in &self.shapes[shape_range] {
                             if let Some(Hit { si, .. }) = shape.intersect(ray) {
                                 if let (Some(target_l), Some(l)) = (area_light, si.area_light) {
-                                    if !std::ptr::eq(l.as_ref(), *target_l) {
+                                    if !std::ptr::eq(
+                                        (l.as_ref() as *const dyn AreaLight).cast::<()>(),
+                                        (target_l as *const dyn AreaLight).cast::<()>(),
+                                    ) {
                                         return true;
                                     }
                                 } else {
