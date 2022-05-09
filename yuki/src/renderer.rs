@@ -183,7 +183,7 @@ struct ManagerState {
     active_tiles_total: usize,
     active_tiles_done: usize,
     active_render_id: usize,
-    active_children: usize,
+    active_workers: usize,
     ray_count: usize,
     tile_infos: VecDeque<TileInfo>,
 }
@@ -194,7 +194,7 @@ impl Default for ManagerState {
             active_tiles_total: 0,
             active_tiles_done: 0,
             active_render_id: 0,
-            active_children: 0,
+            active_workers: 0,
             ray_count: 0,
             tile_infos: VecDeque::new(),
         }
@@ -209,24 +209,24 @@ fn launch_manager(
         yuki_trace!("Render manager: Launch threads");
         // TODO: Keep track of how physical vs logical behaves with optimizations
         let thread_count = num_cpus::get() - 1;
-        let (child_send, from_children) = channel();
-        let children = (0..thread_count)
+        let (worker_send, from_workers) = channel();
+        let workers = (0..thread_count)
             .map(|thread| {
-                let (to_child, child_receive) = channel();
-                let child_send = child_send.clone();
+                let (to_worker, worker_receive) = channel();
+                let worker_send = worker_send.clone();
                 (
                     thread,
                     (
-                        to_child,
+                        to_worker,
                         std::thread::spawn(move || {
-                            launch_worker(thread, &child_send, &child_receive);
+                            launch_worker(thread, &worker_send, &worker_receive);
                         }),
                     ),
                 )
             })
             .collect();
 
-        // Wait for children to finish
+        // Wait for workers to finish
         'thread: loop {
             let mut state = ManagerState::default();
             let avg_tile_window = 2 * thread_count;
@@ -258,13 +258,13 @@ fn launch_manager(
                 };
 
                 if let Some(payload) = payload {
-                    propagate_payload(payload, &children, &mut state);
+                    propagate_payload(payload, &workers, &mut state);
                 } else {
-                    let active_children = state.active_children;
+                    let active_workers = state.active_workers;
 
-                    handle_child_messages(&from_children, &to_parent, avg_tile_window, &mut state);
+                    handle_worker_messages(&from_workers, &to_parent, avg_tile_window, &mut state);
 
-                    let task_finished = active_children > 0 && state.active_children == 0;
+                    let task_finished = active_workers > 0 && state.active_workers == 0;
 
                     if task_finished {
                         yuki_trace!("Render manager: Report back");
@@ -283,11 +283,11 @@ fn launch_manager(
             }
         }
 
-        // Kill children after being killed
-        if !children.is_empty() {
+        // Kill workers after being killed
+        if !workers.is_empty() {
             // Kill everyone first
-            for (tx, _) in children.values() {
-                // No need to check for error, child having disconnected, since that's our goal
+            for (tx, _) in workers.values() {
+                // No need to check for error, worker having disconnected, since that's our goal
                 drop(tx.send(None));
             }
         }
@@ -300,7 +300,7 @@ type WorkerMap = HashMap<usize, (Sender<Option<RenderThreadPayload>>, JoinHandle
 
 fn propagate_payload(
     mut payload: RenderManagerPayload,
-    children: &WorkerMap,
+    workers: &WorkerMap,
     state: &mut ManagerState,
 ) {
     let camera = Camera::new(payload.camera_params, payload.film_settings);
@@ -319,8 +319,8 @@ fn propagate_payload(
         (Arc::new(Mutex::new(tiles)), tile_count)
     };
 
-    let mut active_children = 0;
-    for (tx, _) in children.values() {
+    let mut active_workers = 0;
+    for (tx, _) in workers.values() {
         let thread_payload = RenderThreadPayload {
             render_id: payload.render_id,
             tiles: Arc::clone(&tiles),
@@ -336,7 +336,7 @@ fn propagate_payload(
             panic!("launch: Worker has been terminated");
         }
 
-        active_children += 1;
+        active_workers += 1;
 
         if payload.render_settings.use_single_render_thread {
             break;
@@ -346,13 +346,13 @@ fn propagate_payload(
     *state = ManagerState {
         active_tiles_total: tile_count,
         active_render_id: payload.render_id,
-        active_children: active_children,
+        active_workers: active_workers,
         ..Default::default()
     };
 }
 
-fn handle_child_messages(
-    from_children: &Receiver<RenderThreadMessage>,
+fn handle_worker_messages(
+    from_workers: &Receiver<RenderThreadMessage>,
     to_parent: &Sender<RenderManagerMessage>,
     avg_tile_window: usize,
     state: &mut ManagerState,
@@ -361,12 +361,12 @@ fn handle_child_messages(
         active_tiles_total,
         active_tiles_done,
         active_render_id,
-        active_children,
+        active_workers,
         ray_count,
         tile_infos,
     } = state;
 
-    while let Ok(msg) = from_children.try_recv() {
+    while let Ok(msg) = from_workers.try_recv() {
         match msg {
             RenderThreadMessage::Finished(ThreadInfo {
                 thread_id,
@@ -374,7 +374,7 @@ fn handle_child_messages(
             }) => {
                 if render_id == *active_render_id {
                     yuki_trace!("Render manager: Worker {} finished", thread_id);
-                    *active_children -= 1;
+                    *active_workers -= 1;
                 } else {
                     yuki_trace!("Render manager: Worker {} finished stale work", thread_id);
                 }
@@ -402,7 +402,7 @@ fn handle_child_messages(
 
                     let approx_remaining_s = avg_s_per_tile
                         * ((*active_tiles_total - *active_tiles_done) as f32)
-                        / (*active_children as f32);
+                        / (*active_workers as f32);
 
                     let current_rays_per_s = tile_infos
                         .iter()
@@ -410,11 +410,11 @@ fn handle_child_messages(
                         .map(|&TileInfo { elapsed_s, rays }| (rays as f32) / elapsed_s)
                         .sum::<f32>()
                         / (tile_infos.len() as f32)
-                        * (*active_children as f32);
+                        * (*active_workers as f32);
 
                     if let Err(why) = to_parent.send(RenderManagerMessage::Progress {
                         render_id: *active_render_id,
-                        active_threads: *active_children,
+                        active_threads: *active_workers,
                         tiles_done: *active_tiles_done,
                         tiles_total: *active_tiles_total,
                         approx_remaining_s,
