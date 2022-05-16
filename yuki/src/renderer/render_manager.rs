@@ -69,95 +69,106 @@ pub fn launch(
     to_parent: Sender<Message>,
     from_parent: Receiver<Option<Payload>>,
 ) -> JoinHandle<()> {
-    std::thread::spawn(move || {
-        yuki_trace!("Render manager: Launch threads");
-        // TODO: Keep track of how physical vs logical behaves with optimizations
-        let thread_count = num_cpus::get() - 1;
-        let (worker_send, from_workers) = channel();
-        let workers = (0..thread_count)
-            .map(|thread| {
-                let (to_worker, worker_receive) = channel();
-                let worker_send = worker_send.clone();
-                (
-                    thread,
+    std::thread::Builder::new()
+        .name("RenderManager".into())
+        .spawn(move || {
+            yuki_trace!("Render manager: Launch threads");
+            // TODO: Keep track of how physical vs logical behaves with optimizations
+            let thread_count = num_cpus::get() - 1;
+            let (worker_send, from_workers) = channel();
+            let workers = (0..thread_count)
+                .map(|thread| {
+                    let (to_worker, worker_receive) = channel();
+                    let worker_send = worker_send.clone();
                     (
-                        to_worker,
-                        std::thread::spawn(move || {
-                            render_worker::launch(thread, &worker_send, &worker_receive);
-                        }),
-                    ),
-                )
-            })
-            .collect();
+                        thread,
+                        (
+                            to_worker,
+                            std::thread::Builder::new()
+                                .name("RenderWorker".into())
+                                .spawn(move || {
+                                    render_worker::launch(thread, &worker_send, &worker_receive);
+                                })
+                                .expect("Failed to spawn RenderWorker"),
+                        ),
+                    )
+                })
+                .collect();
 
-        // Wait for workers to finish
-        'thread: loop {
-            let mut state = ManagerState::default();
-            let avg_tile_window = 2 * thread_count;
+            // Wait for workers to finish
+            'thread: loop {
+                let mut state = ManagerState::default();
+                let avg_tile_window = 2 * thread_count;
 
-            // Blocking recv to avoid spinlock when there is no need to message the parent
-            let mut previous_message = match from_parent.recv() {
-                Ok(msg) => Some(Ok(msg)),
-                Err(RecvError {}) => {
-                    panic!("Render manager: Receive channel disconnected")
-                }
-            };
-            'work: loop {
-                if previous_message.is_none() {
-                    previous_message = Some(from_parent.try_recv());
-                }
-                let payload = match previous_message.take().unwrap() {
-                    Ok(Some(payload)) => {
-                        yuki_debug!("Render manager: Received new payload");
-                        Some(payload)
-                    }
-                    Ok(None) => {
-                        yuki_debug!("Render manager: Killed by parent");
-                        break 'thread;
-                    }
-                    Err(TryRecvError::Disconnected) => {
+                // Blocking recv to avoid spinlock when there is no need to message the parent
+                let mut previous_message = match from_parent.recv() {
+                    Ok(msg) => Some(Ok(msg)),
+                    Err(RecvError {}) => {
                         panic!("Render manager: Receive channel disconnected")
                     }
-                    Err(TryRecvError::Empty) => None,
                 };
+                'work: loop {
+                    if previous_message.is_none() {
+                        previous_message = Some(from_parent.try_recv());
+                    }
+                    let payload = match previous_message.take().unwrap() {
+                        Ok(Some(payload)) => {
+                            yuki_debug!("Render manager: Received new payload");
+                            Some(payload)
+                        }
+                        Ok(None) => {
+                            yuki_debug!("Render manager: Killed by parent");
+                            break 'thread;
+                        }
+                        Err(TryRecvError::Disconnected) => {
+                            panic!("Render manager: Receive channel disconnected")
+                        }
+                        Err(TryRecvError::Empty) => None,
+                    };
 
-                if let Some(payload) = payload {
-                    propagate_payload(payload, &workers, &mut state);
-                } else {
-                    let active_workers = state.active_workers;
+                    if let Some(payload) = payload {
+                        propagate_payload(payload, &workers, &mut state);
+                    } else {
+                        let active_workers = state.active_workers;
 
-                    handle_worker_messages(&from_workers, &to_parent, avg_tile_window, &mut state);
+                        handle_worker_messages(
+                            &from_workers,
+                            &to_parent,
+                            avg_tile_window,
+                            &mut state,
+                        );
 
-                    let task_finished = active_workers > 0 && state.active_workers == 0;
+                        let task_finished = active_workers > 0 && state.active_workers == 0;
 
-                    if task_finished {
-                        yuki_trace!("Render manager: Report back");
-                        if let Err(why) = to_parent.send(Message::Finished {
-                            render_id: state.active_render_id,
-                            ray_count: state.ray_count,
-                        }) {
-                            yuki_error!(
-                                "Render manager: Error notifying parent on finish: {}",
-                                why
-                            );
-                        };
-                        break 'work;
+                        if task_finished {
+                            yuki_trace!("Render manager: Report back");
+                            if let Err(why) = to_parent.send(Message::Finished {
+                                render_id: state.active_render_id,
+                                ray_count: state.ray_count,
+                            }) {
+                                yuki_error!(
+                                    "Render manager: Error notifying parent on finish: {}",
+                                    why
+                                );
+                            };
+                            break 'work;
+                        }
                     }
                 }
             }
-        }
 
-        // Kill workers after being killed
-        if !workers.is_empty() {
-            // Kill everyone first
-            for (tx, _) in workers.values() {
-                // No need to check for error, worker having disconnected, since that's our goal
-                drop(tx.send(None));
+            // Kill workers after being killed
+            if !workers.is_empty() {
+                // Kill everyone first
+                for (tx, _) in workers.values() {
+                    // No need to check for error, worker having disconnected, since that's our goal
+                    drop(tx.send(None));
+                }
             }
-        }
 
-        yuki_debug!("Render manager: End");
-    })
+            yuki_debug!("Render manager: End");
+        })
+        .expect("Failed to spawn RenderManager")
 }
 
 type WorkerMap = HashMap<usize, (Sender<Option<render_worker::Payload>>, JoinHandle<()>)>;
