@@ -187,6 +187,8 @@ impl Window {
                     let redraw_start = Instant::now();
                     yuki_trace!("main_loop: RedrawRequested");
 
+                    superluminal_perf::begin_event("RedrawRequested");
+
                     if load_settings.path.exists() {
                         renderer.kill();
                         match try_load_scene(&load_settings) {
@@ -320,8 +322,12 @@ impl Window {
                     }
 
                     // Draw frame
+                    superluminal_perf::begin_event("Draw frame");
+
                     let mut render_target = display.draw();
                     render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
+
+                    superluminal_perf::begin_event("Tone map");
 
                     if let ToneMapType::Heatmap(HeatmapParams {
                         ref mut bounds,
@@ -348,6 +354,11 @@ impl Window {
                         tone_map_film.draw(&display, &film, &tone_map_type),
                         "Film tone map pass failed"
                     );
+
+                    superluminal_perf::end_event(); // Tone map
+
+                    superluminal_perf::begin_event("Visualizations");
+
                     expect!(
                         ray_visualization.draw(
                             scene.bvh.bounds(),
@@ -366,7 +377,16 @@ impl Window {
                         ),
                         "Ray visualization failed"
                     );
+
+                    superluminal_perf::end_event(); // Visualizations
+
+                    superluminal_perf::begin_event("Scale output");
+
                     ScaleOutput::draw(tone_mapped_film, &mut render_target);
+
+                    superluminal_perf::end_event();// Scale output
+
+                    superluminal_perf::begin_event("Ui");
 
                     // UI
                     {
@@ -380,11 +400,19 @@ impl Window {
                         );
                     }
 
+                    superluminal_perf::end_event(); // Ui
+
+
                     // Finish frame
                     expect!(render_target.finish(), "Frame::finish() failed");
 
+                    superluminal_perf::end_event(); // Draw frame
+
+                    superluminal_perf::end_event(); // RedrawRequested
+
                     let spent_millis = redraw_start.elapsed().as_secs_f32() * 1e3;
                     yuki_trace!("main_loop: RedrawRequested took {:4.2}ms", spent_millis);
+
 
                     // Handle after draw so we have the mapped output texture
                     if let Some(output) = &ui_state.write_exr {

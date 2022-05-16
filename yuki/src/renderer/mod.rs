@@ -59,6 +59,8 @@ impl Renderer {
 
     /// Returns the `RenderResult` if the task has finished.
     pub fn check_status(&mut self) -> Option<RenderStatus> {
+        superluminal_perf::begin_event("Renderer::check_status");
+
         let mut ret = None;
         if self.manager.is_some() && self.render_in_progress {
             loop {
@@ -111,6 +113,9 @@ impl Renderer {
                 }
             }
         }
+
+        superluminal_perf::end_event(); // Renderer::check_status
+
         ret
     }
 
@@ -132,6 +137,8 @@ impl Renderer {
         film_settings: FilmSettings,
         render_settings: RenderSettings,
     ) {
+        superluminal_perf::begin_event("Renderer::launch");
+
         self.render_id += 1;
 
         if self.manager.is_none() {
@@ -162,6 +169,8 @@ impl Renderer {
                 panic!("launch: Render manager has been terminated");
             }
         }
+
+        superluminal_perf::end_event(); // Renderer::launch
     }
 }
 

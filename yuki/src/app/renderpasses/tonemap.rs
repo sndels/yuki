@@ -203,6 +203,8 @@ impl ToneMapFilm {
         backend: &T,
         film: &'a Mutex<Film>,
     ) -> Result<bool, UpdateTexturesError<'a>> {
+        superluminal_perf::begin_event("ToneMapFilm::update_textures");
+
         yuki_trace!("update_film_texture: Begin");
         yuki_trace!("update_film_texture: Waiting for lock on film");
         let mut film = film.lock().map_err(UpdateTexturesError::FilmPoison)?;
@@ -237,6 +239,8 @@ impl ToneMapFilm {
             film.clear_dirty();
             yuki_debug!("update_film_texture: Texture created");
         }
+
+        superluminal_perf::end_event(); // ToneMapFilm::update_textures
 
         yuki_trace!("update_film_texture: Releasing film");
         Ok(film_dirty)
