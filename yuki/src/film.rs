@@ -36,8 +36,6 @@ impl Default for FilmSettings {
 pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
-    /// Pixel values in this tile stored in row-major RGB order.
-    pub pixels: Vec<Spectrum<f32>>,
     // Generation of this tile.
     generation: u64,
     film_id: u32,
@@ -46,12 +44,8 @@ pub struct FilmTile {
 impl FilmTile {
     /// Creates a new `FilmTile` with the given [Bounds2].
     pub fn new(bb: Bounds2<u16>, generation: u64, film_id: u32) -> Self {
-        let width = (bb.p_max.x - bb.p_min.x) as usize;
-        let height = (bb.p_max.y - bb.p_min.y) as usize;
-
         FilmTile {
             bb,
-            pixels: vec![Spectrum::zeros(); width * height],
             generation,
             film_id,
         }
@@ -173,7 +167,9 @@ impl Film {
     }
 
     /// Updates this `Film` with the pixel values in a [`FilmTile`].
-    pub fn update_tile(&mut self, tile: &FilmTile) {
+    pub fn update_tile(&mut self, tile: &FilmTile, tile_pixels: &[Spectrum<f32>]) {
+        assert!(tile_pixels.len() >= tile.bb.area() as usize);
+
         if !self.matches(tile) {
             yuki_warn!(
                 "update_tile: Tile {}:{} doesn't match film {}:{}",
@@ -211,7 +207,7 @@ impl Film {
             let tile_slice_end = (tile_row + 1) * (tile_width as usize);
 
             let film_slice = &mut self.pixels[film_slice_start..film_slice_end];
-            let tile_slice = &tile.pixels[tile_slice_start..tile_slice_end];
+            let tile_slice = &tile_pixels[tile_slice_start..tile_slice_end];
 
             film_slice.copy_from_slice(tile_slice);
         }

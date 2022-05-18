@@ -118,9 +118,13 @@ pub trait Integrator {
         camera: &Camera,
         sampler: &Arc<dyn Sampler>,
         tile: &mut FilmTile,
+        tile_pixels: &mut [Spectrum<f32>],
         early_termination_predicate: &mut dyn FnMut() -> bool,
     ) -> usize {
-        let tile_width = tile.bb.p_max.x - tile.bb.p_min.x;
+        assert!(tile_pixels.len() >= tile.bb.area() as usize);
+
+        let tile_width = tile.bb.width();
+
         // Init per tile to try and get as deterministic results as possible between runs
         // This makes the rng the same per tile regardless of which threads take which tiles
         // Of course, this is useful only for debug but the init hit is miniscule in comparison to render time
@@ -155,7 +159,7 @@ pub trait Integrator {
                 y: tile_y,
             } = p - tile.bb.p_min;
             let pixel_offset = (tile_y * tile_width + tile_x) as usize;
-            tile.pixels[pixel_offset] = color;
+            tile_pixels[pixel_offset] = color;
         }
         ray_count
     }

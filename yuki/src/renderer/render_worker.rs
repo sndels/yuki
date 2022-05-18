@@ -67,6 +67,7 @@ pub fn launch(
 
     let mut alloc = LinearAllocator::new(1024 * 256);
     let scratch = ScopedScratch::new(&mut alloc);
+    let mut tile_pixels = [Spectrum::zeros(); 64 * 64];
 
     'thread: loop {
         let mut worker_info = WorkerInfo {
@@ -105,15 +106,24 @@ pub fn launch(
 
             if let Some(mut tile) = tile {
                 assert!(payload.is_some(), "Active tile without payload");
+                assert!(tile.bb.area() as usize <= tile_pixels.len());
 
                 let payload = payload.as_deref().unwrap();
 
                 let tile_start = Instant::now();
-                match render_tile(thread_id, &scratch, &mut tile, payload, from_parent) {
+                match render_tile(
+                    thread_id,
+                    &scratch,
+                    &mut tile,
+                    &mut tile_pixels,
+                    payload,
+                    from_parent,
+                ) {
                     RenderTileResult::Interrupted(p) => newest_msg = Some(Ok(p)),
                     RenderTileResult::Rendered { ray_count } => update_tile(
                         &worker_info,
                         &mut tile,
+                        &mut tile_pixels,
                         payload,
                         ray_count,
                         tile_start,
@@ -196,6 +206,7 @@ fn render_tile(
     thread_id: usize,
     scratch: &ScopedScratch,
     tile: &mut FilmTile,
+    tile_pixels: &mut [Spectrum<f32>],
     payload: &Payload,
     from_parent: &Receiver<Option<Payload>>,
 ) -> RenderTileResult {
@@ -222,6 +233,7 @@ fn render_tile(
         &payload.camera,
         &payload.sampler,
         tile,
+        tile_pixels,
         &mut || {
             // Let's have low latency kills for more interactive view
             if let Ok(msg) = from_parent.try_recv() {
@@ -243,6 +255,7 @@ fn render_tile(
 fn update_tile(
     worker_info: &WorkerInfo,
     tile: &mut FilmTile,
+    tile_pixels: &[Spectrum<f32>],
     payload: &Payload,
     ray_count: usize,
     tile_start: Instant,
@@ -262,7 +275,7 @@ fn update_tile(
         yuki_trace!("Render thread {}: Acquired film", worker_info.thread_id);
 
         if film.matches(tile) {
-            film.update_tile(tile);
+            film.update_tile(tile, tile_pixels);
         } else {
             yuki_trace!("Render thread {}: Stale tile", worker_info.thread_id);
         }
