@@ -167,6 +167,7 @@ impl Window {
         let mut camera_offset: Option<CameraOffset> = None;
         let mut last_render_start = Instant::now();
         let mut bvh_visualization_level = -1i32;
+        let mut render_launch_timer = Instant::now();
         let mut quit = false;
 
         while !quit {
@@ -404,26 +405,31 @@ impl Window {
             });
 
             if render_triggered {
-                superluminal_perf::begin_event("Render triggered");
+                if render_launch_timer.elapsed().as_millis() < 32 {
+                    render_triggered = false;
+                } else {
+                    superluminal_perf::begin_event("Render triggered");
 
-                yuki_debug!("main_loop: Render triggered");
-                // Make sure film matches settings
-                // This leaves the previous film hanging until all threads have dropped it
-                film = film_or_new(&film, film_settings);
-                last_render_start = Instant::now();
-                renderer.launch(
-                    Arc::clone(&scene),
-                    active_camera_params,
-                    Arc::clone(&film),
-                    sampler,
-                    scene_integrator,
-                    film_settings,
-                    render_settings,
-                );
-                status_messages = Some(vec!["Render started".to_string()]);
-                render_triggered = false;
+                    yuki_debug!("main_loop: Render triggered");
+                    // Make sure film matches settings
+                    // This leaves the previous film hanging until all threads have dropped it
+                    film = film_or_new(&film, film_settings);
+                    last_render_start = Instant::now();
+                    renderer.launch(
+                        Arc::clone(&scene),
+                        active_camera_params,
+                        Arc::clone(&film),
+                        sampler,
+                        scene_integrator,
+                        film_settings,
+                        render_settings,
+                    );
+                    status_messages = Some(vec!["Render started".to_string()]);
+                    render_triggered = false;
+                    render_launch_timer = Instant::now();
 
-                superluminal_perf::end_event(); // Render triggered
+                    superluminal_perf::end_event(); // Render triggered
+                }
             } else {
                 yuki_trace!("main_loop: Render job tracked");
 
