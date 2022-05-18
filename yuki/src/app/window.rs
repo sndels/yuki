@@ -40,7 +40,7 @@ use crate::{
     sampling::Sampler,
     sampling::SamplerType,
     scene::{Scene, SceneLoadSettings},
-    yuki_error, yuki_info, yuki_trace,
+    yuki_debug, yuki_error, yuki_info, yuki_trace,
 };
 
 pub struct Window {
@@ -405,8 +405,7 @@ impl Window {
             if render_triggered {
                 superluminal_perf::begin_event("Render triggered");
 
-                yuki_info!("main_loop: Render triggered");
-                yuki_info!("main_loop: Launching render job");
+                yuki_debug!("main_loop: Render triggered");
                 // Make sure film matches settings
                 // This leaves the previous film hanging until all threads have dropped it
                 film = film_or_new(&film, film_settings);
