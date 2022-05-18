@@ -43,6 +43,14 @@ impl<T> Bounds2<T>
 where
     T: ValueType,
 {
+    pub fn width(&self) -> T {
+        self.p_max.x - self.p_min.x
+    }
+
+    pub fn height(&self) -> T {
+        self.p_max.y - self.p_min.y
+    }
+
     /// Calculates the area of this `Bounds2`
     pub fn area(&self) -> T {
         let d = self.diagonal();
