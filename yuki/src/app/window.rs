@@ -168,6 +168,7 @@ impl Window {
         let mut last_render_start = Instant::now();
         let mut bvh_visualization_level = -1i32;
         let mut render_launch_timer = Instant::now();
+        let mut rendered_camera_offset: Option<CameraOffset> = None;
         let mut quit = false;
 
         while !quit {
@@ -400,9 +401,23 @@ impl Window {
             }
 
             let active_camera_params = camera_offset.as_ref().map_or(camera_params, |offset| {
-                render_triggered = true; // TODO: Delta between current mouse positions to skip new render ~stationary mouse
+                let changed = if let Some(old) = rendered_camera_offset {
+                    old.is_different(offset)
+                } else {
+                    true
+                };
+
+                if changed {
+                    rendered_camera_offset = Some(*offset);
+                    render_triggered = true;
+                }
+
                 offset.apply(camera_params)
             });
+
+            if render_triggered && camera_offset.is_none() {
+                rendered_camera_offset = None;
+            }
 
             if render_triggered {
                 if render_launch_timer.elapsed().as_millis() < 32 {
@@ -601,6 +616,7 @@ enum MouseGestureType {
     TrackPlane,
 }
 
+#[derive(Clone, Copy)]
 struct CameraOffset {
     position: Vec3<f32>,
     target: Vec3<f32>,
@@ -615,6 +631,12 @@ impl CameraOffset {
             up: if self.flip_up { -params.up } else { params.up },
             fov: params.fov,
         }
+    }
+
+    fn is_different(&self, other: &CameraOffset) -> bool {
+        relative_ne!(self.position, other.position)
+            || relative_ne!(self.target, other.target)
+            || self.flip_up != other.flip_up
     }
 }
 
@@ -666,7 +688,8 @@ fn handle_mouse_gestures(
                         ..CameraOffset::default()
                     });
 
-                    true
+                    // We detect later if this is hovering in the same place as last time
+                    false
                 }
                 MouseGestureType::TrackPlane => {
                     // Adapted from Max Liani
@@ -700,15 +723,14 @@ fn handle_mouse_gestures(
                         ..CameraOffset::default()
                     });
 
-                    true
+                    // We detect later if this is hovering in the same place as last time
+                    false
                 }
             }
         }
         None => {
-            if camera_offset.is_some() {
-                let offset = camera_offset.take();
-                *camera_params = offset.unwrap().apply(*camera_params);
-
+            if let Some(offset) = camera_offset.take() {
+                *camera_params = offset.apply(*camera_params);
                 true
             } else {
                 false
