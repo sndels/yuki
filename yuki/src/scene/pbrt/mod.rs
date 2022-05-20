@@ -108,7 +108,7 @@ pub fn load(
 
     let parent_path = settings.path.parent().unwrap();
 
-    let mut lexer = Lexer::new(&input);
+    let mut lexer = Lexer::new(input);
 
     let mut render_options = RenderOptions::default();
 

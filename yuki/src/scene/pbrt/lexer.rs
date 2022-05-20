@@ -48,15 +48,15 @@ impl std::fmt::Display for FileLocation {
     }
 }
 
-pub struct Lexer<'a> {
-    input: &'a [u8],
+pub struct Lexer {
+    input: Vec<u8>,
     position: usize,
     file_location: FileLocation,
     previous_token_location: FileLocation,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a [u8]) -> Self {
+impl Lexer {
+    pub fn new(input: Vec<u8>) -> Self {
         Self {
             input,
             position: 0,
