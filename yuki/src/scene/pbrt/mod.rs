@@ -652,6 +652,13 @@ pub fn load(
                     current_transform =
                         &current_transform * &scale(get_f32!(), get_f32!(), get_f32!());
                 }
+                Token::Texture => {
+                    yuki_info!("Ignoring type definition '{:?}'", Token::Texture);
+                    let _name = get_string!();
+                    let _type = get_string!();
+                    let _class = get_string!();
+                    let _params = get_param_set!();
+                }
                 Token::Translate => {
                     let delta = Vec3::new(get_f32!(), get_f32!(), get_f32!());
                     current_transform = &current_transform * &translation(delta);
