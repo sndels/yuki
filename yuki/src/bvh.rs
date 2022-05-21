@@ -166,6 +166,7 @@ impl BoundingVolumeHierarchy {
 
         // Pre-calculated to speed up Bounds3 intersection tests
         let inv_dir = Vec3::new(1.0 / ray.d.x, 1.0 / ray.d.y, 1.0 / ray.d.z);
+        let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
 
         let mut intersection_test_count = 0;
         let mut intersection_count = 0;
@@ -186,7 +187,7 @@ impl BoundingVolumeHierarchy {
                         split_axis,
                     } => {
                         // Traverse children front to back
-                        if inv_dir[split_axis as usize] < 0.0 {
+                        if dir_is_neg[split_axis as usize] {
                             to_visit_stack[to_visit_index] = current_node_index + 1;
                             to_visit_index += 1;
                             current_node_index = second_child_index as usize;
