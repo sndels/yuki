@@ -559,6 +559,7 @@ struct BVHNode {
     bounds: Bounds3<f32>,
     content: NodeContent,
 }
+const _: () = assert!(std::mem::size_of::<BVHNode>() == 32);
 
 impl BVHNode {
     /// Creates an uninitialized `BVHNode`.
