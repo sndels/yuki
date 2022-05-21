@@ -414,6 +414,7 @@ pub fn load(
                                     );
                                     drop(get_num_params!(f32));
                                 }
+                                "texture" => param_set.add_string(param_name, get_string_params!()),
                                 _ => {
                                     error_token = Some((
                                         ParserErrorType::UnknownParamType,
