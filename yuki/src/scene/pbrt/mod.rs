@@ -102,6 +102,8 @@ pub fn load(
 
     let mut scope_stack = vec![FileScope::new(&settings.path)?];
 
+    let default_material = get_material("matte", &ParamSet::default());
+
     let mut render_options = RenderOptions::default();
 
     let mut graphics_state = GraphicsState::default();
@@ -545,6 +547,14 @@ pub fn load(
                         render_options.camera_params.target = get_point3!();
                         render_options.camera_params.up = get_vec3!().normalized();
                     }
+                }
+                Token::NamedMaterial => {
+                    let name = get_string!();
+                    let material = named_materials.get(&name).unwrap_or_else(|| {
+                        yuki_info!("Unknown named material '{name}'");
+                        &default_material
+                    });
+                    graphics_state.material = Arc::clone(material);
                 }
                 Token::Material => {
                     graphics_state.material = get_material(&get_string!(), &get_param_set!());
