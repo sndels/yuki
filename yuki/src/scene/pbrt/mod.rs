@@ -26,6 +26,7 @@ use crate::{
 use bitflags::bitflags;
 use itertools::Itertools;
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
@@ -117,6 +118,7 @@ pub fn load(
     let mut parse_shapes = Vec::new();
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
+    let mut named_materials = HashMap::new();
 
     let parse_start = Instant::now();
     superluminal_perf::begin_event("parse");
@@ -547,6 +549,16 @@ pub fn load(
                 Token::Material => {
                     graphics_state.material_type = get_string!();
                     graphics_state.material_params = get_param_set!();
+                }
+                Token::MakeNamedMaterial => {
+                    let name = get_string!();
+                    let string_type = get_string!();
+                    if string_type != "string type" {
+                        error_token =
+                            Some((ParserErrorType::UnknownParamType, format!("{:?}", token)));
+                        break 'top_parse;
+                    }
+                    named_materials.insert(name, get_material(&get_string!(), &get_param_set!()));
                 }
                 Token::Rotate => {
                     let angle = get_f32!();
