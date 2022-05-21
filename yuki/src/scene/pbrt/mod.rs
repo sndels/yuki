@@ -357,7 +357,7 @@ pub fn load(
                                 "float" => param_set.add_f32(param_name, get_num_params!(f32)),
                                 "integer" => param_set.add_i32(param_name, get_num_params!(i32)),
                                 "string" => param_set.add_string(param_name, get_string_params!()),
-                                "rgb" => param_set.add_spectrum(
+                                "color" | "rgb" => param_set.add_spectrum(
                                     param_name,
                                     get_three_component_vector_params!(Spectrum, f32),
                                 ),
