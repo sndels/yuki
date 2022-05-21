@@ -123,7 +123,7 @@ pub fn launch(
                     RenderTileResult::Rendered { ray_count } => update_tile(
                         &worker_info,
                         &mut tile,
-                        &mut tile_pixels,
+                        &tile_pixels,
                         payload,
                         ray_count,
                         tile_start,

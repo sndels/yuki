@@ -858,7 +858,7 @@ impl FileScope {
 
         let parent_path = path
             .parent()
-            .ok_or(LoadError::Path("Can't load scenes in fs root".into()))?
+            .ok_or_else(|| LoadError::Path("Can't load scenes in fs root".into()))?
             .into();
 
         Ok(FileScope {

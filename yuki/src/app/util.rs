@@ -18,7 +18,7 @@ pub fn try_load_scene(
     if settings.path.exists() {
         match settings.path.extension() {
             Some(ext) => match ext.to_str().unwrap() {
-                "ply" => match Scene::ply(&settings) {
+                "ply" => match Scene::ply(settings) {
                     Ok((scene, camera_params, film_settings, total_secs)) => {
                         yuki_info!(
                             "PLY loaded from {}",
@@ -28,7 +28,7 @@ pub fn try_load_scene(
                     }
                     Err(why) => Err(format!("Loading PLY failed: {}", why)),
                 },
-                "xml" => match Scene::mitsuba(&settings) {
+                "xml" => match Scene::mitsuba(settings) {
                     Ok((scene, camera_params, film_settings, total_secs)) => {
                         yuki_info!(
                             "Mitsuba 2.0 scene loaded from {}",
@@ -38,7 +38,7 @@ pub fn try_load_scene(
                     }
                     Err(why) => Err(format!("Loading Mitsuba 2.0 scene failed: {}", why)),
                 },
-                "pbrt" => match Scene::pbrt_v3(&settings) {
+                "pbrt" => match Scene::pbrt_v3(settings) {
                     Ok((scene, camera_params, film_settings, total_secs)) => {
                         yuki_info!(
                             "PBRT v3 scene loaded from {}",
