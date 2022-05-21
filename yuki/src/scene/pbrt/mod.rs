@@ -458,6 +458,7 @@ pub fn load(
                         t => match_unexpected_token_err!(t),
                     }
                 }
+                Token::AreaLightSource => ignore_type_definition!(Token::AreaLightSource),
                 Token::AttributeBegin => {
                     graphics_state_stack.push(graphics_state.clone());
                     transform_stack.push(current_transform.clone());
