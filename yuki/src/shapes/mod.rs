@@ -20,9 +20,7 @@ use crate::{
 pub struct Hit<'a> {
     pub t: f32,
     pub si: SurfaceInteraction,
-    // Don't store in SurfaceInteraction like in pbrt to make lifetimes simpler
-    // with allocator
-    pub bsdf: Option<Bsdf<'a>>,
+    pub shape: &'a dyn Shape,
 }
 
 pub trait Shape: Send + Sync {

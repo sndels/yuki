@@ -157,11 +157,7 @@ impl BoundingVolumeHierarchy {
     }
 
     /// Intersects `ray` with the shapes in this `BoundingVolumeHierarchy`.
-    pub fn intersect<'a>(
-        &'a self,
-        scratch: &'a ScopedScratch,
-        mut ray: Ray<f32>,
-    ) -> IntersectionResult<'a> {
+    pub fn intersect(&self, mut ray: Ray<f32>) -> IntersectionResult {
         let mut hit: Option<Hit> = None;
 
         // Pre-calculated to speed up Bounds3 intersection tests
@@ -204,21 +200,14 @@ impl BoundingVolumeHierarchy {
                         let shape_range = (first_shape_index as usize)
                             ..((first_shape_index + (shape_count as u32)) as usize);
                         for shape in &self.shapes[shape_range] {
-                            if let Some(mut new_hit) = shape.intersect(ray) {
+                            if let Some(new_hit) = shape.intersect(ray) {
                                 if let Some(old_hit) = hit.as_ref() {
                                     if new_hit.t < old_hit.t {
                                         ray.t_max = new_hit.t;
-                                        new_hit.bsdf = Some(
-                                            shape
-                                                .compute_scattering_functions(scratch, &new_hit.si),
-                                        );
                                         hit = Some(new_hit);
                                     }
                                 } else {
                                     ray.t_max = new_hit.t;
-                                    new_hit.bsdf = Some(
-                                        shape.compute_scattering_functions(scratch, &new_hit.si),
-                                    );
                                     hit = Some(new_hit);
                                 }
                             }

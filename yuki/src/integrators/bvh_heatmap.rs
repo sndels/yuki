@@ -16,7 +16,7 @@ pub struct BVHIntersections {}
 impl Integrator for BVHIntersections {
     fn li(
         &self,
-        scratch: &ScopedScratch,
+        _scratch: &ScopedScratch,
         ray: Ray<f32>,
         scene: &Scene,
         _depth: u32,
@@ -27,7 +27,7 @@ impl Integrator for BVHIntersections {
             hit,
             intersection_test_count,
             intersection_count,
-        } = scene.bvh.intersect(scratch, ray);
+        } = scene.bvh.intersect(ray);
         let ray_count = 1;
 
         let color = Spectrum::new(

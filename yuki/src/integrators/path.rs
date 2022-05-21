@@ -85,9 +85,9 @@ impl Integrator for Path {
             }
             ray_count += 1;
 
-            let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
+            let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
-            if let Some(Hit { si, t, bsdf }) = hit {
+            if let Some(Hit { si, t, shape }) = hit {
                 if collect_rays {
                     collected_rays[0].ray.t_max = t;
                     collected_rays.push(IntegratorRay {
@@ -96,10 +96,12 @@ impl Integrator for Path {
                     });
                 }
 
+                let bsdf = shape.compute_scattering_functions(scratch, &si);
+
                 let mut radiance = scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                     let LightSample { l, li, vis, pdf } = l.sample_li(&si, sampler.get_2d());
                     if !li.is_black() {
-                        let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                        let f = bsdf.f(si.wo, l, BxdfType::all());
                         if let Some(test) = vis {
                             if collect_rays {
                                 collected_rays.push(IntegratorRay {
@@ -131,10 +133,7 @@ impl Integrator for Path {
                     f,
                     pdf,
                     sample_type,
-                } = bsdf
-                    .as_ref()
-                    .unwrap()
-                    .sample_f(wo, sampler.get_2d(), BxdfType::all());
+                } = bsdf.sample_f(wo, sampler.get_2d(), BxdfType::all());
 
                 if f.is_black() || pdf == 0.0 {
                     break;

@@ -104,7 +104,7 @@ impl Shape for Sphere {
         };
         let si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self, None);
 
-        Some(Hit { t, si, bsdf: None })
+        Some(Hit { t, si, shape: self })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {

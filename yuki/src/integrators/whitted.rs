@@ -79,7 +79,7 @@ impl Whitted {
         collect_rays: bool,
         is_specular: bool,
     ) -> RadianceResult {
-        let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
+        let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
         let min_debug_ray_length = {
             let bounds = scene.bvh.bounds();
@@ -102,7 +102,7 @@ impl Whitted {
         } else {
             Vec::new()
         };
-        let (incoming_radiance, ray_count) = if let Some(Hit { si, t, bsdf }) = hit {
+        let (incoming_radiance, ray_count) = if let Some(Hit { si, t, shape, .. }) = hit {
             if collect_rays {
                 collected_rays[0].ray.t_max = t;
                 collected_rays.push(IntegratorRay {
@@ -111,11 +111,13 @@ impl Whitted {
                 });
             }
 
+            let bsdf = shape.compute_scattering_functions(scratch, &si);
+
             let mut ray_count = 1;
             let mut sum_li = scene.lights.iter().fold(Spectrum::zeros(), |c, l| {
                 let LightSample { l, li, vis, pdf } = l.sample_li(&si, sampler.get_2d());
                 if !li.is_black() {
-                    let f = bsdf.as_ref().unwrap().f(si.wo, l, BxdfType::all());
+                    let f = bsdf.f(si.wo, l, BxdfType::all());
                     if let Some(test) = vis {
                         if collect_rays {
                             collected_rays.push(IntegratorRay {
@@ -145,7 +147,7 @@ impl Whitted {
                         } = self.specular_contribution(
                             scratch,
                             &si,
-                            bsdf.as_ref().unwrap(),
+                            &bsdf,
                             scene,
                             depth,
                             sampler,

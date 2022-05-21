@@ -207,7 +207,7 @@ impl Shape for Triangle {
             si.set_shading_geometry(ss, ts);
         }
 
-        Some(Hit { t, si, bsdf: None })
+        Some(Hit { t, si, shape:self})
     }
 
     fn world_bound(&self) -> Bounds3<f32> {

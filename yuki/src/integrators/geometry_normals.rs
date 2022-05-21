@@ -18,14 +18,14 @@ pub struct GeometryNormals {}
 impl Integrator for GeometryNormals {
     fn li(
         &self,
-        scratch: &ScopedScratch,
+        _scratch: &ScopedScratch,
         ray: Ray<f32>,
         scene: &Scene,
         _depth: u32,
         _sampler: &mut Box<dyn Sampler>,
         _collect_rays: bool,
     ) -> RadianceResult {
-        let IntersectionResult { hit, .. } = scene.bvh.intersect(scratch, ray);
+        let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
 
         let color = match hit {
