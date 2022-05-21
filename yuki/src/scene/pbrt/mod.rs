@@ -558,78 +558,10 @@ pub fn load(
                     // TODO: Transform cache? Will drop memory usage if a large number of shapes are used
                     let shape_type = get_string!();
                     let params = get_param_set!();
-                    // TODO: Named materials
-                    let material = match graphics_state.material_type.as_str() {
-                        "glass" => {
-                            let kr = graphics_state
-                                .material_params
-                                .find_spectrum("Kr", Spectrum::ones());
-                            let kt = graphics_state
-                                .material_params
-                                .find_spectrum("Kt", Spectrum::ones());
-                            let eta = graphics_state.material_params.find_f32("eta", 1.5);
-
-                            Arc::new(Glass::new(
-                                Arc::new(ConstantTexture::new(kr)),
-                                Arc::new(ConstantTexture::new(kt)),
-                                eta,
-                            )) as Arc<dyn Material>
-                        }
-                        "glossy" => {
-                            let rs = graphics_state
-                                .material_params
-                                .find_spectrum("Rs", Spectrum::new(0.5, 0.5, 0.5));
-                            let roughness =
-                                graphics_state.material_params.find_f32("roughness", 0.5);
-                            Arc::new(Glossy::new(
-                                Arc::new(ConstantTexture::new(rs)),
-                                Arc::new(ConstantTexture::new(roughness)),
-                                false,
-                            )) as Arc<dyn Material>
-                        }
-                        "matte" => {
-                            let kd = graphics_state
-                                .material_params
-                                .find_spectrum("Kd", Spectrum::new(0.5, 0.5, 0.5));
-                            // Matte expects sigma as radians instead of degrees
-                            let sigma = graphics_state
-                                .material_params
-                                .find_f32("sigma", 0.0)
-                                .to_radians();
-                            Arc::new(Matte::new(
-                                Arc::new(ConstantTexture::new(kd)),
-                                Arc::new(ConstantTexture::new(sigma.to_radians())),
-                            )) as Arc<dyn Material>
-                        }
-                        "metal" => {
-                            let eta = graphics_state.material_params.find_spectrum(
-                                "eta",
-                                sampled_spectrum_into_rgb(&COPPER_WAVELENGTHS, &COPPER_N),
-                            );
-                            let k = graphics_state.material_params.find_spectrum(
-                                "k",
-                                sampled_spectrum_into_rgb(&COPPER_WAVELENGTHS, &COPPER_K),
-                            );
-                            let roughness =
-                                graphics_state.material_params.find_f32("roughness", 0.01);
-                            let remap_roughness = graphics_state
-                                .material_params
-                                .find_bool("remaproughness", true);
-                            Arc::new(Metal::new(
-                                Arc::new(ConstantTexture::new(eta)),
-                                Arc::new(ConstantTexture::new(k)),
-                                Arc::new(ConstantTexture::new(roughness)),
-                                remap_roughness,
-                            )) as Arc<dyn Material>
-                        }
-                        t => {
-                            yuki_info!("Unsupported material type '{}'. Using default matte.", t);
-                            Arc::new(Matte::new(
-                                Arc::new(ConstantTexture::new(Spectrum::ones() * 0.5)),
-                                Arc::new(ConstantTexture::new(0.0)),
-                            )) as Arc<dyn Material>
-                        }
-                    };
+                    let material = get_material(
+                        &graphics_state.material_type,
+                        &graphics_state.material_params,
+                    );
                     match shape_type.as_str() {
                         "sphere" => {
                             let radius = params.find_f32("radius", 1.0);
@@ -824,6 +756,65 @@ pub fn load(
         render_options.camera_params,
         render_options.film_settings,
     ))
+}
+
+fn get_material(material_type: &str, params: &ParamSet) -> Arc<dyn Material> {
+    match material_type {
+        "glass" => {
+            let kr = params.find_spectrum("Kr", Spectrum::ones());
+            let kt = params.find_spectrum("Kt", Spectrum::ones());
+            let eta = params.find_f32("eta", 1.5);
+
+            Arc::new(Glass::new(
+                Arc::new(ConstantTexture::new(kr)),
+                Arc::new(ConstantTexture::new(kt)),
+                eta,
+            )) as Arc<dyn Material>
+        }
+        "glossy" => {
+            let rs = params.find_spectrum("Rs", Spectrum::new(0.5, 0.5, 0.5));
+            let roughness = params.find_f32("roughness", 0.5);
+            Arc::new(Glossy::new(
+                Arc::new(ConstantTexture::new(rs)),
+                Arc::new(ConstantTexture::new(roughness)),
+                false,
+            )) as Arc<dyn Material>
+        }
+        "matte" => {
+            let kd = params.find_spectrum("Kd", Spectrum::new(0.5, 0.5, 0.5));
+            // Matte expects sigma as radians instead of degrees
+            let sigma = params.find_f32("sigma", 0.0).to_radians();
+            Arc::new(Matte::new(
+                Arc::new(ConstantTexture::new(kd)),
+                Arc::new(ConstantTexture::new(sigma.to_radians())),
+            )) as Arc<dyn Material>
+        }
+        "metal" => {
+            let eta = params.find_spectrum(
+                "eta",
+                sampled_spectrum_into_rgb(&COPPER_WAVELENGTHS, &COPPER_N),
+            );
+            let k = params.find_spectrum(
+                "k",
+                sampled_spectrum_into_rgb(&COPPER_WAVELENGTHS, &COPPER_K),
+            );
+            let roughness = params.find_f32("roughness", 0.01);
+            let remap_roughness = params.find_bool("remaproughness", true);
+            Arc::new(Metal::new(
+                Arc::new(ConstantTexture::new(eta)),
+                Arc::new(ConstantTexture::new(k)),
+                Arc::new(ConstantTexture::new(roughness)),
+                remap_roughness,
+            )) as Arc<dyn Material>
+        }
+        t => {
+            yuki_info!("Unsupported material type '{}'. Using default matte.", t);
+            Arc::new(Matte::new(
+                Arc::new(ConstantTexture::new(Spectrum::ones() * 0.5)),
+                Arc::new(ConstantTexture::new(0.0)),
+            )) as Arc<dyn Material>
+        }
+    }
 }
 
 struct FileScope {
