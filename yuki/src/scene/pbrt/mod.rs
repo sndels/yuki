@@ -45,15 +45,13 @@ struct RenderOptions {
 
 #[derive(Clone)]
 struct GraphicsState {
-    material_type: String,
-    material_params: ParamSet,
+    material: Arc<dyn Material>,
 }
 
 impl Default for GraphicsState {
     fn default() -> Self {
         Self {
-            material_type: String::from("matte"),
-            material_params: ParamSet::default(),
+            material: get_material("matte", &ParamSet::default()),
         }
     }
 }
@@ -549,8 +547,7 @@ pub fn load(
                     }
                 }
                 Token::Material => {
-                    graphics_state.material_type = get_string!();
-                    graphics_state.material_params = get_param_set!();
+                    graphics_state.material = get_material(&get_string!(), &get_param_set!());
                 }
                 Token::MakeNamedMaterial => {
                     let name = get_string!();
@@ -572,10 +569,7 @@ pub fn load(
                     // TODO: Transform cache? Will drop memory usage if a large number of shapes are used
                     let shape_type = get_string!();
                     let params = get_param_set!();
-                    let material = get_material(
-                        &graphics_state.material_type,
-                        &graphics_state.material_params,
-                    );
+                    let material = Arc::clone(&graphics_state.material);
                     match shape_type.as_str() {
                         "sphere" => {
                             let radius = params.find_f32("radius", 1.0);
