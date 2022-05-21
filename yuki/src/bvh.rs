@@ -513,7 +513,7 @@ fn split_sah(
                 });
             *cost = 1.0
                 + ((count0 as f32) * b0.surface_area() + (count1 as f32) * b1.surface_area())
-                    / bounds.surface_area();
+                    / bounds.surface_area().max(1e-10);
         }
 
         // Pick best
