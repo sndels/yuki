@@ -30,7 +30,7 @@ serde = "1.0"
 serde_yaml = "0.9"
 strum = { version = "0.24", features = ["derive"] }
 superluminal-perf = "0.1.1"
-tinyfiledialogs = "3.8"
+tinyfiledialogs = "3.9"
 win_dbg_logger = "0.1"
 xml-rs = "0.8"
 yuki_derive = { path = "../yuki_derive" }
