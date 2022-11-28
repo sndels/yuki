@@ -18,6 +18,9 @@ pub struct FilmSettings {
     pub tile_dim: u16,
     /// `true` if pixels need to be cleared even if the buffer is not resized
     pub clear: bool,
+    /// `true` if film is used to accumulate over time instead of writing final
+    /// pixel value immediately.
+    pub accumulate: bool,
 }
 
 impl Default for FilmSettings {
@@ -27,6 +30,7 @@ impl Default for FilmSettings {
             res: Vec2::new(640, 480),
             tile_dim: 16,
             clear: true,
+            accumulate: false,
         }
     }
 }
@@ -36,6 +40,9 @@ impl Default for FilmSettings {
 pub struct FilmTile {
     /// The [Film] pixel bounds for this tile.
     pub bb: Bounds2<u16>,
+    pub sample: u16,
+    // Flat index in samples list
+    index: usize,
     // Generation of this tile.
     generation: u64,
     film_id: u32,
@@ -43,9 +50,11 @@ pub struct FilmTile {
 
 impl FilmTile {
     /// Creates a new `FilmTile` with the given [Bounds2].
-    pub fn new(bb: Bounds2<u16>, generation: u64, film_id: u32) -> Self {
+    pub fn new(bb: Bounds2<u16>, index: usize, sample: u16, generation: u64, film_id: u32) -> Self {
         FilmTile {
             bb,
+            index,
+            sample,
             generation,
             film_id,
         }
@@ -58,6 +67,8 @@ pub struct Film {
     res: Vec2<u16>,
     // Pixel values.
     pixels: Vec<Spectrum<f32>>,
+    // Sample count for each tile.
+    samples: Option<Vec<u32>>,
     // Indicator for changed pixel values.
     dirty: bool,
     // Generation of the pixel buffer and tiles in flight.
@@ -75,6 +86,7 @@ impl Film {
         Self {
             res,
             pixels: vec![Spectrum::zeros(); (res.x as usize) * (res.y as usize)],
+            samples: None,
             dirty: true,
             generation: 0,
             id: rand::random::<u32>(),
@@ -95,6 +107,11 @@ impl Film {
     /// Returns a reference to the the pixels of this `Film`.
     pub fn pixels(&self) -> &Vec<Spectrum<f32>> {
         &self.pixels
+    }
+
+    /// Returns a reference to the the samples for each tile in this `Film`.
+    pub fn samples(&self) -> Option<&Vec<u32>> {
+        self.samples.as_ref()
     }
 
     /// Clears the indicator for changed pixel values in this `Film`.
@@ -195,22 +212,49 @@ impl Film {
 
         let tile_width = tile_max.x - tile_min.x;
 
-        // Copy pixels over to the film
-        // TODO: Accumulation, store counts per pixel
-        for (tile_row, film_row) in ((tile_min.y as usize)..(tile_max.y as usize)).enumerate() {
-            let film_row_offset = film_row * (self.res.x as usize);
+        macro_rules! update_slices {
+            ($write_expr:expr) => {
+                // Copy pixels over to the film
+                for (tile_row, film_row) in
+                    ((tile_min.y as usize)..(tile_max.y as usize)).enumerate()
+                {
+                    let film_row_offset = film_row * (self.res.x as usize);
 
-            let film_slice_start = film_row_offset + (tile_min.x as usize);
-            let film_slice_end = film_row_offset + (tile_max.x as usize);
+                    let film_slice_start = film_row_offset + (tile_min.x as usize);
+                    let film_slice_end = film_row_offset + (tile_max.x as usize);
 
-            let tile_slice_start = tile_row * (tile_width as usize);
-            let tile_slice_end = (tile_row + 1) * (tile_width as usize);
+                    let tile_slice_start = tile_row * (tile_width as usize);
+                    let tile_slice_end = (tile_row + 1) * (tile_width as usize);
 
-            let film_slice = &mut self.pixels[film_slice_start..film_slice_end];
-            let tile_slice = &tile_pixels[tile_slice_start..tile_slice_end];
+                    let film_slice = &mut self.pixels[film_slice_start..film_slice_end];
+                    let tile_slice = &tile_pixels[tile_slice_start..tile_slice_end];
 
-            film_slice.copy_from_slice(tile_slice);
+                    $write_expr(film_slice, tile_slice);
+                }
+            };
         }
+
+        if let Some(samples) = &mut self.samples {
+            update_slices!(
+                |film_slice: &mut [Spectrum<f32>], tile_slice: &[Spectrum<f32>]| {
+                    film_slice
+                        .iter_mut()
+                        .zip(tile_slice.iter())
+                        .for_each(|(fc, &c)| {
+                            *fc += c;
+                        });
+                }
+            );
+
+            samples[tile.index] += 1;
+        } else {
+            update_slices!(
+                |film_slice: &mut [Spectrum<f32>], tile_slice: &[Spectrum<f32>]| {
+                    film_slice.copy_from_slice(tile_slice);
+                }
+            );
+        }
+
         self.dirty = true;
     }
 }
@@ -220,6 +264,7 @@ impl Default for Film {
         Self {
             res: Vec2::new(4, 4),
             pixels: vec![Spectrum::zeros(); 4 * 4],
+            samples: None,
             dirty: true,
             generation: 0,
             cached_tiles: None,
@@ -238,6 +283,7 @@ fn generate_tiles(
     let mut tiles = HashMap::new();
     let dim = tile_dim;
     yuki_trace!("generate_tiles: Generating tiles");
+    let mut flat_index = 0usize;
     for j in (0..res.y).step_by(dim as usize) {
         for i in (0..res.x).step_by(dim as usize) {
             // Limit tiles to film dimensions
@@ -248,10 +294,13 @@ fn generate_tiles(
                 (i / dim, j / dim),
                 FilmTile::new(
                     Bounds2::new(Point2::new(i, j), Point2::new(max_x, max_y)),
+                    flat_index,
+                    0,
                     film_gen,
                     film_id,
                 ),
             );
+            flat_index += 1;
         }
     }
     yuki_trace!("generate_tiles: Tiles generated");
@@ -384,6 +433,20 @@ pub fn film_tiles(film: &mut Arc<Mutex<Film>>, settings: FilmSettings) -> VecDeq
 
         tile_queue
     };
+
+    {
+        yuki_trace!("film_tiles: Waiting for lock on film");
+        let mut film = film.lock().unwrap();
+        yuki_trace!("film_tiles: Acquired film");
+
+        if settings.accumulate {
+            film.samples = Some(vec![0; ret.len()]);
+        } else {
+            film.samples = None;
+        }
+
+        yuki_trace!("film_tiles: Releasing film");
+    }
 
     yuki_debug!("film_tiles: End");
     ret
