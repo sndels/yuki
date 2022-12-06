@@ -124,6 +124,7 @@ impl Renderer {
             drop(tx.send(None));
             handle.join().unwrap();
         }
+        self.render_in_progress = false;
     }
 
     /// Launch a new render task, overriding the previous one if one is already running.
