@@ -906,7 +906,25 @@ fn dump_exr(
             yuki_trace!("draw: Acquired film");
 
             let film_res = film.res();
-            let pixels = film.pixels().clone();
+            let film_x = film_res.x as usize;
+            let film_y = film_res.y as usize;
+            let mut pixels = film.pixels().clone();
+
+            // Need to average samples if there are multiple per tile
+            if let Some(samples) = film.samples() {
+                let tile_dim = film.tile_dim().unwrap() as usize;
+                let x_tiles = (film_x.saturating_sub(1) / tile_dim) + 1;
+                for j in 0..film_y {
+                    let row_start_px = j * film_x;
+                    let row_start_tile = (j / tile_dim) * x_tiles;
+                    for i in 0..film_x {
+                        let tile_i = i / tile_dim;
+                        // Might be zero samples, use 1 instead assuming zeroed film
+                        pixels[row_start_px + i] /=
+                            (samples[row_start_tile + tile_i] as f32).max(1.0);
+                    }
+                }
+            }
 
             yuki_trace!("draw: Releasing film");
             (film_res.x as usize, film_res.y as usize, pixels)
