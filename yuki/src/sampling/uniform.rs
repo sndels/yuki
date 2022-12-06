@@ -95,6 +95,11 @@ impl Sampler for UniformSampler {
         self.current_2d_dimension = 0;
     }
 
+    fn set_sample(&mut self, sample: usize) {
+        self.current_pixel_sample = sample + 1;
+        self.current_2d_dimension = 0;
+    }
+
     fn get_1d(&mut self) -> f32 {
         if self.current_1d_dimension < self.n_sampled_dimensions {
             // Start sample adds 1 before we use the sample

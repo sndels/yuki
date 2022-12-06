@@ -50,6 +50,8 @@ pub trait Sampler: Send + Sync {
     fn start_pixel(&mut self);
     /// Readies the sampler for a new pixel sample.
     fn start_sample(&mut self);
+    /// Readies the sampler for a specific pixel sample.
+    fn set_sample(&mut self, sample: usize);
     /// Returns the next dimension in the current sample vector.
     fn get_1d(&mut self) -> f32;
     /// Returns the next two dimensions in the current sample vector.
