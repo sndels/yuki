@@ -132,6 +132,15 @@ impl Film {
         self.id == tile.film_id && self.generation == tile.generation
     }
 
+    /// Returns the dimensions of the active tiles.
+    pub fn tile_dim(&self) -> Option<u16> {
+        if let Some((tile_dim, _)) = self.cached_tiles.as_ref() {
+            Some(*tile_dim)
+        } else {
+            None
+        }
+    }
+
     /// Returns blank `FilmTile`s for the buffer pixel with if they have been cached in the correct dimension.
     /// The returned tiles will be in the current generation.
     fn cached_tiles(&self, dim: u16) -> Option<VecDeque<FilmTile>> {
