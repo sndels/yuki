@@ -107,6 +107,7 @@ pub enum WriteEXR {
 #[allow(clippy::struct_excessive_bools)]
 pub struct UIState {
     pub render_triggered: bool,
+    pub render_killed: bool,
     pub write_exr: Option<WriteEXR>,
     pub any_item_active: bool,
     pub ui_hovered: bool,
@@ -136,6 +137,7 @@ pub fn generate_ui(
     } = window.inner_size();
 
     let mut render_triggered = false;
+    let mut render_killed = false;
     let mut write_exr = None;
     let mut save_settings = false;
     let mut recompute_bvh_vis = false;
@@ -175,7 +177,11 @@ pub fn generate_ui(
             ui.separator();
             ui.spacing();
 
-            render_triggered |= ui.button("Render");
+            if render_in_progress {
+                render_killed |= ui.button("Kill render");
+            } else {
+                render_triggered |= ui.button("Render");
+            }
             ui.spacing();
 
             if let Some(level) = bvh_visualization_level {
@@ -225,6 +231,7 @@ pub fn generate_ui(
 
     UIState {
         render_triggered,
+        render_killed,
         write_exr,
         any_item_active,
         ui_hovered,

@@ -352,6 +352,10 @@ impl Window {
             any_item_active = ui_state.any_item_active;
             ui_hovered = ui_state.ui_hovered;
 
+            if ui_state.render_killed {
+                renderer.kill();
+            }
+
             if ui_state.recompute_bvh_vis {
                 if let Err(why) = bvh_visualization
                     .set_bounds(&display, &scene.bvh.node_bounds(bvh_visualization_level))
