@@ -545,41 +545,15 @@ impl Window {
             yuki_trace!("main_loop: Draw took {:4.2}ms", spent_millis);
 
             // Handle after draw so we have the mapped output texture
-            if let Some(output) = &ui_state.write_exr {
+            if let Some(output_type) = &ui_state.write_exr {
                 match exr_path(&scene) {
                     Ok(path) => {
-                        let (w, h, pixels) = match output {
-                            WriteEXR::Raw => {
-                                yuki_trace!("draw: Waiting for lock on film");
-                                let film = film.lock().unwrap();
-                                yuki_trace!("draw: Acquired film");
-
-                                let film_res = film.res();
-                                let pixels = film.pixels().clone();
-
-                                yuki_trace!("draw: Releasing film");
-                                (film_res.x as usize, film_res.y as usize, pixels)
-                            }
-
-                            WriteEXR::Mapped => {
-                                let w = tone_mapped_film.width() as usize;
-                                let h = tone_mapped_film.height() as usize;
-                                // TODO: This will explode if mapped texture format is not f32f32f32
-                                let pixels = unsafe {
-                                    tone_mapped_film
-                                        .unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>()
-                                };
-                                (w, h, pixels)
-                            }
-                        };
-
-                        status_messages = Some(vec![match write_exr(w, h, &pixels, &path) {
-                            Ok(_) => "EXR written".into(),
-                            Err(why) => {
-                                yuki_error!("{}", why);
-                                "Error writing EXR".into()
-                            }
-                        }]);
+                        status_messages = Some(dump_exr(
+                            path,
+                            output_type,
+                            tone_mapped_film,
+                            Arc::clone(&film),
+                        ));
                     }
                     Err(why) => {
                         yuki_error!("{}", why);
@@ -916,4 +890,43 @@ fn render_status_messages(status: &RenderStatus, render_start: Instant) -> Vec<S
             ]
         }
     }
+}
+
+/// Dumps either the tonemapped film or the raw pixels to EXR
+fn dump_exr(
+    path: std::path::PathBuf,
+    output_type: &WriteEXR,
+    tone_mapped_film: &glium::Texture2d,
+    film: Arc<Mutex<Film>>,
+) -> Vec<String> {
+    let (w, h, pixels) = match output_type {
+        WriteEXR::Raw => {
+            yuki_trace!("draw: Waiting for lock on film");
+            let film = film.lock().unwrap();
+            yuki_trace!("draw: Acquired film");
+
+            let film_res = film.res();
+            let pixels = film.pixels().clone();
+
+            yuki_trace!("draw: Releasing film");
+            (film_res.x as usize, film_res.y as usize, pixels)
+        }
+
+        WriteEXR::Mapped => {
+            let w = tone_mapped_film.width() as usize;
+            let h = tone_mapped_film.height() as usize;
+            // TODO: This will explode if mapped texture format is not f32f32f32
+            let pixels =
+                unsafe { tone_mapped_film.unchecked_read::<Vec<Spectrum<f32>>, Spectrum<f32>>() };
+            (w, h, pixels)
+        }
+    };
+
+    vec![match write_exr(w, h, &pixels, &path) {
+        Ok(_) => "EXR written".into(),
+        Err(why) => {
+            yuki_error!("{}", why);
+            "Error writing EXR".into()
+        }
+    }]
 }
