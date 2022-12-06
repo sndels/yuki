@@ -70,6 +70,8 @@ pub struct ToneMapFilm {
     filmic_program: glium::Program,
     heatmap_program: glium::Program,
     input: glium::Texture2d,
+    input_sample_counts: glium::texture::buffer_texture::BufferTexture<f32>,
+    tile_dim: u32,
     output: glium::Texture2d,
 }
 
@@ -121,6 +123,12 @@ impl ToneMapFilm {
         }
         let input = create_tex!();
         let output = create_tex!();
+        let input_sample_counts = glium::texture::buffer_texture::BufferTexture::empty(
+            backend,
+            1,
+            glium::texture::buffer_texture::BufferTextureType::Float,
+        )
+        .map_err(NewError::BufferTexture)?;
 
         Ok(Self {
             vertex_buffer,
@@ -128,6 +136,8 @@ impl ToneMapFilm {
             filmic_program,
             heatmap_program,
             input,
+            input_sample_counts,
+            tile_dim: 16,
             output,
         })
     }
@@ -139,7 +149,7 @@ impl ToneMapFilm {
         params: &ToneMapType,
     ) -> Result<&'a glium::Texture2d, DrawError<'b>> {
         yuki_trace!("draw: Checking for texture update");
-        self.update_textures(backend, film)
+        self.update_resources(backend, film)
             .map_err(DrawError::UpdateTextures)?;
 
         let input_sampler = self
@@ -154,7 +164,9 @@ impl ToneMapFilm {
             ToneMapType::Filmic(FilmicParams { exposure }) => {
                 let uniforms = glium::uniform! {
                     input_texture: input_sampler,
-                        exposure: *exposure,
+                    input_sample_counts: &self.input_sample_counts,
+                    exposure: *exposure,
+                    tile_dim: self.tile_dim,
                 };
 
                 self.output
@@ -198,16 +210,16 @@ impl ToneMapFilm {
         Ok(output)
     }
 
-    fn update_textures<'a, T: glium::backend::Facade>(
+    fn update_resources<'a, T: glium::backend::Facade>(
         &mut self,
         backend: &T,
         film: &'a Mutex<Film>,
-    ) -> Result<bool, UpdateTexturesError<'a>> {
-        superluminal_perf::begin_event("ToneMapFilm::update_textures");
+    ) -> Result<bool, UpdateResourcesError<'a>> {
+        superluminal_perf::begin_event("ToneMapFilm::update_resources");
 
         yuki_trace!("update_film_texture: Begin");
         yuki_trace!("update_film_texture: Waiting for lock on film");
-        let mut film = film.lock().map_err(UpdateTexturesError::FilmPoison)?;
+        let mut film = film.lock().map_err(UpdateResourcesError::FilmPoison)?;
         yuki_trace!("update_film_texture: Acquired film");
 
         let film_dirty = film.dirty();
@@ -221,7 +233,26 @@ impl ToneMapFilm {
                 FILM_FORMAT,
                 glium::texture::MipmapsOption::NoMipmap,
             )
-            .map_err(UpdateTexturesError::TextureCreation)?;
+            .map_err(UpdateResourcesError::TextureCreation)?;
+
+            self.tile_dim = film.tile_dim().unwrap_or(16) as u32;
+
+            let sample_counts: Vec<f32> = if let Some(samples) = film.samples() {
+                samples.iter().map(|s| *s as f32).collect()
+            } else {
+                let res = film.res();
+                // Extra row, column if tiles divide the film unevenly
+                let x_tiles = (((res.x as usize) - 1) / (self.tile_dim as usize)) + 1;
+                let y_tiles = (((res.y as usize) - 1) / (self.tile_dim as usize)) + 1;
+                let tile_count = x_tiles * y_tiles;
+                vec![0.0; tile_count]
+            };
+            self.input_sample_counts = glium::texture::buffer_texture::BufferTexture::new(
+                backend,
+                sample_counts.as_slice(),
+                glium::texture::buffer_texture::BufferTextureType::Float,
+            )
+            .map_err(UpdateResourcesError::BufferTextureCreation)?;
 
             if self.input.width() != self.output.width()
                 || self.input.height() != self.output.height()
@@ -233,14 +264,14 @@ impl ToneMapFilm {
                     self.input.width(),
                     self.input.height(),
                 )
-                .map_err(UpdateTexturesError::TextureCreation)?;
+                .map_err(UpdateResourcesError::TextureCreation)?;
             }
 
             film.clear_dirty();
             yuki_debug!("update_film_texture: Texture created");
         }
 
-        superluminal_perf::end_event(); // ToneMapFilm::update_textures
+        superluminal_perf::end_event(); // ToneMapFilm::update_resources
 
         yuki_trace!("update_film_texture: Releasing film");
         Ok(film_dirty)
@@ -288,7 +319,9 @@ const FILMIC_FS_CODE: &str = r#"
 #version 410 core
 
 uniform sampler2D input_texture;
+uniform samplerBuffer input_sample_counts;
 uniform float exposure;
+uniform uint tile_dim;
 
 in vec2 frag_uv;
 
@@ -335,6 +368,16 @@ vec3 ACESFitted(vec3 color)
 
 void main() {
     vec3 color = texture(input_texture, frag_uv).rgb;
+
+    ivec2 res = textureSize(input_texture, 0);
+    int x_tile_count = res.x / int(tile_dim);
+
+    ivec2 tile = ivec2(gl_FragCoord.xy) / int(tile_dim);
+    int flat_tile = tile.y * x_tile_count + tile.x; 
+
+    float sample_count = texelFetch(input_sample_counts, flat_tile).x;
+    if (sample_count > 0)
+        color /= sample_count;
     color *= exposure;
     color = ACESFitted(color);
     output_color = vec4(color, 1.0f);
@@ -384,19 +427,21 @@ pub enum NewError {
     IndexBuffer(glium::index::BufferCreationError),
     Program(glium::ProgramCreationError),
     Texture(glium::texture::TextureCreationError),
+    BufferTexture(glium::texture::buffer_texture::CreationError),
 }
 
 #[derive(Debug)]
 pub enum DrawError<'a> {
     Draw(glium::DrawError),
-    UpdateTextures(UpdateTexturesError<'a>),
+    UpdateTextures(UpdateResourcesError<'a>),
     FilmPoison(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
 }
 
 #[derive(Debug)]
-pub enum UpdateTexturesError<'a> {
+pub enum UpdateResourcesError<'a> {
     FilmPoison(std::sync::PoisonError<std::sync::MutexGuard<'a, Film>>),
     TextureCreation(glium::texture::TextureCreationError),
+    BufferTextureCreation(glium::texture::buffer_texture::CreationError),
 }
 
 pub fn find_min_max(film: &Mutex<Film>, channel: HeatmapChannel) -> Result<(f32, f32), DrawError> {
