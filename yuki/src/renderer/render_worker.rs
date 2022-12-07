@@ -43,6 +43,7 @@ pub struct Payload {
     pub sampler: Arc<dyn Sampler>,
     pub film: Arc<Mutex<Film>>,
     pub mark_tiles: bool,
+    pub accumulate: bool,
 }
 
 impl Deref for Payload {
@@ -227,12 +228,13 @@ fn render_tile(
     let mut received_msg = None;
     let tile_scratch = ScopedScratch::new_scope(scratch);
     let integrator = payload.integrator_type.instantiate();
+
     let ray_count = integrator.render(
         &tile_scratch,
         &payload.scene,
         &payload.camera,
         &payload.sampler,
-        false,
+        payload.accumulate,
         tile,
         tile_pixels,
         &mut || {

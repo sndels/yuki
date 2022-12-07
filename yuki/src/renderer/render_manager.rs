@@ -11,9 +11,9 @@ use super::{render_worker, render_worker::WorkerInfo, RenderSettings};
 
 use crate::{
     camera::{Camera, CameraParameters},
-    film::{film_tiles, Film, FilmSettings},
+    film::{film_tiles, Film, FilmSettings, FilmTile},
     integrators::IntegratorType,
-    sampling::SamplerType,
+    sampling::{Sampler, SamplerType},
     scene::Scene,
     yuki_debug, yuki_error, yuki_trace,
 };
@@ -63,6 +63,7 @@ struct ManagerState {
     active_workers: usize,
     ray_count: usize,
     tile_infos: VecDeque<TileInfo>,
+    accumulate: bool,
 }
 
 pub fn launch(
@@ -126,8 +127,30 @@ pub fn launch(
                         Err(TryRecvError::Empty) => None,
                     };
 
-                    if let Some(payload) = payload {
-                        propagate_payload(payload, &workers, &mut state);
+                    if let Some(mut payload) = payload {
+                        let mut tiles = film_tiles(&mut payload.film, payload.film_settings);
+
+                        let sampler = payload.sampler.instantiate(
+                            1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
+                        );
+
+                        let mut initial_tiles = tiles.clone();
+                        if payload.film_settings.accumulate {
+                            for _ in 1..sampler.samples_per_pixel() {
+                                for t in tiles.iter_mut() {
+                                    t.sample += 1;
+                                    initial_tiles.push_back(t.clone());
+                                }
+                            }
+                        }
+
+                        propagate_payload(
+                            payload,
+                            Arc::new(Mutex::new(initial_tiles)),
+                            sampler,
+                            &workers,
+                            &mut state,
+                        );
                     } else {
                         let active_workers = state.active_workers;
 
@@ -173,22 +196,21 @@ pub fn launch(
 
 type WorkerMap = HashMap<usize, (Sender<Option<render_worker::Payload>>, JoinHandle<()>)>;
 
-fn propagate_payload(mut payload: Payload, workers: &WorkerMap, state: &mut ManagerState) {
+fn propagate_payload(
+    payload: Payload,
+    tiles: Arc<Mutex<VecDeque<FilmTile>>>,
+    sampler: Arc<dyn Sampler>,
+    workers: &WorkerMap,
+    state: &mut ManagerState,
+) {
     let camera = Camera::new(payload.camera_params, payload.film_settings);
-    let sampler = payload.sampler.instantiate(
-        1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
-    );
 
     // TODO: This would be faster as a proper batch queues with work stealing,
     //       though the gains are likely only seen on interactive "frame rates"
     //       since sync only happens on tile pop (and film write).
     //       Visible rendering order could be retained by distributing the
     //       batches as interleaved (tiles i, 2*i, 3*i, ...)
-    let (tiles, tile_count) = {
-        let tiles = film_tiles(&mut payload.film, payload.film_settings);
-        let tile_count = tiles.len();
-        (Arc::new(Mutex::new(tiles)), tile_count)
-    };
+    let tile_count = { tiles.lock().unwrap().len() };
 
     let mut active_workers = 0;
     for (tx, _) in workers.values() {
@@ -201,6 +223,7 @@ fn propagate_payload(mut payload: Payload, workers: &WorkerMap, state: &mut Mana
             sampler: Arc::clone(&sampler),
             film: Arc::clone(&payload.film),
             mark_tiles: payload.render_settings.mark_tiles,
+            accumulate: payload.film_settings.accumulate,
         };
 
         if let Err(SendError { .. }) = tx.send(Some(thread_payload)) {
@@ -218,6 +241,7 @@ fn propagate_payload(mut payload: Payload, workers: &WorkerMap, state: &mut Mana
         active_tiles_total: tile_count,
         active_render_id: payload.render_id,
         active_workers,
+        accumulate: payload.film_settings.accumulate,
         ..ManagerState::default()
     };
 }
@@ -235,6 +259,8 @@ fn handle_worker_messages(
         active_workers,
         ray_count,
         tile_infos,
+        accumulate,
+        ..
     } = state;
 
     while let Ok(msg) = from_workers.try_recv() {
