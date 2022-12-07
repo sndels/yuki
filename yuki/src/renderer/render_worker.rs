@@ -232,6 +232,7 @@ fn render_tile(
         &payload.scene,
         &payload.camera,
         &payload.sampler,
+        false,
         tile,
         tile_pixels,
         &mut || {

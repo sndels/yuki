@@ -117,6 +117,7 @@ pub trait Integrator {
         scene: &Scene,
         camera: &Camera,
         sampler: &Arc<dyn Sampler>,
+        accumulating: bool,
         tile: &mut FilmTile,
         tile_pixels: &mut [Spectrum<f32>],
         early_termination_predicate: &mut dyn FnMut() -> bool,
@@ -128,20 +129,43 @@ pub trait Integrator {
         // Init per tile to try and get as deterministic results as possible between runs
         // This makes the rng the same per tile regardless of which threads take which tiles
         // Of course, this is useful only for debug but the init hit is miniscule in comparison to render time
+        let corner = tile.bb.p_min;
+        #[allow(unused_comparisons)] // Just in case these are changed from u16 for some reason
+        let types_fit = (tile.sample <= 0xFFFF) && (corner.x <= 0xFFFF) && (corner.y <= 0xFFFF);
+        assert!(types_fit);
         let mut sampler = sampler
             .as_ref()
-            .clone(((tile.bb.p_min.x as u64) << 32) | (tile.bb.p_min.y as u64));
+            .clone(((tile.sample as u64) << 32) | ((corner.x as u64) << 16) | (corner.y as u64));
+        // TODO:
+        // Better way to have samples distributed over multiple accumulation iterations?
+        // start_pixel() is now >60% of the work done by a worker in an accumulating render
 
         let mut ray_count = 0;
         for p in tile.bb {
             sampler.start_pixel();
             let mut color = Spectrum::zeros();
-            for _ in 0..sampler.samples_per_pixel() {
+            let sample_count = if accumulating {
+                1
+            } else {
+                sampler.samples_per_pixel()
+            };
+            for _ in 0..sample_count {
                 if early_termination_predicate() {
                     return ray_count;
                 }
 
-                sampler.start_sample();
+                if tile.sample > 0 {
+                    // NOTE:
+                    // The generated samples won't match between accumulating and non-accumulating
+                    // rendering as start_pixel is called after different numbers of extra generated
+                    // prgn values. This call only ensures that the samples are well distributed
+                    // between accumulating iterations. 1:1 can be verified by setting a large enough
+                    // sampled dimension count and removing tile sample from the cloning seed
+                    sampler.set_sample(tile.sample as usize);
+                } else {
+                    sampler.start_sample();
+                }
+
                 let sample_scratch = ScopedScratch::new_scope(scratch);
 
                 let p_film = Point2::new(p.x as f32, p.y as f32) + sampler.get_2d();
@@ -152,7 +176,7 @@ pub trait Integrator {
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }
-            color /= sampler.samples_per_pixel() as f32;
+            color /= sample_count as f32;
 
             let Vec2 {
                 x: tile_x,
