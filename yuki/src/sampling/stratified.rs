@@ -40,16 +40,23 @@ pub struct StratifiedSampler {
     rng: Pcg32,
     // Stored to clone the sampler with a different stream
     rng_seed: u64,
+    force_single_sample: bool,
 }
 
 impl StratifiedSampler {
-    pub fn new(params: Params, n_sampled_dimensions: usize) -> Self {
+    pub fn new(mut params: Params, n_sampled_dimensions: usize, force_single_sample: bool) -> Self {
         // Known seed for debugging
         // let seed = 0x73B9642E74AC471C;
         // Random seed for normal use
         let seed = rand::thread_rng().gen();
+
+        if force_single_sample {
+            params.pixel_samples = Vec2::new(1, 1);
+        }
+
         let total_pixel_samples =
             (params.pixel_samples.x as usize) * (params.pixel_samples.y as usize);
+
         Self {
             pixel_samples: params.pixel_samples,
             jitter_samples: params.jitter_samples,
@@ -61,6 +68,7 @@ impl StratifiedSampler {
             current_2d_dimension: 0,
             rng: Pcg32::new(seed, 0),
             rng_seed: seed,
+            force_single_sample,
         }
     }
 }
@@ -77,6 +85,7 @@ impl Sampler for StratifiedSampler {
                     jitter_samples: self.jitter_samples,
                 },
                 self.n_sampled_dimensions,
+                self.force_single_sample,
             )
         })
     }

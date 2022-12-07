@@ -170,6 +170,7 @@ impl Window {
         let mut render_launch_timer = Instant::now();
         let mut rendered_camera_offset: Option<CameraOffset> = None;
         let mut quit = false;
+        let mut camera_moved = false;
 
         while !quit {
             superluminal_perf::begin_event("Main loop");
@@ -404,6 +405,8 @@ impl Window {
                 }
             }
 
+            let camera_moved_last_frame = camera_moved;
+            camera_moved = false;
             let active_camera_params = camera_offset.as_ref().map_or(camera_params, |offset| {
                 let changed = if let Some(old) = rendered_camera_offset {
                     old.is_different(offset)
@@ -414,17 +417,22 @@ impl Window {
                 if changed {
                     rendered_camera_offset = Some(*offset);
                     render_triggered = true;
+                    camera_moved = true;
                 }
 
                 offset.apply(camera_params)
             });
+            // Camera movement launches render with 1 sample (without accumulation)
+            // for responsiveness so need to launch the full render once camera stops
+            let relaunch_full_render = !camera_moved && camera_moved_last_frame;
+            render_triggered |= relaunch_full_render;
 
             if render_triggered && camera_offset.is_none() {
                 rendered_camera_offset = None;
             }
 
             if render_triggered {
-                if render_launch_timer.elapsed().as_millis() < 32 {
+                if !relaunch_full_render && render_launch_timer.elapsed().as_millis() < 32 {
                     render_triggered = false;
                 } else {
                     superluminal_perf::begin_event("Render triggered");
@@ -434,6 +442,14 @@ impl Window {
                     // This leaves the previous film hanging until all threads have dropped it
                     film = film_or_new(&film, film_settings);
                     last_render_start = Instant::now();
+
+                    let force_single_sample = camera_moved;
+
+                    let mut film_settings = film_settings;
+                    if force_single_sample {
+                        film_settings.accumulate = false;
+                    }
+
                     renderer.launch(
                         Arc::clone(&scene),
                         active_camera_params,
@@ -442,6 +458,7 @@ impl Window {
                         scene_integrator,
                         film_settings,
                         render_settings,
+                        force_single_sample,
                     );
                     status_messages = Some(vec!["Render started".to_string()]);
                     render_triggered = false;
@@ -838,6 +855,7 @@ fn launch_debug_ray(
             let mut sampler: Box<dyn Sampler> = sampler
                 .instantiate(
                     1 + scene_integrator.n_sampled_dimensions(), // Camera sample and whatever the sampler needs
+                    false,
                 )
                 .as_ref()
                 .clone(0); // The interface is a bit clunky outside the renderer

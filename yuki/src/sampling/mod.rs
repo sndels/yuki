@@ -19,14 +19,22 @@ pub enum SamplerType {
 }
 
 impl SamplerType {
-    pub fn instantiate(self, n_sampled_dimensions: usize) -> Arc<dyn Sampler> {
+    pub fn instantiate(
+        self,
+        n_sampled_dimensions: usize,
+        force_single_sample: bool,
+    ) -> Arc<dyn Sampler> {
         match self {
-            SamplerType::Stratified(params) => {
-                Arc::new(StratifiedSampler::new(params, n_sampled_dimensions))
-            }
-            SamplerType::Uniform(params) => {
-                Arc::new(UniformSampler::new(params, n_sampled_dimensions))
-            }
+            SamplerType::Stratified(params) => Arc::new(StratifiedSampler::new(
+                params,
+                n_sampled_dimensions,
+                force_single_sample,
+            )),
+            SamplerType::Uniform(params) => Arc::new(UniformSampler::new(
+                params,
+                n_sampled_dimensions,
+                force_single_sample,
+            )),
         }
     }
 }

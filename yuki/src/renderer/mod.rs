@@ -137,6 +137,7 @@ impl Renderer {
         integrator: IntegratorType,
         film_settings: FilmSettings,
         render_settings: RenderSettings,
+        force_single_sample: bool
     ) {
         superluminal_perf::begin_event("Renderer::launch");
 
@@ -162,6 +163,7 @@ impl Renderer {
             integrator,
             film_settings,
             render_settings,
+            force_single_sample,
         })) {
             Ok(_) => {
                 self.render_in_progress = true;

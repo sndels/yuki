@@ -53,6 +53,7 @@ pub struct Payload {
     pub integrator: IntegratorType,
     pub film_settings: FilmSettings,
     pub render_settings: RenderSettings,
+    pub force_single_sample: bool,
 }
 
 #[derive(Default)]
@@ -63,7 +64,6 @@ struct ManagerState {
     active_workers: usize,
     ray_count: usize,
     tile_infos: VecDeque<TileInfo>,
-    accumulate: bool,
 }
 
 pub fn launch(
@@ -132,6 +132,7 @@ pub fn launch(
 
                         let sampler = payload.sampler.instantiate(
                             1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
+                            payload.force_single_sample,
                         );
 
                         let mut initial_tiles = tiles.clone();
@@ -241,7 +242,6 @@ fn propagate_payload(
         active_tiles_total: tile_count,
         active_render_id: payload.render_id,
         active_workers,
-        accumulate: payload.film_settings.accumulate,
         ..ManagerState::default()
     };
 }
@@ -259,7 +259,6 @@ fn handle_worker_messages(
         active_workers,
         ray_count,
         tile_infos,
-        accumulate,
         ..
     } = state;
 

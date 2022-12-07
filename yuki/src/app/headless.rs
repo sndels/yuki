@@ -45,6 +45,7 @@ pub fn render(exr_path: &Path, settings: InitialSettings) {
         scene_integrator,
         film_settings,
         render_settings,
+        false,
     );
 
     let mut max_line_length = 0;

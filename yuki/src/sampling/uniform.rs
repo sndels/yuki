@@ -30,14 +30,20 @@ pub struct UniformSampler {
     rng: Pcg32,
     // Stored to clone the sampler with a different stream
     rng_seed: u64,
+    force_single_sample: bool,
 }
 
 impl UniformSampler {
-    pub fn new(params: Params, n_sampled_dimensions: usize) -> Self {
+    pub fn new(mut params: Params, n_sampled_dimensions: usize, force_single_sample: bool) -> Self {
         // Known seed for debugging
         // let seed = 0x73B9642E74AC471C;
         // Random seed for normal use
         let seed = rand::thread_rng().gen();
+
+        if force_single_sample {
+            params.pixel_samples = 1;
+        }
+
         Self {
             pixel_samples: params.pixel_samples,
             n_sampled_dimensions,
@@ -51,6 +57,7 @@ impl UniformSampler {
             current_2d_dimension: 0,
             rng: Pcg32::new(seed, 0),
             rng_seed: seed,
+            force_single_sample,
         }
     }
 }
@@ -64,6 +71,7 @@ impl Sampler for UniformSampler {
                     pixel_samples: self.pixel_samples,
                 },
                 self.n_sampled_dimensions,
+                self.force_single_sample,
             )
         })
     }
