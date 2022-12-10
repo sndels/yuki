@@ -178,8 +178,6 @@ mod tests {
         assert_eq!(Vec2::new(1.0, 0.0).min_comp(), 0.0);
 
         assert_eq!(Vec3::new(0.0, 1.0, 2.0).min_comp(), 0.0);
-
-        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).min_comp(), 0.0);
     }
 
     #[test]
@@ -188,8 +186,6 @@ mod tests {
         assert_eq!(Vec2::new(1.0, 0.0).max_comp(), 1.0);
 
         assert_eq!(Vec3::new(0.0, 1.0, 2.0).max_comp(), 2.0);
-
-        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).max_comp(), 3.0);
     }
 
     #[test]
@@ -198,8 +194,6 @@ mod tests {
         assert_eq!(Vec2::new(1.0, 0.0).max_dimension(), 0);
 
         assert_eq!(Vec3::new(0.0, 1.0, 2.0).max_dimension(), 2);
-
-        assert_eq!(Vec4::new(0.0, 1.0, 2.0, 3.0).max_dimension(), 3);
     }
 
     #[test]
