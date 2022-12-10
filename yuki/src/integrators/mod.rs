@@ -139,6 +139,14 @@ pub trait Integrator {
         // TODO:
         // Better way to have samples distributed over multiple accumulation iterations?
         // start_pixel() is now >60% of the work done by a worker in an accumulating render
+        //
+        // pbrt-v4 seems to have changed the sampler interface to just sampler.startPixelSample()
+        // instead of start_pixel() and a series of start_sample(). That sounds in line with
+        // their move to support gpu execution, but it also looks like just the thing that
+        // accumulation requires. There's a nasty looking permutation hash thing in its
+        // stratified sampler so ether
+        //    a) find a source explaining that stuff or
+        //    b) wait for the next edition of the book to come out and read it from there
 
         let mut ray_count = 0;
         for p in tile.bb {
