@@ -71,6 +71,7 @@ pub struct Window {
     quit: bool,
     last_frame: Instant,
     render_triggered: bool,
+    launch_debug_ray: bool,
     any_item_active: bool,
     ui_hovered: bool,
     status_messages: Option<Vec<String>>,
@@ -148,6 +149,7 @@ impl Window {
             quit: false,
             last_frame: Instant::now(),
             render_triggered: false,
+            launch_debug_ray: false,
             any_item_active: false,
             ui_hovered: false,
             status_messages: None,
@@ -193,6 +195,8 @@ impl Window {
             if ui_state.save_settings {
                 self.save_settings();
             }
+
+            self.handle_debug_ray();
 
             let active_camera_params = self.handle_camera_movement();
 
@@ -264,27 +268,19 @@ impl Window {
     fn handle_events(&mut self, ui: &mut UI) {
         superluminal_perf::begin_event("Event loop");
 
-        // Every field referenced and/or mutated by the event loop as the borrow checker can't follow
-        let gl_window = self.display.gl_window();
-        let window = gl_window.window();
-        let display = &self.display;
+        // Every field mutated by the event loop as the borrow checker can't follow otherwise
         let last_frame = &mut self.last_frame;
         let quit = &mut self.quit;
         let render_triggered = &mut self.render_triggered;
         let cursor_state = &mut self.cursor_state;
         let mouse_gesture = &mut self.mouse_gesture;
-        let camera_params = self.camera_params;
         let camera_offset = &mut self.camera_offset;
-        let any_item_active = self.any_item_active;
-        let ui_hovered = self.ui_hovered;
-        let ray_visualization = &mut self.ray_visualization;
-        let film = &self.film;
-        let film_settings = self.film_settings;
-        let scene = &self.scene;
-        let scene_integrator = self.scene_integrator;
-        let sampler = self.sampler;
+        let launch_debug_ray = &mut self.launch_debug_ray;
 
         self.event_loop.run_return(|event, _, control_flow| {
+            let gl_window = self.display.gl_window();
+            let window = gl_window.window();
+
             ui.handle_event(window, &event);
             match event {
                 Event::NewEvents(_) => {
@@ -340,60 +336,18 @@ impl Window {
                         }
                     }
                     WindowEvent::MouseWheel { delta, .. } => {
-                        handle_scroll_event(delta, camera_params, camera_offset);
+                        handle_scroll_event(delta, self.camera_params, camera_offset);
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
-                        if cursor_state.inside && !any_item_active && !ui_hovered {
-                            // We only want to handle input if we're not on top of interacting with imgui
-
-                            // Ctrl+LClick fires debug ray on pixel
-                            if cursor_state.state.ctrl()
-                                && button == MouseButton::Left
-                                && state == ElementState::Pressed
-                            {
-                                if let Some(rays) = launch_debug_ray(
-                                    cursor_state,
-                                    display,
-                                    film,
-                                    film_settings,
-                                    scene,
-                                    camera_params,
-                                    scene_integrator,
-                                    sampler,
-                                ) {
-                                    if let Err(why) = ray_visualization.set_rays(display, &rays) {
-                                        yuki_error!(
-                                            "Setting rays to ray visualization failed: {:?}",
-                                            why
-                                        );
-                                    };
-                                }
-                            }
-
-                            if mouse_gesture.is_none()
-                                && (button == MouseButton::Middle
-                                    || (button == MouseButton::Left && cursor_state.state.alt()))
-                                && state == ElementState::Pressed
-                            {
-                                if cursor_state.state.shift() {
-                                    *mouse_gesture = Some(MouseGesture {
-                                        start_position: cursor_state.position,
-                                        current_position: cursor_state.position,
-                                        gesture: MouseGestureType::TrackPlane,
-                                    });
-                                } else {
-                                    *mouse_gesture = Some(MouseGesture {
-                                        start_position: cursor_state.position,
-                                        current_position: cursor_state.position,
-                                        gesture: MouseGestureType::TrackBall,
-                                    });
-                                }
-                            }
-                        }
-
-                        if mouse_gesture.is_some() && state == ElementState::Released {
-                            *mouse_gesture = None;
-                        }
+                        handle_mouse_input(
+                            state,
+                            button,
+                            self.any_item_active,
+                            self.ui_hovered,
+                            cursor_state,
+                            mouse_gesture,
+                            launch_debug_ray,
+                        );
                     }
                     _ => {}
                 },
@@ -586,6 +540,27 @@ impl Window {
         self.render_launch_timer = Instant::now();
 
         superluminal_perf::end_event(); // Render triggered
+    }
+
+    fn handle_debug_ray(&mut self) {
+        if self.launch_debug_ray {
+            if let Some(rays) = launch_debug_ray(
+                &self.cursor_state,
+                &self.display,
+                &self.film,
+                self.film_settings,
+                &self.scene,
+                self.camera_params,
+                self.scene_integrator,
+                self.sampler,
+            ) {
+                if let Err(why) = self.ray_visualization.set_rays(&self.display, &rays) {
+                    yuki_error!("Setting rays to ray visualization failed: {:?}", why);
+                };
+            }
+
+            self.launch_debug_ray = false;
+        }
     }
 }
 
@@ -1073,5 +1048,51 @@ fn handle_exr_write(
                 yuki_error!("{}", why);
             }
         }
+    }
+}
+
+fn handle_mouse_input(
+    state: ElementState,
+    button: MouseButton,
+    any_item_active: bool,
+    ui_hovered: bool,
+    cursor_state: &CursorState,
+    mouse_gesture: &mut Option<MouseGesture>,
+    launch_debug_ray: &mut bool,
+) {
+    if cursor_state.inside && !any_item_active && !ui_hovered {
+        // We only want to handle input if we're not on top of interacting with imgui
+
+        // Ctrl+LClick fires debug ray on pixel
+        if cursor_state.state.ctrl()
+            && button == MouseButton::Left
+            && state == ElementState::Pressed
+        {
+            *launch_debug_ray = true;
+        }
+
+        if mouse_gesture.is_none()
+            && (button == MouseButton::Middle
+                || (button == MouseButton::Left && cursor_state.state.alt()))
+            && state == ElementState::Pressed
+        {
+            if cursor_state.state.shift() {
+                *mouse_gesture = Some(MouseGesture {
+                    start_position: cursor_state.position,
+                    current_position: cursor_state.position,
+                    gesture: MouseGestureType::TrackPlane,
+                });
+            } else {
+                *mouse_gesture = Some(MouseGesture {
+                    start_position: cursor_state.position,
+                    current_position: cursor_state.position,
+                    gesture: MouseGestureType::TrackBall,
+                });
+            }
+        }
+    }
+
+    if mouse_gesture.is_some() && state == ElementState::Released {
+        *mouse_gesture = None;
     }
 }
