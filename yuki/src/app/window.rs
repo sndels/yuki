@@ -82,8 +82,8 @@ pub struct Window {
     bvh_visualization_level: i32,
     render_launch_timer: Instant,
     rendered_camera_offset: Option<CameraOffset>,
-    camera_moved_last_frame: bool,
     camera_moved: bool,
+    forced_single_sample: bool,
 }
 
 impl Window {
@@ -160,8 +160,8 @@ impl Window {
             bvh_visualization_level: -1i32,
             render_launch_timer: Instant::now(),
             rendered_camera_offset: None,
-            camera_moved_last_frame: false,
             camera_moved: false,
+            forced_single_sample: false,
         }
     }
 
@@ -261,8 +261,6 @@ impl Window {
 
             superluminal_perf::end_event(); // Main loop
         }
-
-        self.camera_moved_last_frame = self.camera_moved;
     }
 
     fn handle_events(&mut self, ui: &mut UI) {
@@ -482,7 +480,7 @@ impl Window {
     fn handle_extra_render_triggers(&mut self) -> bool {
         // Camera movement launches render with 1 sample (without accumulation)
         // for responsiveness so need to launch the full render once camera stops
-        let force_relaunch = !self.camera_moved && self.camera_moved_last_frame;
+        let force_relaunch = !self.camera_moved && self.forced_single_sample;
         self.render_triggered |= force_relaunch;
 
         if self.render_triggered && self.camera_offset.is_none() {
@@ -538,6 +536,7 @@ impl Window {
         self.status_messages = Some(vec!["Render started".to_string()]);
         self.render_triggered = false;
         self.render_launch_timer = Instant::now();
+        self.forced_single_sample = force_single_sample;
 
         superluminal_perf::end_event(); // Render triggered
     }
