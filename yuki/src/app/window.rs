@@ -26,7 +26,7 @@ use super::{
     renderpasses::{
         find_min_max, BvhVisualization, HeatmapParams, RayVisualization, ScaleOutput, ToneMapFilm,
     },
-    ui::{generate_ui, WriteEXR, UI},
+    ui::{generate_ui, UIState, WriteEXR, UI},
     util::{exr_path, try_load_scene, write_exr},
     InitialSettings, ToneMapType,
 };
@@ -48,14 +48,13 @@ pub struct Window {
     event_loop: EventLoop<()>,
     display: glium::Display,
 
-    ui: UI,
-
     // Rendering
     film_settings: FilmSettings,
     render_settings: RenderSettings,
     film: Arc<Mutex<Film>>,
     scene_integrator: IntegratorType,
     sampler: SamplerType,
+    renderer: Renderer,
 
     // Output
     tone_map_type: ToneMapType,
@@ -67,6 +66,23 @@ pub struct Window {
     load_settings: SceneLoadSettings,
     scene: Arc<Scene>,
     camera_params: CameraParameters,
+
+    // Random main loop state
+    quit: bool,
+    last_frame: Instant,
+    render_triggered: bool,
+    any_item_active: bool,
+    ui_hovered: bool,
+    status_messages: Option<Vec<String>>,
+    cursor_state: CursorState,
+    mouse_gesture: Option<MouseGesture>,
+    camera_offset: Option<CameraOffset>,
+    last_render_start: Instant,
+    bvh_visualization_level: i32,
+    render_launch_timer: Instant,
+    rendered_camera_offset: Option<CameraOffset>,
+    camera_moved_last_frame: bool,
+    camera_moved: bool,
 }
 
 impl Window {
@@ -83,8 +99,6 @@ impl Window {
             glium::Display::new(window_builder, context_builder, &event_loop),
             "Failed to initialize glium display"
         );
-
-        let ui = UI::new(&display);
 
         // Film
         let film = Arc::new(Mutex::new(Film::default()));
@@ -118,7 +132,6 @@ impl Window {
         Window {
             event_loop,
             display,
-            ui,
             tone_map_film,
             ray_visualization,
             bvh_visualization,
@@ -126,424 +139,97 @@ impl Window {
             render_settings: settings.render_settings.unwrap_or_default(),
             scene_integrator: settings.scene_integrator.unwrap_or_default(),
             sampler: settings.sampler.unwrap_or_default(),
+            renderer: Renderer::new(),
             film,
             scene,
             tone_map_type: settings.tone_map.unwrap_or_default(),
             load_settings,
             camera_params,
+            quit: false,
+            last_frame: Instant::now(),
+            render_triggered: false,
+            any_item_active: false,
+            ui_hovered: false,
+            status_messages: None,
+            cursor_state: CursorState::default(),
+            mouse_gesture: None,
+            camera_offset: None,
+            last_render_start: Instant::now(),
+            bvh_visualization_level: -1i32,
+            render_launch_timer: Instant::now(),
+            rendered_camera_offset: None,
+            camera_moved_last_frame: false,
+            camera_moved: false,
         }
     }
 
-    pub fn main_loop(self) {
-        let Window {
-            mut event_loop,
-            display,
-            mut ui,
-            mut tone_map_film,
-            mut ray_visualization,
-            mut bvh_visualization,
-            mut film_settings,
-            mut render_settings,
-            mut scene_integrator,
-            mut sampler,
-            mut film,
-            mut scene,
-            mut tone_map_type,
-            mut load_settings,
-            mut camera_params,
-        } = self;
+    pub fn main_loop(mut self) {
+        // Don't store in self as context.frame() locks self behind a mutable ref
+        // until imgui is rendered
+        let mut ui = UI::new(&self.display);
 
-        let mut last_frame = Instant::now();
-
-        let mut window_size = display.gl_window().window().inner_size();
-        let mut render_triggered = false;
-        let mut any_item_active = false;
-        let mut ui_hovered = false;
-        // Boxed so we can drop this at will to kill the background threads
-        let mut renderer = Renderer::new();
-        let mut status_messages: Option<Vec<String>> = None;
-        let mut cursor_state = CursorState::default();
-        let mut mouse_gesture: Option<MouseGesture> = None;
-        let mut camera_offset: Option<CameraOffset> = None;
-        let mut last_render_start = Instant::now();
-        let mut bvh_visualization_level = -1i32;
-        let mut render_launch_timer = Instant::now();
-        let mut rendered_camera_offset: Option<CameraOffset> = None;
-        let mut quit = false;
-        let mut camera_moved = false;
-
-        while !quit {
+        while !self.quit {
             superluminal_perf::begin_event("Main loop");
 
-            let gl_window = display.gl_window();
-            let window = gl_window.window();
+            self.handle_events(&mut ui);
 
-            superluminal_perf::begin_event("Event loop");
-
-            event_loop.run_return(|event, _, control_flow| {
-                ui.handle_event(window, &event);
-                match event {
-                    Event::NewEvents(_) => {
-                        yuki_trace!("main_loop: NewEvents");
-                        let now = Instant::now();
-                        ui.update_delta_time(now - last_frame);
-                        last_frame = now;
-                    }
-                    Event::MainEventsCleared => {
-                        yuki_trace!("main_loop: MainEventsCleared");
-                        // Ran out of events so let's jump back out
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    Event::WindowEvent { event, .. } => match event {
-                        WindowEvent::CloseRequested => {
-                            yuki_trace!("main_loop: CloseRequsted");
-                            quit = true;
-                        }
-                        WindowEvent::Resized(size) => {
-                            yuki_trace!("main_loop: Resized");
-                            window_size = size;
-                            display.gl_window().resize(size);
-                        }
-                        WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    virtual_keycode: Some(key),
-                                    state: ElementState::Pressed,
-                                    ..
-                                },
-                            ..
-                        } => {
-                            yuki_trace!("main_loop: KeyboardInput");
-                            if !any_item_active {
-                                // We only want to handle keypresses if we're not interacting with imgui
-                                match key {
-                                    VirtualKeyCode::Escape => {
-                                        quit = true;
-                                    }
-                                    VirtualKeyCode::Return => render_triggered = true,
-                                    _ => {}
-                                }
-                            }
-                        }
-                        WindowEvent::ModifiersChanged(state) => {
-                            cursor_state.state = state;
-                        }
-                        WindowEvent::CursorEntered { .. } => cursor_state.inside = true,
-                        WindowEvent::CursorLeft { .. } => cursor_state.inside = false,
-                        WindowEvent::CursorMoved { position, .. } => {
-                            cursor_state.position = Vec2::new(position.x, position.y);
-                            if let Some(gesture) = &mut mouse_gesture {
-                                gesture.current_position = cursor_state.position;
-                            }
-                        }
-                        WindowEvent::MouseWheel { delta, .. } => {
-                            handle_scroll_event(delta, camera_params, &mut camera_offset);
-                        }
-                        WindowEvent::MouseInput { state, button, .. } => {
-                            if cursor_state.inside && !any_item_active && !ui_hovered {
-                                // We only want to handle input if we're not on top of interacting with imgui
-
-                                // Ctrl+LClick fires debug ray on pixel
-                                if cursor_state.state.ctrl()
-                                    && button == MouseButton::Left
-                                    && state == ElementState::Pressed
-                                {
-                                    if let Some(rays) = launch_debug_ray(
-                                        &cursor_state,
-                                        &display,
-                                        &film,
-                                        film_settings,
-                                        &scene,
-                                        camera_params,
-                                        scene_integrator,
-                                        sampler,
-                                    ) {
-                                        if let Err(why) =
-                                            ray_visualization.set_rays(&display, &rays)
-                                        {
-                                            yuki_error!(
-                                                "Setting rays to ray visualization failed: {:?}",
-                                                why
-                                            );
-                                        };
-                                    }
-                                }
-
-                                if mouse_gesture.is_none()
-                                    && (button == MouseButton::Middle
-                                        || (button == MouseButton::Left
-                                            && cursor_state.state.alt()))
-                                    && state == ElementState::Pressed
-                                {
-                                    if cursor_state.state.shift() {
-                                        mouse_gesture = Some(MouseGesture {
-                                            start_position: cursor_state.position,
-                                            current_position: cursor_state.position,
-                                            gesture: MouseGestureType::TrackPlane,
-                                        });
-                                    } else {
-                                        mouse_gesture = Some(MouseGesture {
-                                            start_position: cursor_state.position,
-                                            current_position: cursor_state.position,
-                                            gesture: MouseGestureType::TrackBall,
-                                        });
-                                    }
-                                }
-                            }
-
-                            if mouse_gesture.is_some() && state == ElementState::Released {
-                                mouse_gesture = None;
-                            }
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                }
-            });
-
-            superluminal_perf::end_event(); // Event loop
-
-            if load_settings.path.exists() {
-                renderer.kill();
-                match try_load_scene(&load_settings) {
-                    Ok((new_scene, new_camera_params, new_film_settings, total_secs)) => {
-                        scene = new_scene;
-                        camera_params = new_camera_params;
-                        film_settings = new_film_settings;
-                        ray_visualization.clear_rays();
-                        bvh_visualization.clear_bounds();
-                        status_messages = Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
-                    }
-                    Err(why) => {
-                        yuki_error!("Scene loading failed: {}", why);
-                        status_messages = Some(vec!["Scene loading failed".into()]);
-                    }
-                }
-                load_settings.path.clear();
+            if self.load_settings.path.exists() {
+                self.load_scene();
             }
 
             superluminal_perf::begin_event("UI");
 
             expect!(
-                ui.platform.prepare_frame(ui.context.io_mut(), window),
+                ui.platform
+                    .prepare_frame(ui.context.io_mut(), self.display.gl_window().window()),
                 "Failed to prepare imgui gl frame"
             );
             let frame_ui = ui.context.frame();
 
-            let ui_state = generate_ui(
-                frame_ui,
-                window,
-                &mut film_settings,
-                &mut sampler,
-                &mut camera_params,
-                &mut scene_integrator,
-                &mut tone_map_type,
-                &mut load_settings,
-                &mut render_settings,
-                if bvh_visualization.bounds_set() {
-                    Some(&mut bvh_visualization_level)
-                } else {
-                    None
-                },
-                &scene,
-                renderer.is_active(),
-                &status_messages,
-            );
-            render_triggered |= ui_state.render_triggered;
-            any_item_active = ui_state.any_item_active;
-            ui_hovered = ui_state.ui_hovered;
-
-            if ui_state.render_killed {
-                renderer.kill();
-            }
-
-            if ui_state.recompute_bvh_vis {
-                if let Err(why) = bvh_visualization
-                    .set_bounds(&display, &scene.bvh.node_bounds(bvh_visualization_level))
-                {
-                    yuki_error!("Setting bounds to BVH visualization failed: {:?}", why);
-                };
-            }
-
-            if ui_state.clear_bvh_vis {
-                bvh_visualization.clear_bounds();
-            }
-
-            render_triggered |= handle_mouse_gestures(
-                window_size,
-                &mut camera_params,
-                &mut mouse_gesture,
-                &mut camera_offset,
-            );
+            let ui_state = self.handle_ui(frame_ui);
 
             superluminal_perf::end_event(); // UI
 
             if ui_state.save_settings {
-                let settings = InitialSettings {
-                    film_settings: Some(film_settings),
-                    sampler: Some(sampler),
-                    scene_integrator: Some(scene_integrator),
-                    tone_map: Some(tone_map_type),
-                    load_settings: Some(SceneLoadSettings {
-                        path: scene.load_settings.path.clone(),
-                        max_shapes_in_node: load_settings.max_shapes_in_node,
-                        split_method: load_settings.split_method,
-                    }),
-                    render_settings: Some(render_settings),
-                };
-
-                match File::create("settings.yaml") {
-                    Ok(file) => {
-                        let writer = BufWriter::new(file);
-                        if let Err(why) = serde_yaml::to_writer(writer, &settings) {
-                            yuki_error!("Failed to serialize settings: {}", why);
-                        }
-                    }
-                    Err(why) => {
-                        yuki_error!("Failed to create settings file: {}", why);
-                    }
-                }
+                self.save_settings();
             }
 
-            let camera_moved_last_frame = camera_moved;
-            camera_moved = false;
-            let active_camera_params = camera_offset.as_ref().map_or(camera_params, |offset| {
-                let changed = if let Some(old) = rendered_camera_offset {
-                    old.is_different(offset)
-                } else {
-                    true
-                };
+            let active_camera_params = self.handle_camera_movement();
 
-                if changed {
-                    rendered_camera_offset = Some(*offset);
-                    render_triggered = true;
-                    camera_moved = true;
-                }
+            let force_relaunch = self.handle_extra_render_triggers();
 
-                offset.apply(camera_params)
-            });
-            // Camera movement launches render with 1 sample (without accumulation)
-            // for responsiveness so need to launch the full render once camera stops
-            let relaunch_full_render = !camera_moved && camera_moved_last_frame;
-            render_triggered |= relaunch_full_render;
-
-            if render_triggered && camera_offset.is_none() {
-                rendered_camera_offset = None;
-            }
-
-            if render_triggered {
-                if !relaunch_full_render && render_launch_timer.elapsed().as_millis() < 32 {
-                    render_triggered = false;
-                } else {
-                    superluminal_perf::begin_event("Render triggered");
-
-                    yuki_debug!("main_loop: Render triggered");
-                    // Make sure film matches settings
-                    // This leaves the previous film hanging until all threads have dropped it
-                    film = film_or_new(&film, film_settings);
-                    last_render_start = Instant::now();
-
-                    let force_single_sample = camera_moved;
-
-                    let mut film_settings = film_settings;
-                    if force_single_sample {
-                        film_settings.accumulate = false;
-                    }
-
-                    renderer.launch(
-                        Arc::clone(&scene),
-                        active_camera_params,
-                        Arc::clone(&film),
-                        sampler,
-                        scene_integrator,
-                        film_settings,
-                        render_settings,
-                        force_single_sample,
-                    );
-                    status_messages = Some(vec!["Render started".to_string()]);
-                    render_triggered = false;
-                    render_launch_timer = Instant::now();
-
-                    superluminal_perf::end_event(); // Render triggered
-                }
-            } else {
-                yuki_trace!("main_loop: Render job tracked");
-
-                if let Some(status) = renderer.check_status() {
-                    status_messages = Some(render_status_messages(&status, last_render_start));
-                }
-            }
+            self.handle_render(active_camera_params, force_relaunch);
 
             let draw_start = Instant::now();
             superluminal_perf::begin_event("Draw");
 
-            let mut render_target = display.draw();
+            let mut render_target = self.display.draw();
             render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
 
-            superluminal_perf::begin_event("Draw::Tone map");
-
-            if let ToneMapType::Heatmap(HeatmapParams {
-                ref mut bounds,
-                channel,
-            }) = tone_map_type
-            {
-                let film_dirty = {
-                    yuki_trace!("main_loop: Waiting for lock on film");
-                    let film = film.lock().unwrap();
-                    yuki_trace!("main_loop: Aqcuired film");
-                    let dirty = film.dirty();
-                    yuki_trace!("main_loop: Releasing film");
-                    dirty
-                };
-                if bounds.is_none() || film_dirty {
-                    *bounds = Some(expect!(
-                        find_min_max(&film, channel),
-                        "Failed to find film min, max"
-                    ));
-                }
-            }
-
-            let tone_mapped_film = expect!(
-                tone_map_film.draw(&display, &film, &tone_map_type),
-                "Film tone map pass failed"
+            let tone_mapped_film = draw_tone_mapped(
+                &self.display,
+                &self.film,
+                &mut self.tone_map_type,
+                &mut self.tone_map_film,
             );
 
-            superluminal_perf::end_event(); // Tone map
-
-            superluminal_perf::begin_event("Draw::Visualizations");
-
-            expect!(
-                ray_visualization.draw(
-                    scene.bvh.bounds(),
-                    active_camera_params,
-                    film_settings,
-                    &mut tone_mapped_film.as_surface(),
-                ),
-                "Ray visualization failed"
-            );
-            expect!(
-                bvh_visualization.draw(
-                    scene.bvh.bounds(),
-                    active_camera_params,
-                    film_settings,
-                    &mut tone_mapped_film.as_surface(),
-                ),
-                "Ray visualization failed"
+            draw_visualizations(
+                &tone_mapped_film,
+                &self.ray_visualization,
+                &self.scene,
+                active_camera_params,
+                self.film_settings,
+                &self.bvh_visualization,
             );
 
-            superluminal_perf::end_event(); // Visualizations
+            scale_output(tone_mapped_film, &mut render_target);
 
-            superluminal_perf::begin_event("Draw::Scale output");
-
-            ScaleOutput::draw(tone_mapped_film, &mut render_target);
-
-            superluminal_perf::end_event(); // Scale output
-
+            // Can't split in a fn as frame_ui is blocking context-borrows behind a mutable ref
             {
                 superluminal_perf::begin_event("Draw::UI");
 
                 ui.platform
-                    .prepare_render(frame_ui, display.gl_window().window());
+                    .prepare_render(frame_ui, self.display.gl_window().window());
                 let draw_data = ui.context.render();
                 expect!(
                     ui.renderer.render(&mut render_target, draw_data),
@@ -553,7 +239,6 @@ impl Window {
                 superluminal_perf::end_event(); // Draw::UI
             }
 
-            // Finish frame
             expect!(render_target.finish(), "Frame::finish() failed");
 
             superluminal_perf::end_event(); // Draw
@@ -562,24 +247,345 @@ impl Window {
             yuki_trace!("main_loop: Draw took {:4.2}ms", spent_millis);
 
             // Handle after draw so we have the mapped output texture
-            if let Some(output_type) = &ui_state.write_exr {
-                match exr_path(&scene) {
-                    Ok(path) => {
-                        status_messages = Some(dump_exr(
-                            path,
-                            output_type,
-                            tone_mapped_film,
-                            Arc::clone(&film),
-                        ));
-                    }
-                    Err(why) => {
-                        yuki_error!("{}", why);
-                    }
-                }
-            }
+            handle_exr_write(
+                ui_state,
+                tone_mapped_film,
+                &self.scene,
+                &self.film,
+                &mut self.status_messages,
+            );
 
             superluminal_perf::end_event(); // Main loop
         }
+
+        self.camera_moved_last_frame = self.camera_moved;
+    }
+
+    fn handle_events(&mut self, ui: &mut UI) {
+        superluminal_perf::begin_event("Event loop");
+
+        // Every field referenced and/or mutated by the event loop as the borrow checker can't follow
+        let gl_window = self.display.gl_window();
+        let window = gl_window.window();
+        let display = &self.display;
+        let last_frame = &mut self.last_frame;
+        let quit = &mut self.quit;
+        let render_triggered = &mut self.render_triggered;
+        let cursor_state = &mut self.cursor_state;
+        let mouse_gesture = &mut self.mouse_gesture;
+        let camera_params = self.camera_params;
+        let camera_offset = &mut self.camera_offset;
+        let any_item_active = self.any_item_active;
+        let ui_hovered = self.ui_hovered;
+        let ray_visualization = &mut self.ray_visualization;
+        let film = &self.film;
+        let film_settings = self.film_settings;
+        let scene = &self.scene;
+        let scene_integrator = self.scene_integrator;
+        let sampler = self.sampler;
+
+        self.event_loop.run_return(|event, _, control_flow| {
+            ui.handle_event(window, &event);
+            match event {
+                Event::NewEvents(_) => {
+                    yuki_trace!("main_loop: NewEvents");
+                    let now = Instant::now();
+                    ui.update_delta_time(now - *last_frame);
+                    *last_frame = now;
+                }
+                Event::MainEventsCleared => {
+                    yuki_trace!("main_loop: MainEventsCleared");
+                    // Ran out of events so let's jump back out
+                    *control_flow = ControlFlow::Exit;
+                }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::CloseRequested => {
+                        yuki_trace!("main_loop: CloseRequsted");
+                        *quit = true;
+                    }
+                    WindowEvent::Resized(size) => {
+                        yuki_trace!("main_loop: Resized");
+                        gl_window.resize(size);
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(key),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
+                        yuki_trace!("main_loop: KeyboardInput");
+                        if !self.any_item_active {
+                            // We only want to handle keypresses if we're not interacting with imgui
+                            match key {
+                                VirtualKeyCode::Escape => {
+                                    *quit = true;
+                                }
+                                VirtualKeyCode::Return => *render_triggered = true,
+                                _ => {}
+                            }
+                        }
+                    }
+                    WindowEvent::ModifiersChanged(state) => {
+                        cursor_state.state = state;
+                    }
+                    WindowEvent::CursorEntered { .. } => cursor_state.inside = true,
+                    WindowEvent::CursorLeft { .. } => cursor_state.inside = false,
+                    WindowEvent::CursorMoved { position, .. } => {
+                        cursor_state.position = Vec2::new(position.x, position.y);
+                        if let Some(gesture) = mouse_gesture {
+                            gesture.current_position = cursor_state.position;
+                        }
+                    }
+                    WindowEvent::MouseWheel { delta, .. } => {
+                        handle_scroll_event(delta, camera_params, camera_offset);
+                    }
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        if cursor_state.inside && !any_item_active && !ui_hovered {
+                            // We only want to handle input if we're not on top of interacting with imgui
+
+                            // Ctrl+LClick fires debug ray on pixel
+                            if cursor_state.state.ctrl()
+                                && button == MouseButton::Left
+                                && state == ElementState::Pressed
+                            {
+                                if let Some(rays) = launch_debug_ray(
+                                    cursor_state,
+                                    display,
+                                    film,
+                                    film_settings,
+                                    scene,
+                                    camera_params,
+                                    scene_integrator,
+                                    sampler,
+                                ) {
+                                    if let Err(why) = ray_visualization.set_rays(display, &rays) {
+                                        yuki_error!(
+                                            "Setting rays to ray visualization failed: {:?}",
+                                            why
+                                        );
+                                    };
+                                }
+                            }
+
+                            if mouse_gesture.is_none()
+                                && (button == MouseButton::Middle
+                                    || (button == MouseButton::Left && cursor_state.state.alt()))
+                                && state == ElementState::Pressed
+                            {
+                                if cursor_state.state.shift() {
+                                    *mouse_gesture = Some(MouseGesture {
+                                        start_position: cursor_state.position,
+                                        current_position: cursor_state.position,
+                                        gesture: MouseGestureType::TrackPlane,
+                                    });
+                                } else {
+                                    *mouse_gesture = Some(MouseGesture {
+                                        start_position: cursor_state.position,
+                                        current_position: cursor_state.position,
+                                        gesture: MouseGestureType::TrackBall,
+                                    });
+                                }
+                            }
+                        }
+
+                        if mouse_gesture.is_some() && state == ElementState::Released {
+                            *mouse_gesture = None;
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        });
+
+        superluminal_perf::end_event(); // Event loop
+    }
+
+    fn handle_ui(&mut self, frame_ui: &mut imgui::Ui) -> UIState {
+        let gl_window = self.display.gl_window();
+        let window = gl_window.window();
+
+        let ui_state = generate_ui(
+            frame_ui,
+            window,
+            &mut self.film_settings,
+            &mut self.sampler,
+            &mut self.camera_params,
+            &mut self.scene_integrator,
+            &mut self.tone_map_type,
+            &mut self.load_settings,
+            &mut self.render_settings,
+            if self.bvh_visualization.bounds_set() {
+                Some(&mut self.bvh_visualization_level)
+            } else {
+                None
+            },
+            &self.scene,
+            self.renderer.is_active(),
+            &self.status_messages,
+        );
+        self.render_triggered |= ui_state.render_triggered;
+        self.any_item_active = ui_state.any_item_active;
+        self.ui_hovered = ui_state.ui_hovered;
+
+        if ui_state.render_killed {
+            self.renderer.kill();
+        }
+
+        if ui_state.recompute_bvh_vis {
+            if let Err(why) = self.bvh_visualization.set_bounds(
+                &self.display,
+                &self.scene.bvh.node_bounds(self.bvh_visualization_level),
+            ) {
+                yuki_error!("Setting bounds to BVH visualization failed: {:?}", why);
+            };
+        }
+
+        if ui_state.clear_bvh_vis {
+            self.bvh_visualization.clear_bounds();
+        }
+
+        self.render_triggered |= handle_mouse_gestures(
+            self.display.gl_window().window().inner_size(),
+            &mut self.camera_params,
+            &mut self.mouse_gesture,
+            &mut self.camera_offset,
+        );
+
+        ui_state
+    }
+
+    fn load_scene(&mut self) {
+        self.renderer.kill();
+        match try_load_scene(&self.load_settings) {
+            Ok((new_scene, new_camera_params, new_film_settings, total_secs)) => {
+                self.scene = new_scene;
+                self.camera_params = new_camera_params;
+                self.film_settings = new_film_settings;
+                self.ray_visualization.clear_rays();
+                self.bvh_visualization.clear_bounds();
+                self.status_messages = Some(vec![format!("Scene loaded in {:.2}s", total_secs)]);
+            }
+            Err(why) => {
+                yuki_error!("Scene loading failed: {}", why);
+                self.status_messages = Some(vec!["Scene loading failed".into()]);
+            }
+        }
+        self.load_settings.path.clear();
+    }
+
+    fn save_settings(&self) {
+        let settings = InitialSettings {
+            film_settings: Some(self.film_settings),
+            sampler: Some(self.sampler),
+            scene_integrator: Some(self.scene_integrator),
+            tone_map: Some(self.tone_map_type),
+            load_settings: Some(SceneLoadSettings {
+                path: self.scene.load_settings.path.clone(),
+                max_shapes_in_node: self.load_settings.max_shapes_in_node,
+                split_method: self.load_settings.split_method,
+            }),
+            render_settings: Some(self.render_settings),
+        };
+
+        match File::create("settings.yaml") {
+            Ok(file) => {
+                let writer = BufWriter::new(file);
+                if let Err(why) = serde_yaml::to_writer(writer, &settings) {
+                    yuki_error!("Failed to serialize settings: {}", why);
+                }
+            }
+            Err(why) => {
+                yuki_error!("Failed to create settings file: {}", why);
+            }
+        }
+    }
+
+    fn handle_camera_movement(&mut self) -> CameraParameters {
+        self.camera_moved = false;
+        self.camera_offset
+            .as_ref()
+            .map_or(self.camera_params, |offset| {
+                let changed = if let Some(old) = self.rendered_camera_offset {
+                    old.is_different(offset)
+                } else {
+                    true
+                };
+
+                if changed {
+                    self.rendered_camera_offset = Some(*offset);
+                    self.render_triggered = true;
+                    self.camera_moved = true;
+                }
+
+                offset.apply(self.camera_params)
+            })
+    }
+
+    fn handle_extra_render_triggers(&mut self) -> bool {
+        // Camera movement launches render with 1 sample (without accumulation)
+        // for responsiveness so need to launch the full render once camera stops
+        let force_relaunch = !self.camera_moved && self.camera_moved_last_frame;
+        self.render_triggered |= force_relaunch;
+
+        if self.render_triggered && self.camera_offset.is_none() {
+            self.rendered_camera_offset = None;
+        }
+
+        force_relaunch
+    }
+
+    fn handle_render(&mut self, active_camera_params: CameraParameters, force_relaunch: bool) {
+        if self.render_triggered {
+            if force_relaunch || self.render_launch_timer.elapsed().as_millis() > 32 {
+                self.trigger_render(active_camera_params);
+            } else {
+                self.render_triggered = false;
+            }
+        } else {
+            yuki_trace!("main_loop: Render job tracked");
+
+            if let Some(status) = self.renderer.check_status() {
+                self.status_messages =
+                    Some(render_status_messages(&status, self.last_render_start));
+            }
+        }
+    }
+
+    fn trigger_render(&mut self, active_camera_params: CameraParameters) {
+        superluminal_perf::begin_event("Render triggered");
+
+        yuki_debug!("main_loop: Render triggered");
+        // Make sure film matches settings
+        // This leaves the previous film hanging until all threads have dropped it
+        self.film = film_or_new(&self.film, self.film_settings);
+        self.last_render_start = Instant::now();
+
+        let force_single_sample = self.camera_moved;
+
+        let mut film_settings = self.film_settings;
+        if force_single_sample {
+            film_settings.accumulate = false;
+        }
+
+        self.renderer.launch(
+            Arc::clone(&self.scene),
+            active_camera_params,
+            Arc::clone(&self.film),
+            self.sampler,
+            self.scene_integrator,
+            film_settings,
+            self.render_settings,
+            force_single_sample,
+        );
+        self.status_messages = Some(vec!["Render started".to_string()]);
+        self.render_triggered = false;
+        self.render_launch_timer = Instant::now();
+
+        superluminal_perf::end_event(); // Render triggered
     }
 }
 
@@ -965,4 +971,107 @@ fn dump_exr(
             "Error writing EXR".into()
         }
     }]
+}
+
+fn draw_tone_mapped<'a>(
+    display: &glium::Display,
+    film: &Arc<Mutex<Film>>,
+    tone_map_type: &mut ToneMapType,
+    tone_map_film: &'a mut ToneMapFilm,
+) -> &'a glium::Texture2d {
+    superluminal_perf::begin_event("Draw::Tone map");
+
+    if let ToneMapType::Heatmap(HeatmapParams {
+        ref mut bounds,
+        channel,
+    }) = tone_map_type
+    {
+        let film_dirty = {
+            yuki_trace!("main_loop: Waiting for lock on film");
+            let film = film.lock().unwrap();
+            yuki_trace!("main_loop: Aqcuired film");
+            let dirty = film.dirty();
+            yuki_trace!("main_loop: Releasing film");
+            dirty
+        };
+        if bounds.is_none() || film_dirty {
+            *bounds = Some(expect!(
+                find_min_max(film, *channel),
+                "Failed to find film min, max"
+            ));
+        }
+    }
+
+    let tone_mapped_film = expect!(
+        tone_map_film.draw(display, film, tone_map_type),
+        "Film tone map pass failed"
+    );
+
+    superluminal_perf::end_event(); // Tone map
+
+    tone_mapped_film
+}
+
+fn draw_visualizations(
+    tone_mapped_film: &glium::Texture2d,
+    ray_visualization: &RayVisualization,
+    scene: &Scene,
+    active_camera_params: CameraParameters,
+    film_settings: FilmSettings,
+    bvh_visualization: &BvhVisualization,
+) {
+    superluminal_perf::begin_event("Draw::Visualizations");
+
+    expect!(
+        ray_visualization.draw(
+            scene.bvh.bounds(),
+            active_camera_params,
+            film_settings,
+            &mut tone_mapped_film.as_surface(),
+        ),
+        "Ray visualization failed"
+    );
+    expect!(
+        bvh_visualization.draw(
+            scene.bvh.bounds(),
+            active_camera_params,
+            film_settings,
+            &mut tone_mapped_film.as_surface(),
+        ),
+        "Ray visualization failed"
+    );
+
+    superluminal_perf::end_event(); // Visualizations
+}
+
+fn scale_output(tone_mapped_film: &glium::Texture2d, render_target: &mut glium::Frame) {
+    superluminal_perf::begin_event("Draw::Scale output");
+
+    ScaleOutput::draw(tone_mapped_film, render_target);
+
+    superluminal_perf::end_event(); // Scale output
+}
+
+fn handle_exr_write(
+    ui_state: UIState,
+    tone_mapped_film: &glium::Texture2d,
+    scene: &Scene,
+    film: &Arc<Mutex<Film>>,
+    status_messages: &mut Option<Vec<String>>,
+) {
+    if let Some(output_type) = &ui_state.write_exr {
+        match exr_path(&scene) {
+            Ok(path) => {
+                *status_messages = Some(dump_exr(
+                    path,
+                    output_type,
+                    tone_mapped_film,
+                    Arc::clone(film),
+                ));
+            }
+            Err(why) => {
+                yuki_error!("{}", why);
+            }
+        }
+    }
 }
