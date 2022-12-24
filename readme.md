@@ -2,7 +2,7 @@
 
 ![screenshot](screenshot.png)
 
-Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http://www.pbr-book.org/) ([pbrt-v3](https://github.com/mmp/pbrt-v3)).
+Ray cast renderer mostly based on [Physically Based Rendering 3rd edition](http://www.pbr-book.org/) ([pbrt-v3](https://github.com/mmp/pbrt-v3)) with some additions from [pbrt-v4](https://github.com/mmp/pbrt-v4).
 
 ## Running
 
