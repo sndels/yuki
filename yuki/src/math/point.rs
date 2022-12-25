@@ -1,5 +1,8 @@
 use approx::{AbsDiffEq, RelativeEq};
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
+use std::{
+    hash::Hash,
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+};
 
 use yuki_derive::{
     impl_point, vec_assign_op, vec_op, AbsDiffEq, AddAssign, DivAssignScalar, DivScalar, Index,
@@ -32,6 +35,7 @@ use super::{
     Copy,
     Clone,
     Debug,
+    Hash,
     AbsDiffEq,
     RelativeEq,
     PartialEq,

@@ -1,15 +1,20 @@
 use super::Sampler;
-use crate::math::{Point2, Vec2};
-
-use rand::{
-    distributions::{Standard, Uniform},
-    Rng,
+use crate::{
+    hash_values,
+    math::{Point2, Vec2},
 };
+
+use rand::{distributions::Standard, Rng};
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
-// Based on Physically Based Rendering 3rd ed.
+// Ported with tweaks from pbrt-v4
+// https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/samplers.h
+// Pbrt-v3 had pre-computed samples per pixel
 // http://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/Stratified_Sampling.html
+// but this generates each sample on the fly like in
+// https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
 
 #[derive(Copy, Clone, Deserialize, Serialize)]
 pub struct Params {
@@ -31,20 +36,15 @@ impl Default for Params {
 pub struct StratifiedSampler {
     pixel_samples: Vec2<u16>,
     jitter_samples: bool,
-    n_sampled_dimensions: usize,
-    current_pixel_sample: usize,
-    samples_1d: Vec<Vec<f32>>,
-    samples_2d: Vec<Vec<Point2<f32>>>,
-    current_1d_dimension: usize,
-    current_2d_dimension: usize,
+    pixel: Point2<u16>,
+    sample_index: u32,
+    dimension: u32,
     rng: Pcg32,
-    // Stored to clone the sampler with a different stream
     rng_seed: u64,
-    force_single_sample: bool,
 }
 
 impl StratifiedSampler {
-    pub fn new(mut params: Params, n_sampled_dimensions: usize, force_single_sample: bool) -> Self {
+    pub fn new(mut params: Params, force_single_sample: bool) -> Self {
         // Known seed for debugging
         // let seed = 0x73B9642E74AC471C;
         // Random seed for normal use
@@ -54,38 +54,31 @@ impl StratifiedSampler {
             params.pixel_samples = Vec2::new(1, 1);
         }
 
-        let total_pixel_samples =
-            (params.pixel_samples.x as usize) * (params.pixel_samples.y as usize);
-
         Self {
             pixel_samples: params.pixel_samples,
             jitter_samples: params.jitter_samples,
-            n_sampled_dimensions,
-            current_pixel_sample: 0,
-            samples_1d: vec![vec![0.0; total_pixel_samples]; n_sampled_dimensions],
-            samples_2d: vec![vec![Point2::zeros(); total_pixel_samples]; n_sampled_dimensions],
-            current_1d_dimension: 0,
-            current_2d_dimension: 0,
+            pixel: Point2::new(0, 0),
+            sample_index: 0,
+            dimension: 0,
             rng: Pcg32::new(seed, 0),
             rng_seed: seed,
-            force_single_sample,
         }
     }
 }
 
 impl Sampler for StratifiedSampler {
-    fn clone(&self, seed: u64) -> Box<dyn Sampler> {
+    fn clone(&self) -> Box<dyn Sampler> {
         Box::new(Self {
-            // Pcg has uncorrelated streams so let's leverage that
-            rng: Pcg32::new(self.rng_seed, seed),
+            // Different streams are used for pixels so literally clone the sampler
+            rng: Pcg32::new(self.rng_seed, 0),
+            rng_seed: self.rng_seed,
             ..Self::new(
                 Params {
                     pixel_samples: self.pixel_samples,
                     symmetric_dimensions: false,
                     jitter_samples: self.jitter_samples,
                 },
-                self.n_sampled_dimensions,
-                self.force_single_sample,
+                false,
             )
         })
     }
@@ -94,97 +87,92 @@ impl Sampler for StratifiedSampler {
         (self.pixel_samples.x as u32) * (self.pixel_samples.y as u32)
     }
 
-    fn start_pixel(&mut self) {
-        self.current_pixel_sample = 0;
-        self.current_1d_dimension = 0;
-        self.current_2d_dimension = 0;
+    fn start_pixel_sample(&mut self, p: Point2<u16>, index: u32, dimension: u32) {
+        self.pixel = p;
+        self.sample_index = index;
+        self.dimension = 0;
 
-        for dim_samples in &mut self.samples_1d {
-            stratified_sample_1d(dim_samples, self.jitter_samples, &mut self.rng);
-            shuffle(dim_samples, &mut self.rng);
-        }
-
-        for dim_samples in &mut self.samples_2d {
-            stratified_sample_2d(
-                dim_samples,
-                self.pixel_samples,
-                self.jitter_samples,
-                &mut self.rng,
-            );
-            shuffle(dim_samples, &mut self.rng);
-        }
-    }
-
-    fn start_sample(&mut self) {
-        self.current_pixel_sample += 1;
-        self.current_2d_dimension = 0;
-    }
-
-    fn set_sample(&mut self, sample: usize) {
-        self.current_pixel_sample = sample + 1;
-        self.current_2d_dimension = 0;
+        let hashed = hash_values!(self.pixel);
+        // pbrt hashes the pixel and rng_seed together, using that for stream and
+        // a mixed version for seed. selecting stream based on pixel hash also seems
+        // valid as streams for the same seed should be uncorrelated
+        self.rng = Pcg32::new(self.rng_seed, hashed);
+        self.rng
+            .advance((self.sample_index as u64) * 65536u64 + (dimension as u64));
     }
 
     fn get_1d(&mut self) -> f32 {
-        if self.current_1d_dimension < self.n_sampled_dimensions {
-            // Start sample adds 1 before we use the sample
-            let ret = self.samples_1d[self.current_1d_dimension][self.current_pixel_sample - 1];
-            self.current_1d_dimension += 1;
-            ret
-        } else {
+        let hashed = hash_values!(self.pixel, self.dimension, self.rng_seed);
+        let stratum = permutation_element(
+            self.sample_index as u32,
+            self.samples_per_pixel(),
+            hashed as u32,
+        );
+
+        self.dimension += 1;
+        let delta = if self.jitter_samples {
             self.rng.sample(Standard)
-        }
+        } else {
+            0.5
+        };
+        ((stratum as f32) + delta) / (self.samples_per_pixel() as f32)
     }
 
     fn get_2d(&mut self) -> Point2<f32> {
-        if self.current_2d_dimension < self.n_sampled_dimensions {
-            // Start sample adds 1 before we use the sample
-            let ret = self.samples_2d[self.current_2d_dimension][self.current_pixel_sample - 1];
-            self.current_2d_dimension += 1;
-            ret
+        let hashed = hash_values!(self.pixel, self.dimension, self.rng_seed);
+        let stratum =
+            permutation_element(self.sample_index, self.samples_per_pixel(), hashed as u32);
+
+        self.dimension += 2;
+        let x = stratum % (self.pixel_samples.x as u32);
+        let y = stratum / (self.pixel_samples.y as u32);
+        let dx = if self.jitter_samples {
+            self.rng.sample(Standard)
         } else {
-            Point2::new(self.rng.sample(Standard), self.rng.sample(Standard))
+            0.5
+        };
+        let dy = if self.jitter_samples {
+            self.rng.sample(Standard)
+        } else {
+            0.5
+        };
+        Point2::new(
+            ((x as f32) + dx) / (self.pixel_samples.x as f32),
+            ((y as f32) + dy) / (self.pixel_samples.y as f32),
+        )
+    }
+}
+
+// This appears to be from https://graphics.pixar.com/library/MultiJitteredSampling/paper.pdf
+fn permutation_element(mut i: u32, l: u32, p: u32) -> u32 {
+    let mut w = l - 1;
+    w |= w >> 1;
+    w |= w >> 2;
+    w |= w >> 4;
+    w |= w >> 8;
+    w |= w >> 16;
+    loop {
+        i ^= p;
+        i = i.wrapping_mul(0xe170893d);
+        i ^= p >> 16;
+        i ^= (i & w) >> 4;
+        i ^= p >> 8;
+        i = i.wrapping_mul(0x0929eb3f);
+        i ^= p >> 23;
+        i ^= (i & w) >> 1;
+        i = i.wrapping_mul(1 | p >> 27);
+        i = i.wrapping_mul(0x6935fa69);
+        i ^= (i & w) >> 11;
+        i = i.wrapping_mul(0x74dcb303);
+        i ^= (i & w) >> 2;
+        i = i.wrapping_mul(0x9e501cc3);
+        i ^= (i & w) >> 2;
+        i = i.wrapping_mul(0xc860a3df);
+        i &= w;
+        i ^= i >> 5;
+        if i < l {
+            break;
         }
     }
-}
-
-const ONE_MINUS_EPSILON: f32 = 1.0_f32 - f32::EPSILON;
-
-fn stratified_sample_1d(samples: &mut [f32], jitter: bool, rng: &mut Pcg32) {
-    let inv_n_samples = 1.0 / (samples.len() as f32);
-    for (i, sample) in samples.iter_mut().enumerate() {
-        let delta = if jitter { rng.sample(Standard) } else { 0.5 };
-        *sample = (((i as f32) + delta) * inv_n_samples).min(ONE_MINUS_EPSILON);
-    }
-}
-
-fn stratified_sample_2d(
-    samples: &mut [Point2<f32>],
-    n_samples: Vec2<u16>,
-    jitter: bool,
-    rng: &mut Pcg32,
-) {
-    let d = Vec2::new(1.0 / (n_samples.x as f32), 1.0 / (n_samples.y as f32));
-    for y in 0..n_samples.y as usize {
-        let row_index = y * (n_samples.x as usize);
-        for x in 0..n_samples.x as usize {
-            let (jx, jy) = if jitter {
-                (rng.sample(Standard), rng.sample(Standard))
-            } else {
-                (0.5, 0.5)
-            };
-            let index = row_index + x;
-            samples[index] = Point2::new(
-                (((x as f32) + jx) * d.x).min(ONE_MINUS_EPSILON),
-                (((y as f32) + jy) * d.y).min(ONE_MINUS_EPSILON),
-            );
-        }
-    }
-}
-
-fn shuffle<T>(samples: &mut [T], rng: &mut Pcg32) {
-    for i in 0..samples.len() {
-        let other = i + rng.sample(Uniform::from(0..(samples.len() - i)));
-        samples.swap(i, other);
-    }
+    (i + p) % l
 }

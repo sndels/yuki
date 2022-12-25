@@ -10,9 +10,6 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/yuki",
-                "env": {
-                    "RUSTFLAGS": "-g"
-                }
             },
             "problemMatcher": [
                 "$rustc"
@@ -28,9 +25,6 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/yuki",
-                "env": {
-                    "RUSTFLAGS": "-g"
-                }
             },
             "problemMatcher": [
                 "$rustc"
@@ -46,9 +40,6 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/yuki",
-                "env": {
-                    "RUSTFLAGS": "-g"
-                }
             },
             "problemMatcher": [
                 "$rustc"
@@ -63,9 +54,6 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/yuki",
-                "env": {
-                    "RUSTFLAGS": "-g"
-                }
             },
             "problemMatcher": [
                 "$rustc"
@@ -97,9 +85,6 @@
             ],
             "options": {
                 "cwd": "${workspaceRoot}/bench",
-                "env": {
-                    "RUSTFLAGS": "-g"
-                }
             },
             "problemMatcher": [
                 "$rustc"

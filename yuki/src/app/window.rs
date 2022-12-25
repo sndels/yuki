@@ -832,15 +832,7 @@ fn launch_debug_ray(
             let p_film = Point2::new(film_px.x as f32, film_px.y as f32);
 
             let integrator = scene_integrator.instantiate();
-            let mut sampler: Box<dyn Sampler> = sampler
-                .instantiate(
-                    1 + scene_integrator.n_sampled_dimensions(), // Camera sample and whatever the sampler needs
-                    false,
-                )
-                .as_ref()
-                .clone(0); // The interface is a bit clunky outside the renderer
-            sampler.start_pixel();
-            sampler.start_sample();
+            let mut sampler: Box<dyn Sampler> = sampler.instantiate(false).as_ref().clone(); // The interface is a bit clunky outside the renderer
 
             let ray = camera.ray(&CameraSample {
                 p_film: p_film + sampler.get_2d(),

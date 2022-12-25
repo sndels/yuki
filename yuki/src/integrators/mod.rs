@@ -46,16 +46,6 @@ impl IntegratorType {
             IntegratorType::ShadingNormals => Box::new(ShadingNormals {}),
         }
     }
-
-    pub fn n_sampled_dimensions(self) -> usize {
-        match self {
-            IntegratorType::Path(PathParams { max_depth, .. }) => (max_depth.max(1) - 1) as usize, // Bounce dir, russian roulette per bounce
-            IntegratorType::Whitted(_)
-            | IntegratorType::BVHIntersections
-            | IntegratorType::GeometryNormals
-            | IntegratorType::ShadingNormals => 0,
-        }
-    }
 }
 
 #[allow(clippy::derivable_impls)] // Can't derive Default for non unit variants, which Whitted is
@@ -133,46 +123,28 @@ pub trait Integrator {
         #[allow(unused_comparisons)] // Just in case these are changed from u16 for some reason
         let types_fit = (tile.sample <= 0xFFFF) && (corner.x <= 0xFFFF) && (corner.y <= 0xFFFF);
         assert!(types_fit);
-        let mut sampler = sampler
-            .as_ref()
-            .clone(((tile.sample as u64) << 32) | ((corner.x as u64) << 16) | (corner.y as u64));
-        // TODO:
-        // Better way to have samples distributed over multiple accumulation iterations?
-        // start_pixel() is now >60% of the work done by a worker in an accumulating render
-        //
-        // pbrt-v4 seems to have changed the sampler interface to just sampler.startPixelSample()
-        // instead of start_pixel() and a series of start_sample(). That sounds in line with
-        // their move to support gpu execution, but it also looks like just the thing that
-        // accumulation requires. There's a nasty looking permutation hash thing in its
-        // stratified sampler so ether
-        //    a) find a source explaining that stuff or
-        //    b) wait for the next edition of the book to come out and read it from there
+        let mut sampler = sampler.as_ref().clone();
 
         let mut ray_count = 0;
         for p in tile.bb {
-            sampler.start_pixel();
             let mut color = Spectrum::zeros();
             let sample_count = if accumulating {
                 1
             } else {
                 sampler.samples_per_pixel()
             };
-            for _ in 0..sample_count {
+            for sample_index in 0..sample_count {
                 if early_termination_predicate() {
                     return ray_count;
                 }
 
-                if tile.sample > 0 {
-                    // NOTE:
-                    // The generated samples won't match between accumulating and non-accumulating
-                    // rendering as start_pixel is called after different numbers of extra generated
-                    // prgn values. This call only ensures that the samples are well distributed
-                    // between accumulating iterations. 1:1 can be verified by setting a large enough
-                    // sampled dimension count and removing tile sample from the cloning seed
-                    sampler.set_sample(tile.sample as usize);
+                let global_sample_index = if accumulating {
+                    tile.sample as u32
                 } else {
-                    sampler.start_sample();
-                }
+                    sample_index
+                };
+
+                sampler.start_pixel_sample(p, global_sample_index, 0);
 
                 let sample_scratch = ScopedScratch::new_scope(scratch);
 

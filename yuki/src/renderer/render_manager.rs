@@ -130,10 +130,7 @@ pub fn launch(
                     if let Some(mut payload) = payload {
                         let mut tiles = film_tiles(&mut payload.film, payload.film_settings);
 
-                        let sampler = payload.sampler.instantiate(
-                            1 + payload.integrator.n_sampled_dimensions(), // Camera sample and whatever the integrator needs
-                            payload.force_single_sample,
-                        );
+                        let sampler = payload.sampler.instantiate(payload.force_single_sample);
 
                         let mut initial_tiles = tiles.clone();
                         if payload.film_settings.accumulate {
