@@ -21,6 +21,8 @@ pub struct FilmSettings {
     /// `true` if film is used to accumulate over time instead of writing final
     /// pixel value immediately.
     pub accumulate: bool,
+    /// `true` if render should run in 1/16th res (both dimensions divided by 4)
+    pub sixteenth_res: bool,
 }
 
 impl Default for FilmSettings {
@@ -31,6 +33,7 @@ impl Default for FilmSettings {
             tile_dim: 16,
             clear: true,
             accumulate: false,
+            sixteenth_res: false,
         }
     }
 }
@@ -76,8 +79,12 @@ pub struct Film {
     // Random identifier for the film itself.
     id: u32,
     // Cached tiles for the current pixel buffer, in correct order for rendering
-    // Also store the dimension of the cached tiles
-    cached_tiles: Option<(u16, VecDeque<FilmTile>)>,
+    tile_cache: Option<TileCache>,
+}
+
+struct TileCache {
+    dim: u16,
+    tiles: VecDeque<FilmTile>,
 }
 
 impl Film {
@@ -90,7 +97,7 @@ impl Film {
             dirty: true,
             generation: 0,
             id: rand::random::<u32>(),
-            cached_tiles: None,
+            tile_cache: None,
         }
     }
 
@@ -134,8 +141,8 @@ impl Film {
 
     /// Returns the dimensions of the active tiles.
     pub fn tile_dim(&self) -> Option<u16> {
-        if let Some((tile_dim, _)) = self.cached_tiles.as_ref() {
-            Some(*tile_dim)
+        if let Some(TileCache { dim, .. }) = self.tile_cache.as_ref() {
+            Some(*dim)
         } else {
             None
         }
@@ -144,7 +151,11 @@ impl Film {
     /// Returns blank `FilmTile`s for the buffer pixel with if they have been cached in the correct dimension.
     /// The returned tiles will be in the current generation.
     fn cached_tiles(&self, dim: u16) -> Option<VecDeque<FilmTile>> {
-        if let Some((cached_dim, tiles)) = &self.cached_tiles {
+        if let Some(TileCache {
+            dim: cached_dim,
+            tiles,
+        }) = &self.tile_cache
+        {
             if *cached_dim == dim {
                 let mut tiles = tiles.clone();
                 for tile in &mut tiles {
@@ -163,7 +174,10 @@ impl Film {
         assert!(!tiles.is_empty());
         // Tile size is always at most the full resolution
         let dim = tiles[0].bb.diagonal().x;
-        self.cached_tiles = Some((dim, tiles.clone()));
+        self.tile_cache = Some(TileCache {
+            dim,
+            tiles: tiles.clone(),
+        });
     }
 
     /// Circles the given tile in this `Film` with a pixel border of `color`.
@@ -276,7 +290,7 @@ impl Default for Film {
             samples: None,
             dirty: true,
             generation: 0,
-            cached_tiles: None,
+            tile_cache: None,
             id: rand::random::<u32>(),
         }
     }
@@ -290,17 +304,16 @@ fn generate_tiles(
 ) -> HashMap<(u16, u16), FilmTile> {
     // Collect tiles spanning the whole image hashed by their tile coordinates
     let mut tiles = HashMap::new();
-    let dim = tile_dim;
     yuki_trace!("generate_tiles: Generating tiles");
     let mut flat_index = 0usize;
-    for j in (0..res.y).step_by(dim as usize) {
-        for i in (0..res.x).step_by(dim as usize) {
+    for j in (0..res.y).step_by(tile_dim as usize) {
+        for i in (0..res.x).step_by(tile_dim as usize) {
             // Limit tiles to film dimensions
-            let max_x = (i + dim).min(res.x);
-            let max_y = (j + dim).min(res.y);
+            let max_x = (i + tile_dim).min(res.x);
+            let max_y = (j + tile_dim).min(res.y);
 
             tiles.insert(
-                (i / dim, j / dim),
+                (i / tile_dim, j / tile_dim),
                 FilmTile::new(
                     Bounds2::new(Point2::new(i, j), Point2::new(max_x, max_y)),
                     flat_index,

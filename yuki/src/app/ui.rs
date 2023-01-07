@@ -320,13 +320,6 @@ fn generate_film_settings(ui: &imgui::Ui, film_settings: &mut FilmSettings) -> b
         }
 
         changed |= ui.checkbox("Accumulate", &mut film_settings.accumulate);
-
-        if !film_settings.accumulate {
-            // Relaunch doesn't make sense if clear is unset
-            changed |= ui.checkbox("Clear buffer", &mut film_settings.clear) && film_settings.clear;
-        } else {
-            film_settings.clear = true;
-        }
     });
 
     changed

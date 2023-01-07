@@ -82,8 +82,6 @@ pub struct Window {
     bvh_visualization_level: i32,
     render_launch_timer: Instant,
     rendered_camera_offset: Option<CameraOffset>,
-    camera_moved: bool,
-    forced_single_sample: bool,
 }
 
 impl Window {
@@ -160,8 +158,6 @@ impl Window {
             bvh_visualization_level: -1i32,
             render_launch_timer: Instant::now(),
             rendered_camera_offset: None,
-            camera_moved: false,
-            forced_single_sample: false,
         }
     }
 
@@ -200,9 +196,7 @@ impl Window {
 
             let active_camera_params = self.handle_camera_movement();
 
-            let force_relaunch = self.handle_extra_render_triggers();
-
-            self.handle_render(active_camera_params, force_relaunch);
+            self.handle_render(active_camera_params);
 
             let draw_start = Instant::now();
             superluminal_perf::begin_event("Draw");
@@ -457,7 +451,6 @@ impl Window {
     }
 
     fn handle_camera_movement(&mut self) -> CameraParameters {
-        self.camera_moved = false;
         self.camera_offset
             .as_ref()
             .map_or(self.camera_params, |offset| {
@@ -470,29 +463,19 @@ impl Window {
                 if changed {
                     self.rendered_camera_offset = Some(*offset);
                     self.render_triggered = true;
-                    self.camera_moved = true;
                 }
 
                 offset.apply(self.camera_params)
             })
     }
 
-    fn handle_extra_render_triggers(&mut self) -> bool {
-        // Camera movement launches render with 1 sample (without accumulation)
-        // for responsiveness so need to launch the full render once camera stops
-        let force_relaunch = !self.camera_moved && self.forced_single_sample;
-        self.render_triggered |= force_relaunch;
-
-        if self.render_triggered && self.camera_offset.is_none() {
-            self.rendered_camera_offset = None;
-        }
-
-        force_relaunch
-    }
-
-    fn handle_render(&mut self, active_camera_params: CameraParameters, force_relaunch: bool) {
+    fn handle_render(&mut self, active_camera_params: CameraParameters) {
         if self.render_triggered {
-            if force_relaunch || self.render_launch_timer.elapsed().as_millis() > 32 {
+            // Make sure we relaunch the render at full res after a mouse gesture ends
+            let res_changed = self.film.lock().unwrap().res() != self.film_settings.res;
+            if (res_changed && self.mouse_gesture.is_none())
+                || self.render_launch_timer.elapsed().as_millis() > 32
+            {
                 self.trigger_render(active_camera_params);
             } else {
                 self.render_triggered = false;
@@ -511,17 +494,26 @@ impl Window {
         superluminal_perf::begin_event("Render triggered");
 
         yuki_debug!("main_loop: Render triggered");
-        // Make sure film matches settings
-        // This leaves the previous film hanging until all threads have dropped it
-        self.film = film_or_new(&self.film, self.film_settings);
-        self.last_render_start = Instant::now();
+        let force_single_sample = self.mouse_gesture.is_some();
 
-        let force_single_sample = self.camera_moved;
-
+        // Modify the settings before film_or_new to get proper film
         let mut film_settings = self.film_settings;
         if force_single_sample {
             film_settings.accumulate = false;
+            film_settings.clear = false;
+            film_settings.sixteenth_res = true;
+        } else {
+            film_settings.sixteenth_res = false;
+            film_settings.clear = true;
         }
+        if film_settings.sixteenth_res {
+            film_settings.res /= 4;
+        }
+
+        // Make sure film matches settings
+        // This leaves the previous film hanging until all threads have dropped it
+        self.film = film_or_new(&self.film, film_settings);
+        self.last_render_start = Instant::now();
 
         self.renderer.launch(
             Arc::clone(&self.scene),
@@ -536,7 +528,6 @@ impl Window {
         self.status_messages = Some(vec!["Render started".to_string()]);
         self.render_triggered = false;
         self.render_launch_timer = Instant::now();
-        self.forced_single_sample = force_single_sample;
 
         superluminal_perf::end_event(); // Render triggered
     }
