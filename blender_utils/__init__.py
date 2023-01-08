@@ -26,32 +26,49 @@ class YUKI_OT_ConvertAllMaterialsToDiffuse(bpy.types.Operator):
                 continue
 
             nodes = material.node_tree.nodes
-            output = None
-            color = None
+            output_node = None
+            color_node = None
             for node in nodes:
                 if node.type == "OUTPUT_MATERIAL":
-                    output = node
+                    output_node = node
                     continue
                 elif node.type == "BSDF_PRINCIPLED":
-                    color = node.inputs["Base Color"].default_value
-            if output is None:
+                    color_node = node.inputs["Base Color"]
+            if output_node is None:
                 logger.info(f"No output node for material '{material.name}'")
                 continue
 
-            if color is None:
+            if color_node is None:
                 logger.info(f"No diffuse color found for material '{material.name}'")
                 continue
 
-            for node in nodes:
-                if node.type != "OUTPUT_MATERIAL":
-                    nodes.remove(node)
+            protected_nodes = set()
+            protected_nodes.add(output_node)
 
             diffuse = nodes.new("ShaderNodeBsdfDiffuse")
-            diffuse.inputs["Color"].default_value = color
 
             material.node_tree.links.new(
-                output.inputs["Surface"], diffuse.outputs["BSDF"]
+                output_node.inputs["Surface"], diffuse.outputs["BSDF"]
             )
+            protected_nodes.add(diffuse)
+
+            if (
+                len(color_node.links) > 0
+                and color_node.links[0].from_node.type == "TEX_IMAGE"
+            ):
+                protected_nodes.add(color_node.links[0].from_node)
+
+                assert len(color_node.links) == 1, "Unexpected second link"
+                material.node_tree.links.new(
+                    diffuse.inputs["Color"],
+                    color_node.links[0].from_node.outputs["Color"],
+                )
+            else:
+                diffuse.inputs["Color"].default_value = color_node.default_value
+
+            for node in nodes:
+                if node not in protected_nodes:
+                    nodes.remove(node)
 
         return {"FINISHED"}
 
