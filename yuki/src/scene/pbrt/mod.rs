@@ -19,7 +19,7 @@ use crate::{
     },
     scene::{ply, CameraParameters, Scene, SceneLoadSettings},
     shapes::{Mesh, Shape, Sphere, Triangle},
-    textures::ConstantTexture,
+    textures::{ConstantTexture, ImageTexture, Texture},
     yuki_error, yuki_info,
 };
 
@@ -51,7 +51,7 @@ struct GraphicsState {
 impl Default for GraphicsState {
     fn default() -> Self {
         Self {
-            material: get_material("matte", &ParamSet::default()),
+            material: get_material("matte", &ParamSet::default(), &HashMap::default()).unwrap(),
         }
     }
 }
@@ -62,6 +62,7 @@ pub enum LoadError {
     Lexer(LexerError),
     Parser(ParserError),
     Content(String),
+    Image(crate::textures::LoadError),
     Ply(String),
     Path(String),
 }
@@ -103,7 +104,7 @@ pub fn load(
 
     let mut scope_stack = vec![FileScope::new(&settings.path)?];
 
-    let default_material = get_material("matte", &ParamSet::default());
+    let default_material = get_material("matte", &ParamSet::default(), &HashMap::default())?;
 
     let mut render_options = RenderOptions::default();
 
@@ -120,6 +121,7 @@ pub fn load(
     let mut lights: Vec<Arc<dyn Light>> = Vec::new();
     let mut background = Spectrum::zeros();
     let mut named_materials = HashMap::new();
+    let mut textures = HashMap::new();
 
     let parse_start = Instant::now();
     superluminal_perf::begin_event("parse");
@@ -596,7 +598,8 @@ pub fn load(
                     graphics_state.material = Arc::clone(material);
                 }
                 Token::Material => {
-                    graphics_state.material = get_material(&get_string!(), &get_param_set!());
+                    graphics_state.material =
+                        get_material(&get_string!(), &get_param_set!(), &textures)?;
                 }
                 Token::MakeNamedMaterial => {
                     let name = get_string!();
@@ -606,7 +609,10 @@ pub fn load(
                             Some((ParserErrorType::UnknownParamType, format!("{:?}", token)));
                         break 'top_parse;
                     }
-                    named_materials.insert(name, get_material(&get_string!(), &get_param_set!()));
+                    named_materials.insert(
+                        name,
+                        get_material(&get_string!(), &get_param_set!(), &textures)?,
+                    );
                 }
                 Token::Rotate => {
                     let angle = get_f32!();
@@ -705,11 +711,33 @@ pub fn load(
                         &current_transform * &scale(get_f32!(), get_f32!(), get_f32!());
                 }
                 Token::Texture => {
-                    yuki_info!("Ignoring type definition '{:?}'", Token::Texture);
-                    let _name = get_string!();
-                    let _type = get_string!();
-                    let _class = get_string!();
-                    let _params = get_param_set!();
+                    let name = get_string!();
+                    let ttype = get_string!();
+                    let class = get_string!();
+                    let params = get_param_set!();
+
+                    if &ttype == "spectrum" && &class == "imagemap" {
+                        let filename = params.find_string("filename", "");
+                        if filename == "" {
+                            return Err(LoadError::Content(format!(
+                                "missing file for texture '{}'",
+                                name
+                            )));
+                        }
+
+                        let path = parent_path.join(PathBuf::from(filename));
+
+                        textures.insert(
+                            name,
+                            Arc::new(ImageTexture::new(&path).map_err(LoadError::Image)?),
+                        );
+                    } else {
+                        yuki_info!(
+                            "Ignoring unsupported texture type '{}' class '{}'",
+                            ttype,
+                            class
+                        );
+                    }
                 }
                 Token::Translate => {
                     let delta = Vec3::new(get_f32!(), get_f32!(), get_f32!());
@@ -829,36 +857,55 @@ pub fn load(
     ))
 }
 
-fn get_material(material_type: &str, params: &ParamSet) -> Arc<dyn Material> {
+fn get_material(
+    material_type: &str,
+    params: &ParamSet,
+    textures: &HashMap<String, Arc<ImageTexture<Spectrum<f32>>>>,
+) -> Result<Arc<dyn Material>, LoadError> {
     match material_type {
         "glass" => {
             let kr = params.find_spectrum("Kr", Spectrum::ones());
             let kt = params.find_spectrum("Kt", Spectrum::ones());
             let eta = params.find_f32("eta", 1.5);
 
-            Arc::new(Glass::new(
+            Ok(Arc::new(Glass::new(
                 Arc::new(ConstantTexture::new(kr)),
                 Arc::new(ConstantTexture::new(kt)),
                 eta,
-            )) as Arc<dyn Material>
+            )) as Arc<dyn Material>)
         }
         "glossy" => {
             let rs = params.find_spectrum("Rs", Spectrum::new(0.5, 0.5, 0.5));
             let roughness = params.find_f32("roughness", 0.5);
-            Arc::new(Glossy::new(
+            Ok(Arc::new(Glossy::new(
                 Arc::new(ConstantTexture::new(rs)),
                 Arc::new(ConstantTexture::new(roughness)),
                 false,
-            )) as Arc<dyn Material>
+            )) as Arc<dyn Material>)
         }
         "matte" => {
-            let kd = params.find_spectrum("Kd", Spectrum::new(0.5, 0.5, 0.5));
+            let kd = {
+                let kd_tex = params.find_string("Kd", "");
+                if kd_tex.is_empty() {
+                    let kd = params.find_spectrum("Kd", Spectrum::new(0.5, 0.5, 0.5));
+                    Ok(Arc::new(ConstantTexture::new(kd)) as Arc<dyn Texture<Spectrum<f32>>>)
+                } else {
+                    if let Some(tex) = textures.get(kd_tex) {
+                        Ok(Arc::clone(tex) as Arc<dyn Texture<Spectrum<f32>>>)
+                    } else {
+                        Err(LoadError::Content(format!(
+                            "Texture '{}' not found",
+                            kd_tex
+                        )))
+                    }
+                }
+            }?;
             // Matte expects sigma as radians instead of degrees
             let sigma = params.find_f32("sigma", 0.0).to_radians();
-            Arc::new(Matte::new(
-                Arc::new(ConstantTexture::new(kd)),
+            Ok(Arc::new(Matte::new(
+                kd,
                 Arc::new(ConstantTexture::new(sigma.to_radians())),
-            )) as Arc<dyn Material>
+            )) as Arc<dyn Material>)
         }
         "metal" => {
             let eta = params.find_spectrum(
@@ -871,19 +918,19 @@ fn get_material(material_type: &str, params: &ParamSet) -> Arc<dyn Material> {
             );
             let roughness = params.find_f32("roughness", 0.01);
             let remap_roughness = params.find_bool("remaproughness", true);
-            Arc::new(Metal::new(
+            Ok(Arc::new(Metal::new(
                 Arc::new(ConstantTexture::new(eta)),
                 Arc::new(ConstantTexture::new(k)),
                 Arc::new(ConstantTexture::new(roughness)),
                 remap_roughness,
-            )) as Arc<dyn Material>
+            )) as Arc<dyn Material>)
         }
         t => {
             yuki_info!("Unsupported material type '{}'. Using default matte.", t);
-            Arc::new(Matte::new(
+            Ok(Arc::new(Matte::new(
                 Arc::new(ConstantTexture::new(Spectrum::ones() * 0.5)),
                 Arc::new(ConstantTexture::new(0.0)),
-            )) as Arc<dyn Material>
+            )) as Arc<dyn Material>)
         }
     }
 }
