@@ -5,3 +5,6 @@ Cargo.lock
 *.exr
 *.pyc
 settings.yaml
+
+res/*
+!res/tiling_58-1K
