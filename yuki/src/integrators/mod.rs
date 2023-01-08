@@ -2,12 +2,14 @@ mod bvh_heatmap;
 mod geometry_normals;
 mod path;
 mod shading_normals;
+mod shading_uvs;
 mod whitted;
 
 use bvh_heatmap::BVHIntersections;
 use geometry_normals::GeometryNormals;
 use path::Path;
 use shading_normals::ShadingNormals;
+use shading_uvs::ShadingUVs;
 use whitted::Whitted;
 
 use allocators::ScopedScratch;
@@ -34,6 +36,7 @@ pub enum IntegratorType {
     BVHIntersections,
     GeometryNormals,
     ShadingNormals,
+    ShadingUVs,
 }
 
 impl IntegratorType {
@@ -44,6 +47,7 @@ impl IntegratorType {
             IntegratorType::BVHIntersections => Box::new(BVHIntersections {}),
             IntegratorType::GeometryNormals => Box::new(GeometryNormals {}),
             IntegratorType::ShadingNormals => Box::new(ShadingNormals {}),
+            IntegratorType::ShadingUVs => Box::new(ShadingUVs {}),
         }
     }
 }

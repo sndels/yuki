@@ -515,6 +515,7 @@ fn generate_integrator_settings(ui: &imgui::Ui, integrator: &mut IntegratorType)
                 }
                 IntegratorType::BVHIntersections
                 | IntegratorType::GeometryNormals
+                | IntegratorType::ShadingUVs
                 | IntegratorType::ShadingNormals => (),
             }
             ui.unindent();
