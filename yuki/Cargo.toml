@@ -13,6 +13,7 @@ chrono = "0.4"
 exr = "1.6"
 fern = "0.6"
 glium = "0.32.1"
+image = "0.24.5"
 imgui = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa0f27" }
 # Depends on glium internally, has to match ours
 imgui-glium-renderer = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa0f27" }
