@@ -245,6 +245,7 @@ impl Scene {
                     Point3::new(LIGHT_RIGHT, HOLE_TOP, LIGHT_BACK),
                 ],
                 Vec::new(),
+                Vec::new(),
             ));
             for v0 in (0..mesh.indices.len()).step_by(3) {
                 shapes.push(Arc::new(Triangle::new(
@@ -271,6 +272,7 @@ impl Scene {
                         Point3::new(RIGHT, BOTTOM, FRONT),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Ceiling, front
                 Arc::new(Mesh::new(
@@ -282,6 +284,7 @@ impl Scene {
                         Point3::new(LEFT, TOP, LIGHT_FRONT),
                         Point3::new(RIGHT, TOP, LIGHT_FRONT),
                     ],
+                    Vec::new(),
                     Vec::new(),
                 )),
                 // Ceiling, back
@@ -295,6 +298,7 @@ impl Scene {
                         Point3::new(RIGHT, TOP, BACK),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Ceiling, left
                 Arc::new(Mesh::new(
@@ -306,6 +310,7 @@ impl Scene {
                         Point3::new(LEFT, TOP, BACK),
                         Point3::new(LIGHT_LEFT, TOP, BACK),
                     ],
+                    Vec::new(),
                     Vec::new(),
                 )),
                 // Ceiling, right
@@ -319,6 +324,7 @@ impl Scene {
                         Point3::new(RIGHT, TOP, BACK),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Hole, front
                 Arc::new(Mesh::new(
@@ -331,6 +337,7 @@ impl Scene {
                         Point3::new(LIGHT_RIGHT, TOP, LIGHT_FRONT),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Hole, front
                 Arc::new(Mesh::new(
@@ -342,6 +349,7 @@ impl Scene {
                         Point3::new(LIGHT_LEFT, TOP, LIGHT_BACK),
                         Point3::new(LIGHT_RIGHT, TOP, LIGHT_BACK),
                     ],
+                    Vec::new(),
                     Vec::new(),
                 )),
                 // Hole, left
@@ -355,6 +363,7 @@ impl Scene {
                         Point3::new(LIGHT_LEFT, HOLE_TOP, LIGHT_FRONT),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Hole, right
                 Arc::new(Mesh::new(
@@ -366,6 +375,7 @@ impl Scene {
                         Point3::new(LIGHT_RIGHT, TOP, LIGHT_BACK),
                         Point3::new(LIGHT_RIGHT, TOP, LIGHT_FRONT),
                     ],
+                    Vec::new(),
                     Vec::new(),
                 )),
                 // Back wall
@@ -379,6 +389,7 @@ impl Scene {
                         Point3::new(RIGHT, BOTTOM, BACK),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Right wall
                 Arc::new(Mesh::new(
@@ -391,6 +402,7 @@ impl Scene {
                         Point3::new(RIGHT, BOTTOM, FRONT),
                     ],
                     Vec::new(),
+                    Vec::new(),
                 )),
                 // Left wall
                 Arc::new(Mesh::new(
@@ -402,6 +414,7 @@ impl Scene {
                         Point3::new(LEFT, TOP, BACK),
                         Point3::new(LEFT, TOP, FRONT),
                     ],
+                    Vec::new(),
                     Vec::new(),
                 )),
             ];
@@ -452,6 +465,7 @@ impl Scene {
                     Point3::new(314.0, 0.0, 456.0),
                     Point3::new(265.0, 0.0, 296.0),
                 ],
+                Vec::new(),
                 Vec::new(),
             ));
 

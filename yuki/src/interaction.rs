@@ -1,6 +1,6 @@
 use crate::{
     lights::AreaLight,
-    math::{Normal, Point3, Ray, Spectrum, Transform, Vec3},
+    math::{Normal, Point2, Point3, Ray, Spectrum, Transform, Vec3},
     shapes::Shape,
 };
 use std::{ops::Mul, sync::Arc};
@@ -80,9 +80,10 @@ impl<'a> Mul<&ShadingGeometry> for &'a Transform<f32> {
 // Info for a point on a surface
 pub struct SurfaceInteraction {
     pub p: Point3<f32>,
+    pub n: Normal<f32>,
+    pub uv: Point2<f32>,
     pub dpdu: Vec3<f32>,
     pub dpdv: Vec3<f32>,
-    pub n: Normal<f32>,
     pub shading: ShadingGeometry,
     pub wo: Vec3<f32>,
     shape_transform_swaps_handedness: bool,
@@ -94,6 +95,7 @@ impl SurfaceInteraction {
     pub fn new(
         p: Point3<f32>,
         wo: Vec3<f32>,
+        uv: Point2<f32>,
         dpdu: Vec3<f32>,
         dpdv: Vec3<f32>,
         shape: &dyn Shape,
@@ -110,9 +112,10 @@ impl SurfaceInteraction {
         };
         Self {
             p,
+            n,
+            uv,
             dpdu,
             dpdv,
-            n,
             shading: ShadingGeometry { n, dpdu, dpdv },
             wo,
             shape_transform_swaps_handedness,
@@ -145,10 +148,11 @@ impl<'a> Mul<SurfaceInteraction> for &'a Transform<f32> {
 
         let mut ret = SurfaceInteraction {
             p: self * other.p,
+            n,
+            uv: other.uv,
             dpdu: self * other.dpdu,
             dpdv: self * other.dpdv,
             wo: (self * other.wo).normalized(),
-            n,
             shading,
             area_light: other.area_light,
             shape_transform_swaps_handedness: other.shape_transform_swaps_handedness,

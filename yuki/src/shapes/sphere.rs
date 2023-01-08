@@ -5,7 +5,7 @@ use super::{Hit, Shape};
 use crate::{
     interaction::SurfaceInteraction,
     materials::{Bsdf, Material},
-    math::{Bounds3, Point3, Ray, Transform, Vec3},
+    math::{Bounds3, Point2, Point3, Ray, Transform, Vec3},
 };
 
 // Based on Physically Based Rendering 3rd ed.
@@ -86,11 +86,21 @@ impl Shape for Sphere {
             p
         };
 
+        let phi = {
+            let mut phi = p.y.atan2(p.x);
+            if phi < 0.0 {
+                phi += 2.0 * std::f32::consts::PI;
+            }
+            phi
+        };
+
         // TODO: Simplify math
         let phi_max = 2.0 * std::f32::consts::PI;
         let theta_min = std::f32::consts::PI;
         let theta_max = 0.0;
+        let u = phi / phi_max;
         let theta = (p.z / self.radius).clamp(-1.0, 1.0).acos();
+        let v = (theta - theta_min) / (theta_max - theta_min);
 
         let (dpdu, dpdv) = {
             let z_radius = (p.x * p.x + p.y * p.y).sqrt();
@@ -102,7 +112,8 @@ impl Shape for Sphere {
                 * (theta_max - theta_min);
             (dpdu, dpdv)
         };
-        let si = &self.object_to_world * SurfaceInteraction::new(p, -ray.d, dpdu, dpdv, self, None);
+        let si = &self.object_to_world
+            * SurfaceInteraction::new(p, -ray.d, Point2::new(u, v), dpdu, dpdv, self, None);
 
         Some(Hit { t, si, shape: self })
     }

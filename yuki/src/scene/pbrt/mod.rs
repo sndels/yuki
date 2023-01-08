@@ -15,7 +15,7 @@ use crate::{
     materials::{Glass, Glossy, Material, Matte, Metal},
     math::{
         transforms::{rotation, scale, translation},
-        Normal, Point3, Spectrum, Transform, Vec3,
+        Normal, Point2, Point3, Spectrum, Transform, Vec3,
     },
     scene::{ply, CameraParameters, Scene, SceneLoadSettings},
     shapes::{Mesh, Shape, Sphere, Triangle},
@@ -348,6 +348,35 @@ pub fn load(
                 }};
             }
 
+            macro_rules! get_two_component_vector_params {
+                ($vec_type:tt, $comp_type:tt) => {{
+                    match get_next_token!() {
+                        Token::LeftBracket => {
+                            let mut values = Vec::new();
+                            loop {
+                                match get_next_token!() {
+                                    Token::Number(c0) => match get_next_token!() {
+                                        Token::Number(c1) => {
+                                            values.push($vec_type::new(
+                                                c0 as $comp_type,
+                                                c1 as $comp_type,
+                                            ));
+                                        }
+                                        t => match_unexpected_token_err!(t),
+                                    },
+                                    Token::RightBracket => {
+                                        break;
+                                    }
+                                    t => match_unexpected_token_err!(t),
+                                }
+                            }
+                            values
+                        }
+                        t => match_unexpected_token_err!(t),
+                    }
+                }};
+            }
+
             macro_rules! get_param_set {
                 () => {{
                     let mut param_set = ParamSet::default();
@@ -355,7 +384,16 @@ pub fn load(
                         match get_param_def!() {
                             Ok((type_name, param_name)) => match type_name.as_str() {
                                 "bool" => param_set.add_bool(param_name, get_bool_params!()),
-                                "float" => param_set.add_f32(param_name, get_num_params!(f32)),
+                                "float" => {
+                                    if (param_name == "uv") {
+                                        param_set.add_uv(
+                                            param_name,
+                                            get_two_component_vector_params!(Point2, f32),
+                                        );
+                                    } else {
+                                        param_set.add_f32(param_name, get_num_params!(f32));
+                                    }
+                                }
                                 "integer" => param_set.add_i32(param_name, get_num_params!(i32)),
                                 "string" => param_set.add_string(param_name, get_string_params!()),
                                 "color" | "rgb" => param_set.add_spectrum(
@@ -613,9 +651,16 @@ pub fn load(
                             let points = Vec::from(params.find_points("P", &default_points));
                             let default_normals = Vec::new();
                             let normals = Vec::from(params.find_normals("N", &default_normals));
+                            let default_uvs = Vec::new();
+                            let uvs = Vec::from(params.find_uvs("uv", &default_uvs));
 
-                            let mesh =
-                                Arc::new(Mesh::new(&current_transform, indices, points, normals));
+                            let mesh = Arc::new(Mesh::new(
+                                &current_transform,
+                                indices,
+                                points,
+                                normals,
+                                uvs,
+                            ));
                             let tri_shapes = (0..num_indices)
                                 .step_by(3)
                                 .map(|v0| {

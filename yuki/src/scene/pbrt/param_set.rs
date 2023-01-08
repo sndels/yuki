@@ -1,4 +1,4 @@
-use crate::math::{Normal, Point3, Spectrum};
+use crate::math::{Normal, Point2, Point3, Spectrum};
 
 #[derive(Clone)]
 struct ParamSetItem<T>
@@ -16,6 +16,7 @@ pub struct ParamSet {
     integers: Vec<ParamSetItem<i32>>,
     points: Vec<ParamSetItem<Point3<f32>>>,
     normals: Vec<ParamSetItem<Normal<f32>>>,
+    uvs: Vec<ParamSetItem<Point2<f32>>>,
     spectra: Vec<ParamSetItem<Spectrum<f32>>>,
     strings: Vec<ParamSetItem<String>>,
 }
@@ -43,6 +44,10 @@ impl ParamSet {
 
     pub fn add_normal(&mut self, name: String, values: Vec<Normal<f32>>) {
         self.normals.push(ParamSetItem { name, values });
+    }
+
+    pub fn add_uv(&mut self, name: String, values: Vec<Point2<f32>>) {
+        self.uvs.push(ParamSetItem { name, values });
     }
 
     pub fn add_string(&mut self, name: String, values: Vec<String>) {
@@ -79,6 +84,10 @@ impl ParamSet {
 
     pub fn find_normals<'a>(&'a self, name: &str, default: &'a [Normal<f32>]) -> &'a [Normal<f32>] {
         find_param_values(name, &self.normals, default)
+    }
+
+    pub fn find_uvs<'a>(&'a self, name: &str, default: &'a [Point2<f32>]) -> &'a [Point2<f32>] {
+        find_param_values(name, &self.uvs, default)
     }
 
     pub fn find_string<'a>(&'a self, name: &str, default: &'a str) -> &'a str {

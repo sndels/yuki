@@ -140,14 +140,22 @@ impl Shape for Triangle {
 
         // Partial derivatives
         // TODO: Use mesh shading uvs if present
-        let uv = [
-            Point2::new(0.0, 0.0),
-            Point2::new(1.0, 0.0),
-            Point2::new(1.0, 1.0),
-        ];
+        let uvs = if self.mesh.uvs.is_empty() {
+            [
+                Point2::new(0.0, 0.0),
+                Point2::new(1.0, 0.0),
+                Point2::new(1.0, 1.0),
+            ]
+        } else {
+            [
+                self.mesh.uvs[self.vertices[0]],
+                self.mesh.uvs[self.vertices[1]],
+                self.mesh.uvs[self.vertices[2]],
+            ]
+        };
 
-        let duv02 = uv[0] - uv[2];
-        let duv12 = uv[1] - uv[2];
+        let duv02 = uvs[0] - uvs[2];
+        let duv12 = uvs[1] - uvs[2];
         let dp02 = p0 - p2;
         let dp12 = p1 - p2;
 
@@ -164,8 +172,16 @@ impl Shape for Triangle {
         };
 
         let p_hit = p0 * b0 + p1 * b1 + p2 * b2;
-        let mut si =
-            SurfaceInteraction::new(p_hit, -ray.d, dpdu, dpdv, self, self.area_light.clone());
+        let uv_hit = uvs[0] * b0 + uvs[1] * b1 + uvs[2] * b2;
+        let mut si = SurfaceInteraction::new(
+            p_hit,
+            -ray.d,
+            uv_hit,
+            dpdu,
+            dpdv,
+            self,
+            self.area_light.clone(),
+        );
 
         // Authored mesh UVs might not preserve orientation, but winding order is typically constant
         let n = Normal::from(dp02.cross(dp12).normalized());
@@ -207,7 +223,7 @@ impl Shape for Triangle {
             si.set_shading_geometry(ss, ts);
         }
 
-        Some(Hit { t, si, shape:self})
+        Some(Hit { t, si, shape: self })
     }
 
     fn world_bound(&self) -> Bounds3<f32> {

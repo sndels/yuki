@@ -3,7 +3,7 @@ use crate::{
     materials::Material,
     math::{
         transforms::{scale, translation},
-        Bounds3, Normal, Point3, Transform, Vec3,
+        Bounds3, Normal, Point2, Point3, Transform, Vec3,
     },
     shapes::{Mesh, Shape, Triangle},
     yuki_error, yuki_info, yuki_trace,
@@ -63,10 +63,14 @@ pub fn load(
     let vertices_start = Instant::now();
     let mut points = Vec::new();
     let mut normals = Vec::new();
-    for Vertex { point, normal } in vertices {
+    let mut uvs = Vec::new();
+    for Vertex { point, normal, uv } in vertices {
         points.push(point);
         if let Some(n) = normal {
             normals.push(n);
+        }
+        if let Some(uv) = uv {
+            uvs.push(uv);
         }
     }
     yuki_trace!(
@@ -102,7 +106,7 @@ pub fn load(
     let trfn = transform.unwrap_or(
         &scale(mesh_scale, mesh_scale, mesh_scale) * &translation(-Vec3::from(mesh_center)),
     );
-    let mesh = Arc::new(Mesh::new(&trfn, indices, points, normals));
+    let mesh = Arc::new(Mesh::new(&trfn, indices, points, normals, uvs));
 
     let triangles_start = Instant::now();
     let shapes: Vec<Arc<dyn Shape>> = (0..mesh.indices.len())
@@ -165,7 +169,7 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
 
     if let Some(props) = content.vertex {
         let expected_vert_props = vec!["x", "y", "z"];
-        let supported_vert_props = vec!["x", "y", "z", "nx", "ny", "nz"];
+        let supported_vert_props = vec!["x", "y", "z", "nx", "ny", "nz", "u", "v"];
         for p in &expected_vert_props {
             if !props.contains(&(*p).to_string()) {
                 yuki_error!("PLY: Element 'vertex' missing property '{}'", p);
@@ -213,6 +217,7 @@ fn is_valid(header: &ply_rs::ply::Header) -> bool {
 struct Vertex {
     point: Point3<f32>,
     normal: Option<Normal<f32>>,
+    uv: Option<Point2<f32>>,
 }
 
 impl ply_rs::ply::PropertyAccess for Vertex {
@@ -220,6 +225,7 @@ impl ply_rs::ply::PropertyAccess for Vertex {
         Self {
             point: Point3::zeros(),
             normal: None,
+            uv: None,
         }
     }
 
@@ -236,6 +242,9 @@ impl ply_rs::ply::PropertyAccess for Vertex {
                 }
                 "ny" => self.normal.as_mut().unwrap().y = v,
                 "nz" => self.normal.as_mut().unwrap().z = v,
+                // TODO: Do relevant plys have u first?
+                "u" => self.uv = Some(Point2::new(v, 0.0)),
+                "v" => self.uv.as_mut().unwrap().y = v,
                 _ => (),
             }
         }
