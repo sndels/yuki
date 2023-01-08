@@ -320,6 +320,7 @@ fn generate_film_settings(ui: &imgui::Ui, film_settings: &mut FilmSettings) -> b
         }
 
         changed |= ui.checkbox("Accumulate", &mut film_settings.accumulate);
+        changed |= ui.checkbox("Low res", &mut film_settings.sixteenth_res);
     });
 
     changed

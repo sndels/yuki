@@ -548,7 +548,8 @@ impl Window {
             film_settings.clear = false;
             film_settings.sixteenth_res = true;
         } else {
-            film_settings.sixteenth_res = false;
+            // Don't override if selected from the ui
+            film_settings.sixteenth_res |= false;
             film_settings.clear = true;
         }
         if film_settings.sixteenth_res {
