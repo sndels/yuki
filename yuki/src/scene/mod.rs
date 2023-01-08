@@ -10,10 +10,10 @@ use crate::{
     materials::{Glass, Material, Matte, Metal},
     math::{
         transforms::{scale, translation},
-        Point3, Spectrum, Transform, Vec2, Vec3,
+        Point2, Point3, Spectrum, Transform, Vec2, Vec3,
     },
     shapes::{Mesh, Shape, Sphere, Triangle},
-    textures::ConstantTexture,
+    textures::{ConstantTexture, ImageTexture},
     yuki_info,
 };
 use ply::PlyResult;
@@ -188,6 +188,15 @@ impl Scene {
         // These are approximate as the originals are defined as spectrums
         let white = Arc::new(Matte::new(
             Arc::new(ConstantTexture::new(Spectrum::ones() * 180.0 / 255.0)),
+            Arc::new(ConstantTexture::new(0.0)),
+        ));
+        let image = Arc::new(Matte::new(
+            Arc::new(
+                ImageTexture::from_image_bytes(std::include_bytes!(
+                    "../../../res/tiling_58-1K/tiling_58_basecolor-1K.png"
+                ))
+                .unwrap(),
+            ),
             Arc::new(ConstantTexture::new(0.0)),
         ));
         let red = Arc::new(Matte::new(
@@ -389,7 +398,12 @@ impl Scene {
                         Point3::new(RIGHT, BOTTOM, BACK),
                     ],
                     Vec::new(),
-                    Vec::new(),
+                    vec![
+                        Point2::new(0.0, 0.0),
+                        Point2::new(0.0, 1.0),
+                        Point2::new(1.0, 1.0),
+                        Point2::new(1.0, 0.0),
+                    ],
                 )),
                 // Right wall
                 Arc::new(Mesh::new(
@@ -429,7 +443,7 @@ impl Scene {
                 Arc::clone(&white),
                 Arc::clone(&white),
                 Arc::clone(&white),
-                Arc::clone(&white),
+                image,
                 green,
                 red,
             ];
