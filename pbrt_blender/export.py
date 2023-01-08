@@ -6,6 +6,7 @@ import math
 import os
 import traceback
 import struct
+import shutil
 from typing import TextIO
 
 
@@ -27,6 +28,7 @@ MESH_COUNT = 0
 EXPORT_DIR = ""
 EXPORT_WARNINGS = False
 EXPORTED_PLY_MESHES = set()
+SEEN_TEXTURES = set()
 
 
 class PBRT_OT_export(bpy.types.Operator, ExportHelper):
@@ -70,6 +72,9 @@ def export_scene(depsgraph, scene, filename) -> bool:
 
     global EXPORTED_PLY_MESHES
     EXPORTED_PLY_MESHES = set()
+
+    global SEEN_TEXTURES
+    SEEN_TEXTURES = set()
 
     with open(filename, "w") as f:
         if scene.camera:
@@ -162,6 +167,8 @@ def export_scene(depsgraph, scene, filename) -> bool:
             _error("Export failed")
             return False
 
+        _info("Export done")
+
         f.write("WorldEnd\n")
 
         return True
@@ -238,6 +245,9 @@ def _export_obj(depsgraph, obj, f: TextIO):
         # This should populate loop normals
         mesh.calc_normals_split()
 
+        assert len(mesh.uv_layers) == 1, "Expected a mesh with exactly one uv layer"
+        active_uvs = mesh.uv_layers.active.data
+
         if len(mesh.materials) > 0:
             material_loops_content = [{} for material in mesh.materials]
             material_loops = [[] for material in mesh.materials]
@@ -306,22 +316,33 @@ def _export_obj(depsgraph, obj, f: TextIO):
                         pf.write(b"property float nx\n")
                         pf.write(b"property float ny\n")
                         pf.write(b"property float nz\n")
+                        pf.write(b"property float u\n")
+                        pf.write(b"property float v\n")
                         pf.write(f"element face {len(tris)}\n".encode())
                         pf.write(b"property list uchar int vertex_index\n")
                         pf.write(b"end_header\n")
                         for (li, face_n) in loops:
                             l = mesh.loops[li]
+
                             p = mesh.vertices[l.vertex_index].co
+
                             if face_n is not None:
                                 n = face_n
                             else:
                                 n = l.normal
+
+                            uv = active_uvs[li].uv
+
                             pf.write(struct.pack("<f", p[0]))
                             pf.write(struct.pack("<f", p[2]))
                             pf.write(struct.pack("<f", p[1]))
+
                             pf.write(struct.pack("<f", n[0]))
                             pf.write(struct.pack("<f", n[2]))
                             pf.write(struct.pack("<f", n[1]))
+
+                            pf.write(struct.pack("<f", uv[0]))
+                            pf.write(struct.pack("<f", uv[1]))
                         for (i0, i1, i2) in tris:
                             pf.write(struct.pack("B", 3))
                             pf.write(struct.pack("<I", i0))
@@ -354,6 +375,12 @@ def _export_obj(depsgraph, obj, f: TextIO):
                     f.write(f"{fstr3(n[0], n[2], n[1])} ")
                 f.write("]\n")
 
+                f.write(f'    "float uv" [ ')
+                for (li, _) in loops:
+                    uv = active_uvs[li].uv
+                    f.write(f"{fstr(uv[0])} {fstr(uv[1])} ")
+                f.write("]\n")
+
             f.write(f"AttributeEnd\n")
             f.write("\n")
 
@@ -365,6 +392,8 @@ def _export_obj(depsgraph, obj, f: TextIO):
 
 
 def _export_material(material, f):
+    global SEEN_TEXTURES
+
     assert material is not None
 
     nodes = material.node_tree.nodes
@@ -383,13 +412,37 @@ def _export_material(material, f):
     bsdf = output.inputs["Surface"].links[0].from_node
     if bsdf.type == "BSDF_DIFFUSE":
         color = bsdf.inputs["Color"]
+        color_str = ""
         if len(color.links) > 0:
-            _warn(
-                f"{material.name_full}: Unexpected input connection to diffuse color. Using default color."
-            )
-            color_value = (0.5, 0.5, 0.5)
+            assert len(color.links) == 1, "Unexpected second link"
+            color_tex = color.links[0].from_node
+            # TODO: assert color space? are pbrt input textures srgb?
+
+            color_filepath = bpy.path.relpath(color_tex.image.filepath)
+            # TODO: add 'Texture' line if unseen file, copy under tgt_path/textures
+            if color_filepath not in SEEN_TEXTURES:
+                assert (
+                    color_filepath[0:2] == "//" and color_filepath[0:2] != "//.."
+                ), f"{material.name}: Texture path is not relative '{color_filepath}'"
+
+                color_abspath = bpy.path.abspath(color_filepath)
+                color_relpath = color_filepath[2:]  # remove '//'
+
+                color_outpath = os.path.join(
+                    EXPORT_DIR, os.path.join("textures", color_relpath)
+                )
+                color_outdir = os.path.dirname(color_outpath)
+                os.makedirs(color_outdir, exist_ok=True)
+                shutil.copy(color_abspath, color_outpath)
+
+                f.write(
+                    f'Texture "{color_filepath}" "spectrum" "imagemap" "string filename" "textures/{color_relpath}"\n'
+                )
+                SEEN_TEXTURES.add(color_filepath)
+
+            color_str = f'"texture Kd" "{color_filepath}"'
         else:
-            color_value = color.default_value
+            color_str = f'"rgb Kd" [ {fstr3(color.default_value[0], color.default_value[1], color.default_value[2])} ]'
 
         roughness = bsdf.inputs["Roughness"]
         if len(roughness.links) > 0:
@@ -405,9 +458,7 @@ def _export_material(material, f):
         if len(normal.links) > 0:
             _warn(f"{material.name_full}: Diffuse normal map is not supported.")
 
-        f.write(
-            f'Material "matte" "rgb Kd" [ {fstr3(color_value[0], color_value[1], color_value[2])} ] "float sigma" {sigma}\n'
-        )
+        f.write(f'Material "matte" {color_str} "float sigma" {sigma}\n')
     elif bsdf.type == "BSDF_GLASS":
         color = bsdf.inputs["Color"]
         if len(color.links) > 0:
