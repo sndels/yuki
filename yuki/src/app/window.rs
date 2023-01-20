@@ -97,6 +97,7 @@ impl Window {
             // Double buffer vsync to neatly limit update rate to a sane number based on the screen
             let context_builder = glutin::ContextBuilder::new()
                 .with_vsync(true)
+                .with_pixel_format(24, 0)
                 .with_double_buffer(Some(true));
             if let Ok(display) =
                 glium::Display::new(window_builder.clone(), context_builder, &event_loop)
@@ -104,7 +105,7 @@ impl Window {
                 (display, true)
             } else {
                 // Fallback without vsync in case it's not supported
-                let context_builder = glutin::ContextBuilder::new();
+                let context_builder = glutin::ContextBuilder::new().with_pixel_format(24, 0);
                 (
                     expect!(
                         glium::Display::new(window_builder, context_builder, &event_loop),
