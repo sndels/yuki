@@ -59,9 +59,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/release/yuki",
-            "args": [
-                "--out=cornell.exr",
-            ],
+            "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": ""
         },
@@ -79,9 +77,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/yuki",
-            "args": [
-                "--out=cornell.exr",
-            ],
+            "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": ""
         }
