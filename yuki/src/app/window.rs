@@ -223,7 +223,7 @@ impl Window {
             superluminal_perf::begin_event("Draw");
 
             let mut render_target = self.display.draw();
-            render_target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
+            render_target.clear_color_srgb(0.0, 0.0, 0.0, 1.0);
 
             let tone_mapped_film = draw_tone_mapped(
                 &self.display,
