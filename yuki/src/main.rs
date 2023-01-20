@@ -89,9 +89,6 @@ fn main() {
         let msg = format!("{}\n{}", location_str, payload);
 
         yuki_error!("{}", msg);
-        if let Err(why) = msgbox::create("Panic!", &msg, msgbox::IconType::Error) {
-            yuki_error!("Failed to create popup window: '{}'", why);
-        };
     }));
 
     let args: Vec<String> = std::env::args().collect();
