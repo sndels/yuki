@@ -47,6 +47,7 @@ pub struct Window {
     // Window and GL context
     event_loop: EventLoop<()>,
     display: glium::Display,
+    last_limit_timestamp: Option<Instant>,
 
     // Rendering
     film_settings: FilmSettings,
@@ -88,16 +89,31 @@ impl Window {
     pub fn new(title: &str, resolution: (u16, u16), settings: InitialSettings) -> Window {
         // Create window and gl context
         let event_loop = EventLoop::new();
-        let window_builder = WindowBuilder::new()
-            .with_title(title.to_owned())
-            .with_inner_size(LogicalSize::new(resolution.0 as f64, resolution.1 as f64));
-        let context_builder = glutin::ContextBuilder::new()
-            .with_vsync(true)
-            .with_double_buffer(Some(true));
-        let display = expect!(
-            glium::Display::new(window_builder, context_builder, &event_loop),
-            "Failed to initialize glium display"
-        );
+        let (display, with_vsync) = {
+            let window_builder = WindowBuilder::new()
+                .with_title(title.to_owned())
+                .with_inner_size(LogicalSize::new(resolution.0 as f64, resolution.1 as f64));
+
+            // Double buffer vsync to neatly limit update rate to a sane number based on the screen
+            let context_builder = glutin::ContextBuilder::new()
+                .with_vsync(true)
+                .with_double_buffer(Some(true));
+            if let Ok(display) =
+                glium::Display::new(window_builder.clone(), context_builder, &event_loop)
+            {
+                (display, true)
+            } else {
+                // Fallback without vsync in case it's not supported
+                let context_builder = glutin::ContextBuilder::new();
+                (
+                    expect!(
+                        glium::Display::new(window_builder, context_builder, &event_loop),
+                        "Failed to initialize glium display"
+                    ),
+                    false,
+                )
+            }
+        };
 
         // Film
         let film = Arc::new(Mutex::new(Film::default()));
@@ -131,6 +147,11 @@ impl Window {
         Window {
             event_loop,
             display,
+            last_limit_timestamp: if with_vsync {
+                None
+            } else {
+                Some(Instant::now())
+            },
             tone_map_film,
             ray_visualization,
             bvh_visualization,
@@ -252,6 +273,18 @@ impl Window {
                 &self.film,
                 &mut self.status_messages,
             );
+
+            // Limit update rate manually to something sane if we don't have double buffered vsync
+            if let Some(last_instant) = self.last_limit_timestamp {
+                superluminal_perf::begin_event("Limit framerate");
+                loop {
+                    if (Instant::now() - last_instant).as_millis() > 16 {
+                        break;
+                    }
+                }
+                self.last_limit_timestamp = Some(Instant::now());
+                superluminal_perf::end_event(); // Limit framerate
+            }
 
             superluminal_perf::end_event(); // Main loop
         }
