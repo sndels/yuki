@@ -60,6 +60,7 @@ pub struct Window {
     // Output
     tone_map_type: ToneMapType,
     tone_map_film: ToneMapFilm,
+    output_scaler: ScaleOutput,
     ray_visualization: RayVisualization,
     bvh_visualization: BvhVisualization,
 
@@ -124,6 +125,11 @@ impl Window {
             "Failed to create tone map render pass"
         );
 
+        let output_scaler = expect!(
+            ScaleOutput::new(&display),
+            "Failed to create output scaler pass"
+        );
+
         let ray_visualization = expect!(
             RayVisualization::new(&display),
             "Failed to create ray visualization render pass"
@@ -154,6 +160,7 @@ impl Window {
                 Some(Instant::now())
             },
             tone_map_film,
+            output_scaler,
             ray_visualization,
             bvh_visualization,
             film_settings: settings.film_settings.unwrap_or(scene_film_settings),
@@ -242,7 +249,7 @@ impl Window {
                 &self.bvh_visualization,
             );
 
-            scale_output(tone_mapped_film, &mut render_target);
+            scale_output(&self.output_scaler, tone_mapped_film, &mut render_target);
 
             // Can't split in a fn as frame_ui is blocking context-borrows behind a mutable ref
             {
@@ -1035,10 +1042,17 @@ fn draw_visualizations(
     superluminal_perf::end_event(); // Visualizations
 }
 
-fn scale_output(tone_mapped_film: &glium::Texture2d, render_target: &mut glium::Frame) {
+fn scale_output(
+    output_scaler: &ScaleOutput,
+    tone_mapped_film: &glium::Texture2d,
+    render_target: &mut glium::Frame,
+) {
     superluminal_perf::begin_event("Draw::Scale output");
 
-    ScaleOutput::draw(tone_mapped_film, render_target);
+    expect!(
+        output_scaler.draw(tone_mapped_film, render_target),
+        "Output scaling failed"
+    );
 
     superluminal_perf::end_event(); // Scale output
 }
