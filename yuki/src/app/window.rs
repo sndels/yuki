@@ -3,7 +3,7 @@ use approx::relative_ne;
 use glium::glutin;
 use glium::{
     glutin::{
-        dpi::LogicalSize,
+        dpi::PhysicalSize,
         event::{
             ElementState, Event, KeyboardInput, MouseButton, MouseScrollDelta, VirtualKeyCode,
             WindowEvent,
@@ -92,7 +92,7 @@ impl Window {
         let (display, with_vsync) = {
             let window_builder = WindowBuilder::new()
                 .with_title(title.to_owned())
-                .with_inner_size(LogicalSize::new(resolution.0 as f64, resolution.1 as f64));
+                .with_inner_size(PhysicalSize::new(resolution.0 as f64, resolution.1 as f64));
 
             // Double buffer vsync to neatly limit update rate to a sane number based on the screen
             let context_builder = glutin::ContextBuilder::new()
