@@ -174,5 +174,5 @@ fn permutation_element(mut i: u32, l: u32, p: u32) -> u32 {
             break;
         }
     }
-    (i + p) % l
+    (i.wrapping_add(p)) % l
 }
