@@ -95,10 +95,12 @@ impl Window {
                 .with_title(title.to_owned())
                 .with_inner_size(PhysicalSize::new(resolution.0 as f64, resolution.1 as f64));
 
+            // No alpha and linear output as alpha and srgb seem to misbehave on wayland.
             // Double buffer vsync to neatly limit update rate to a sane number based on the screen
             let context_builder = glutin::ContextBuilder::new()
                 .with_vsync(true)
                 .with_pixel_format(24, 0)
+                .with_srgb(false)
                 .with_double_buffer(Some(true));
             if let Ok(display) =
                 glium::Display::new(window_builder.clone(), context_builder, &event_loop)
@@ -106,7 +108,9 @@ impl Window {
                 (display, true)
             } else {
                 // Fallback without vsync in case it's not supported
-                let context_builder = glutin::ContextBuilder::new().with_pixel_format(24, 0);
+                let context_builder = glutin::ContextBuilder::new()
+                    .with_pixel_format(24, 0)
+                    .with_srgb(false);
                 (
                     expect!(
                         glium::Display::new(window_builder, context_builder, &event_loop),

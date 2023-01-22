@@ -95,6 +95,7 @@ impl ScaleOutput {
             top: top_ndc,
         };
 
+        // Draw in PS instead of blit to have control of the gamma correction
         frame.draw(
             &self.vertex_buffer,
             &self.index_buffer,
@@ -147,10 +148,20 @@ in vec2 frag_uv;
 
 out vec4 output_color;
 
+const float gamma = 2.2;
+
+float linearToSRGB(float x) {
+    return x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / gamma) - 0.055;
+}
+
+vec3 linearToSRGB(vec3 c) {
+    return vec3(linearToSRGB(c.x), linearToSRGB(c.y), linearToSRGB(c.z));
+}
+
 void main() {
     vec3 color = texture(input_texture, frag_uv).rgb;
 
-    output_color = vec4(color, 1);
+    output_color = vec4(linearToSRGB(color), 1);
 }
 "#;
 
