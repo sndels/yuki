@@ -58,7 +58,6 @@ impl Default for IntegratorType {
 pub struct RadianceResult {
     pub li: Spectrum<f32>,
     pub ray_scene_intersections: usize,
-    pub rays: Vec<IntegratorRay>,
 }
 
 impl Default for RadianceResult {
@@ -66,7 +65,6 @@ impl Default for RadianceResult {
         Self {
             li: Spectrum::zeros(),
             ray_scene_intersections: 0,
-            rays: Vec::new(),
         }
     }
 }
@@ -89,7 +87,6 @@ pub enum RayType {
 // Public interface for scene integrators.
 pub trait Integrator {
     /// Evaluates the incoming radiance along `ray`. Also returns the number of rays intersected with `scene`.
-    /// If called with `collect_rays` true, populates the list of rays launched.
     fn li(
         &self,
         scratch: &ScopedScratch,
@@ -97,8 +94,23 @@ pub trait Integrator {
         scene: &Scene,
         depth: u32,
         sampler: &mut Box<dyn Sampler>,
-        collect_rays: bool,
     ) -> RadianceResult;
+
+    /// Should be identical with li() but also fill out debug data like rays.
+    fn li_debug(
+        &self,
+        _scratch: &ScopedScratch,
+        _ray: Ray<f32>,
+        _scene: &Scene,
+        _depth: u32,
+        _sampler: &mut Box<dyn Sampler>,
+        _rays: &mut Vec<IntegratorRay>,
+    ) -> RadianceResult {
+        RadianceResult {
+            li: Spectrum::zeros(),
+            ray_scene_intersections: 0,
+        }
+    }
 
     /// Renders the given `Tile`. Returns the number of rays intersected with `scene`.
     fn render(
@@ -152,7 +164,7 @@ pub trait Integrator {
 
                 let ray = camera.ray(&CameraSample { p_film });
 
-                let result = self.li(&sample_scratch, ray, scene, 0, &mut sampler, false);
+                let result = self.li(&sample_scratch, ray, scene, 0, &mut sampler);
                 color += result.li;
                 ray_count += result.ray_scene_intersections;
             }

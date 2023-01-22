@@ -21,7 +21,6 @@ impl Integrator for BVHIntersections {
         scene: &Scene,
         _depth: u32,
         _sampler: &mut Box<dyn Sampler>,
-        _collect_rays: bool,
     ) -> RadianceResult {
         let IntersectionResult {
             hit,
@@ -43,7 +42,6 @@ impl Integrator for BVHIntersections {
         RadianceResult {
             li: color,
             ray_scene_intersections: ray_count,
-            ..RadianceResult::default()
         }
     }
 }

@@ -23,7 +23,6 @@ impl Integrator for ShadingNormals {
         scene: &Scene,
         _depth: u32,
         _sampler: &mut Box<dyn Sampler>,
-        _collect_rays: bool,
     ) -> RadianceResult {
         let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
         let ray_count = 1;
@@ -43,7 +42,6 @@ impl Integrator for ShadingNormals {
         RadianceResult {
             li: color,
             ray_scene_intersections: ray_count,
-            ..RadianceResult::default()
         }
     }
 }

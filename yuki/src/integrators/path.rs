@@ -43,17 +43,17 @@ impl Path {
             indirect_clamp: params.indirect_clamp,
         }
     }
-}
 
-impl Integrator for Path {
-    fn li(
+    // Always inline to have the compiler strip out ray collection in li()-calls
+    #[inline(always)]
+    fn li_internal(
         &self,
         scratch: &ScopedScratch,
         mut ray: Ray<f32>,
         scene: &Scene,
         _depth: u32,
         sampler: &mut Box<dyn Sampler>,
-        collect_rays: bool,
+        mut rays: Option<&mut Vec<IntegratorRay>>,
     ) -> RadianceResult {
         let min_debug_ray_length = {
             let bounds = scene.bvh.bounds();
@@ -61,15 +61,15 @@ impl Integrator for Path {
             (bounds.p_max[i] - bounds.p_min[i]) / 10.0
         };
 
-        let mut collected_rays = Vec::new();
         let mut incoming_radiance = Spectrum::zeros();
         let mut beta = Spectrum::ones();
         let mut bounces = 0;
         let mut specular_bounce = false;
         let mut ray_count = 0;
+        // Ray type is only updated and used if we're collecting into 'rays'
         let mut ray_type = RayType::Direct;
         while bounces < self.max_depth {
-            if collect_rays {
+            if let Some(collected_rays) = &mut rays {
                 let t_max = match ray_type {
                     RayType::Direct => ray.t_max,
                     _ => scene
@@ -89,7 +89,7 @@ impl Integrator for Path {
             let IntersectionResult { hit, .. } = scene.bvh.intersect(ray);
 
             if let Some(Hit { si, t, shape }) = hit {
-                if collect_rays {
+                if let Some(collected_rays) = &mut rays {
                     collected_rays.last_mut().unwrap().ray.t_max = t;
                     collected_rays.push(IntegratorRay {
                         ray: Ray::new(si.p, si.n.into(), min_debug_ray_length),
@@ -104,7 +104,7 @@ impl Integrator for Path {
                     if !li.is_black() {
                         let f = bsdf.f(si.wo, l, BxdfType::all());
                         if let Some(test) = vis {
-                            if collect_rays {
+                            if let Some(collected_rays) = &mut rays {
                                 collected_rays.push(IntegratorRay {
                                     ray: test.ray(),
                                     ray_type: RayType::Shadow,
@@ -143,13 +143,15 @@ impl Integrator for Path {
 
                 beta *= f * wi.dot_n(si.shading.n).abs() / pdf;
                 ray = Interaction::from(&si).spawn_ray(wi);
-                ray_type = if sample_type.contains(BxdfType::REFLECTION) {
-                    RayType::Reflection
-                } else if sample_type.contains(BxdfType::TRANSMISSION) {
-                    RayType::Refraction
-                } else {
-                    panic!("Unimplemented path ray type {:?}", sample_type);
-                };
+                if rays.is_some() {
+                    ray_type = if sample_type.contains(BxdfType::REFLECTION) {
+                        RayType::Reflection
+                    } else if sample_type.contains(BxdfType::TRANSMISSION) {
+                        RayType::Refraction
+                    } else {
+                        panic!("Unimplemented path ray type {:?}", sample_type);
+                    };
+                }
             } else {
                 // TODO: pbrt doesn't do this on miss after first ray in path,
                 //       but on direct illumination estimate for previous hit
@@ -172,7 +174,31 @@ impl Integrator for Path {
         RadianceResult {
             li: incoming_radiance,
             ray_scene_intersections: ray_count,
-            rays: collected_rays,
         }
+    }
+}
+
+impl Integrator for Path {
+    fn li(
+        &self,
+        scratch: &ScopedScratch,
+        ray: Ray<f32>,
+        scene: &Scene,
+        depth: u32,
+        sampler: &mut Box<dyn Sampler>,
+    ) -> RadianceResult {
+        self.li_internal(scratch, ray, scene, depth, sampler, None)
+    }
+
+    fn li_debug(
+        &self,
+        scratch: &ScopedScratch,
+        ray: Ray<f32>,
+        scene: &Scene,
+        depth: u32,
+        sampler: &mut Box<dyn Sampler>,
+        rays: &mut Vec<IntegratorRay>,
+    ) -> RadianceResult {
+        self.li_internal(scratch, ray, scene, depth, sampler, Some(rays))
     }
 }

@@ -877,8 +877,9 @@ fn launch_debug_ray(
             let mut alloc = LinearAllocator::new(1024 * 256);
             let scratch = ScopedScratch::new(&mut alloc);
 
-            let result = integrator.li(&scratch, ray, scene, 0, &mut sampler, true);
-            Some(result.rays)
+            let mut rays = Vec::new();
+            integrator.li_debug(&scratch, ray, scene, 0, &mut sampler, &mut rays);
+            Some(rays)
         }
     } else {
         yuki_info!("main_loop: Window px is outside the film");
