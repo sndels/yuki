@@ -70,16 +70,17 @@ impl Integrator for Path {
         let mut ray_type = RayType::Direct;
         while bounces < self.max_depth {
             if collect_rays {
+                let t_max = match ray_type {
+                    RayType::Direct => ray.t_max,
+                    _ => scene
+                        .bvh
+                        .bounds()
+                        .intersections(ray)
+                        .map_or(min_debug_ray_length, |(_, t_max)| t_max),
+                };
+
                 collected_rays.push(IntegratorRay {
-                    ray: Ray::new(
-                        ray.o,
-                        ray.d,
-                        scene
-                            .bvh
-                            .bounds()
-                            .intersections(ray)
-                            .map_or(min_debug_ray_length, |(_, t_max)| t_max),
-                    ),
+                    ray: Ray::new(ray.o, ray.d, t_max),
                     ray_type,
                 });
             }
@@ -89,7 +90,7 @@ impl Integrator for Path {
 
             if let Some(Hit { si, t, shape }) = hit {
                 if collect_rays {
-                    collected_rays[0].ray.t_max = t;
+                    collected_rays.last_mut().unwrap().ray.t_max = t;
                     collected_rays.push(IntegratorRay {
                         ray: Ray::new(si.p, si.n.into(), min_debug_ray_length),
                         ray_type: RayType::Normal,

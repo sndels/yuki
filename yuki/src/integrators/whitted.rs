@@ -88,15 +88,7 @@ impl Whitted {
         };
         let mut collected_rays: Vec<IntegratorRay> = if collect_rays {
             vec![IntegratorRay {
-                ray: Ray::new(
-                    ray.o,
-                    ray.d,
-                    scene
-                        .bvh
-                        .bounds()
-                        .intersections(ray)
-                        .map_or(min_debug_ray_length, |(_, t_max)| t_max),
-                ),
+                ray: Ray::new(ray.o, ray.d, ray.t_max),
                 ray_type: RayType::Direct,
             }]
         } else {
@@ -104,7 +96,7 @@ impl Whitted {
         };
         let (incoming_radiance, ray_count) = if let Some(Hit { si, t, shape, .. }) = hit {
             if collect_rays {
-                collected_rays[0].ray.t_max = t;
+                collected_rays.last_mut().unwrap().ray.t_max = t;
                 collected_rays.push(IntegratorRay {
                     ray: Ray::new(si.p, si.n.into(), min_debug_ray_length),
                     ray_type: RayType::Normal,
