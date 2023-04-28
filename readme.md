@@ -12,6 +12,13 @@ The project can be run most easily with
 cd yuki && cargo run --release
 ```
 
+### Mouse controls
+
+- MMB drag / LMB drag + Alt - Trackball drag
+- Scroll up/down - Dolly forward/back
+- MMB drag + Shift / LMB drag + Shift + Alt - Plane drag
+- LMB + Ctrl - Fire debug ray
+
 ## Goals
 
 - Explore offline rendering techniques
