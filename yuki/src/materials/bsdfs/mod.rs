@@ -22,6 +22,7 @@ use bitflags::bitflags;
 // https://www.pbr-book.org/3ed-2018/Reflection_Models/Basic_Interface#BxDF
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct BxdfType: u8 {
         const NONE          = 0b00000;
         const REFLECTION    = 0b00001;

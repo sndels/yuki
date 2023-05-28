@@ -83,6 +83,7 @@ pub enum ParserErrorType {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct TransformBits: u8 {
         const START = 0b00001;
         const END = 0b00010;
