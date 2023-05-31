@@ -5,9 +5,9 @@ use imgui::Context;
 use imgui::{FontConfig, FontSource};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use rfd::FileDialog;
 use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use strum::VariantNames;
-use tinyfiledialogs::open_file_dialog;
 
 use super::renderpasses::{FilmicParams, HeatmapParams, ToneMapType};
 
@@ -449,12 +449,11 @@ fn generate_scene_settings(
 
         if ui.button("Change scene") {
             let open_path = &scene.load_settings.path.to_str().unwrap();
-            let path = open_file_dialog(
-                "Open scene",
-                open_path,
-                Some((&["*.ply", "*.xml", "*.pbrt"], "Supported scene formats")),
-            )
-            .map_or_else(PathBuf::new, PathBuf::from);
+            let path = FileDialog::new()
+                .add_filter("Supported scene formats", &["ply", "xml", "pbrt"])
+                .set_directory(open_path)
+                .pick_file()
+                .map_or_else(PathBuf::new, PathBuf::from);
             (*load_settings).path = path;
         }
         ui.same_line();

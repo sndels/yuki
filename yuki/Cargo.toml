@@ -24,12 +24,16 @@ num_cpus = "1.15"
 rand = "0.8"
 rand_pcg = "0.3"
 rayon = "1.6"
+# TODO:
+# This is really bloaty, 110 extra deps for a file dialog on Ubuntu!
+# But the tinyfiledialog rs wrapper doesn't seem to work on ubuntu now, so let's
+# have this until I figure out a better solution
+rfd = { version="0.11", features=["xdg-portal"], default-features=false }
 ply-rs = { git = "https://github.com/sndels/ply-rs.git", rev = "7a4f625" }
 serde = "1.0"
 serde_yaml = "0.9"
 strum = { version = "0.24", features = ["derive"] }
 superluminal-perf = "0.2.0"
-tinyfiledialogs = "3.9"
 win_dbg_logger = "0.1"
 xml-rs = "0.8"
 yuki_derive = { path = "../yuki_derive" }
