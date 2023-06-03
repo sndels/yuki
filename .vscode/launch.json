@@ -55,8 +55,8 @@
             "preLaunchTask": ""
         },
         {
-            "name": "(LLDB) yuki release",
-            "type": "lldb",
+            "name": "(GDB) yuki release",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/release/yuki",
             "args": [],
@@ -64,8 +64,8 @@
             "preLaunchTask": ""
         },
         {
-            "name": "(LLDB) yuki dev-optimized",
-            "type": "lldb",
+            "name": "(GDB) yuki dev-optimized",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/dev-optimized/yuki",
             "args": [],
@@ -73,8 +73,8 @@
             "preLaunchTask": ""
         },
         {
-            "name": "(LLDB) yuki debug",
-            "type": "lldb",
+            "name": "(GDB) yuki debug",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/yuki",
             "args": [],
