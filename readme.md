@@ -91,6 +91,9 @@ cd yuki && cargo run --release
   - Glossy
     - Torrance-Sparrow with Trowbridge-Reitz/GGX distribution and Schlick's Fresnel approximation
     - Approximates Blender's Glossy BSDF
+- Textures
+  - Albedo only for now
+  - Point sampling
 - Geometric and shading normals
 
 ### Scene formats (partially) supported
