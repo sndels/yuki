@@ -1109,6 +1109,7 @@ fn handle_mouse_input(
 
         if mouse_gesture.is_none()
             && (button == MouseButton::Middle
+                || button == MouseButton::Right
                 || (button == MouseButton::Left && cursor_state.state.alt()))
             && state == ElementState::Pressed
         {
