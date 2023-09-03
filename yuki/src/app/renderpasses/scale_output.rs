@@ -53,6 +53,7 @@ impl ScaleOutput {
         &self,
         texture: &glium::Texture2d,
         frame: &mut glium::Frame,
+        gamma_before_output: bool,
     ) -> Result<(), glium::DrawError> {
         let input_sampler = texture
             .sampled()
@@ -89,6 +90,7 @@ impl ScaleOutput {
 
         let uniforms = glium::uniform! {
             input_texture: input_sampler,
+            gamma_before_output: gamma_before_output as u32,
             left: left_ndc,
             bottom: bottom_ndc,
             right: right_ndc,
@@ -143,6 +145,7 @@ const FS_CODE: &str = r#"
 #version 410 core
 
 uniform sampler2D input_texture;
+uniform uint gamma_before_output;
 
 in vec2 frag_uv;
 
@@ -161,7 +164,10 @@ vec3 linearToSRGB(vec3 c) {
 void main() {
     vec3 color = texture(input_texture, frag_uv).rgb;
 
-    output_color = vec4(linearToSRGB(color), 1);
+    if (gamma_before_output != 0)
+        color = linearToSRGB(color);
+
+    output_color = vec4(color, 1);
 }
 "#;
 

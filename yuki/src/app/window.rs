@@ -48,6 +48,7 @@ pub struct Window {
     event_loop: EventLoop<()>,
     display: glium::Display,
     last_limit_timestamp: Option<Instant>,
+    srgb_backbuffer: bool,
 
     // Rendering
     film_settings: FilmSettings,
@@ -90,33 +91,40 @@ impl Window {
     pub fn new(title: &str, resolution: (u16, u16), settings: InitialSettings) -> Window {
         // Create window and gl context
         let event_loop = EventLoop::new();
-        let (display, with_vsync) = {
+        let (display, with_vsync, srgb_backbuffer) = {
             let window_builder = WindowBuilder::new()
                 .with_title(title.to_owned())
                 .with_inner_size(PhysicalSize::new(resolution.0 as f64, resolution.1 as f64));
 
-            // No alpha and linear output as alpha and srgb seem to misbehave on wayland.
+            let (srgb_backbuffer, alpha_bits) = if std::env::var("WAYLAND_DISPLAY").is_ok() {
+                // No alpha and linear output as alpha and srgb seem to misbehave on wayland.
+                (false, 0)
+            } else {
+                (true, 8)
+            };
+
             // Double buffer vsync to neatly limit update rate to a sane number based on the screen
             let context_builder = glutin::ContextBuilder::new()
                 .with_vsync(true)
-                .with_pixel_format(24, 0)
-                .with_srgb(false)
+                .with_pixel_format(24, alpha_bits)
+                .with_srgb(srgb_backbuffer)
                 .with_double_buffer(Some(true));
             if let Ok(display) =
                 glium::Display::new(window_builder.clone(), context_builder, &event_loop)
             {
-                (display, true)
+                (display, true, srgb_backbuffer)
             } else {
                 // Fallback without vsync in case it's not supported
                 let context_builder = glutin::ContextBuilder::new()
-                    .with_pixel_format(24, 0)
-                    .with_srgb(false);
+                    .with_pixel_format(24, alpha_bits)
+                    .with_srgb(srgb_backbuffer);
                 (
                     expect!(
                         glium::Display::new(window_builder, context_builder, &event_loop),
                         "Failed to initialize glium display"
                     ),
                     false,
+                    srgb_backbuffer,
                 )
             }
         };
@@ -158,6 +166,7 @@ impl Window {
         Window {
             event_loop,
             display,
+            srgb_backbuffer,
             last_limit_timestamp: if with_vsync {
                 None
             } else {
@@ -253,7 +262,12 @@ impl Window {
                 &self.bvh_visualization,
             );
 
-            scale_output(&self.output_scaler, tone_mapped_film, &mut render_target);
+            scale_output(
+                &self.output_scaler,
+                tone_mapped_film,
+                &mut render_target,
+                !self.srgb_backbuffer,
+            );
 
             // Can't split in a fn as frame_ui is blocking context-borrows behind a mutable ref
             {
@@ -1052,11 +1066,12 @@ fn scale_output(
     output_scaler: &ScaleOutput,
     tone_mapped_film: &glium::Texture2d,
     render_target: &mut glium::Frame,
+    gamma_before_output: bool,
 ) {
     superluminal_perf::begin_event("Draw::Scale output");
 
     expect!(
-        output_scaler.draw(tone_mapped_film, render_target),
+        output_scaler.draw(tone_mapped_film, render_target, gamma_before_output),
         "Output scaling failed"
     );
 
