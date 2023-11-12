@@ -21,7 +21,7 @@ imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa
 itertools = "0.10"
 log = "0.4"
 num = "0.4"
-num_cpus = "1.15"
+num_cpus = "1.16"
 rand = "0.8"
 rand_pcg = "0.3"
 rayon = "1.7"
