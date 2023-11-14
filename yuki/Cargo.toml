@@ -18,7 +18,7 @@ imgui = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa0f27" }
 # Depends on glium internally, has to match ours
 imgui-glium-renderer = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa0f27" }
 imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs", rev = "5fa0f27" }
-itertools = "0.10"
+itertools = "0.12"
 log = "0.4"
 num = "0.4"
 num_cpus = "1.15"
