@@ -10,7 +10,7 @@ approx = "0.5"
 allocators = { git = "https://github.com/sndels/allocators-rs", rev = "01460ef" }
 bitflags = "2.3"
 chrono = "0.4"
-exr = "1.6"
+exr = "1.72"
 fern = "0.6"
 glium = "0.32.1"
 image = "0.24.6"
