@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 approx = "0.5"
 allocators = { git = "https://github.com/sndels/allocators-rs", rev = "01460ef" }
-bitflags = "2.3"
+bitflags = "2.5"
 chrono = "0.4"
 exr = "1.6"
 fern = "0.6"
