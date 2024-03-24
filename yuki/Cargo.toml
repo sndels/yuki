@@ -24,7 +24,7 @@ num = "0.4"
 num_cpus = "1.15"
 rand = "0.8"
 rand_pcg = "0.3"
-rayon = "1.7"
+rayon = "1.10"
 ply-rs = { git = "https://github.com/sndels/ply-rs.git", rev = "7a4f625" }
 serde = "1.0"
 serde_yaml = "0.9"
